@@ -4,7 +4,7 @@
 
 clusterIssuer:
   name: letsencrypt-staging
-  email: yourname@your-domain.de
+  email: developer@drgeb.com
   server: https://acme-staging-v02.api.letsencrypt.org/directory
   ingressClassName: traefik
 

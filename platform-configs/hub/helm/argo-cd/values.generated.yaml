@@ -200,7 +200,7 @@ argo-cd:
       server.basehref: /argocd
       server.insecure: true
   global:
-    domain: 192.168.97.3.traefik.me
+    domain: 172.18.0.4.traefik.me
     revisionHistoryLimit: 5
     imagePullSecrets:
       - name: image-pull-secret

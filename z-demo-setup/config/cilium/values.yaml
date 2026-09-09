@@ -1,0 +1,15 @@
+kubeProxyReplacement: true
+ipam:
+  mode: kubernetes
+image:
+  pullPolicy: IfNotPresent
+hubble:
+  enabled: true
+  relay:
+    enabled: true
+  ui:
+    enabled: true
+  tls:
+    auto:
+      enabled: true
+      method: cronJob

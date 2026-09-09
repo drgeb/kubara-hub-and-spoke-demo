@@ -3,7 +3,7 @@ clusters:
   - name: hub
     stage: local
     type: hub
-    dnsName: 192.168.97.3.traefik.me
+    dnsName: 172.18.0.4.traefik.me
     ssoOrg: local
     ssoTeam: local
     ingressClassName: traefik
@@ -24,7 +24,7 @@ clusters:
         status: enabled
         config:
           clusterIssuer:
-            email: yourname@your-domain.de
+            email: developer@drgeb.com
             name: letsencrypt-staging
             server: https://acme-staging-v02.api.letsencrypt.org/directory
       external-dns:
@@ -77,7 +77,7 @@ clusters:
         status: disabled
         config:
           clusterIssuer:
-            email: yourname@your-domain.de
+            email: developer@drgeb.com
             name: letsencrypt-staging
             server: https://acme-staging-v02.api.letsencrypt.org/directory
       external-dns:
@@ -128,7 +128,7 @@ clusters:
         status: disabled
         config:
           clusterIssuer:
-            email: yourname@your-domain.de
+            email: developer@drgeb.com
             name: letsencrypt-staging
             server: https://acme-staging-v02.api.letsencrypt.org/directory
       external-dns:
