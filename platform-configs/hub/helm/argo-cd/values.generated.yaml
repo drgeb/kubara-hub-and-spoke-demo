@@ -60,7 +60,7 @@ bootstrapValues:
         postgresql: "enabled"
         postgresql19: "disabled"
         reloader: "disabled"
-        traefik: "disabled"
+        traefik: "enabled"
         uptime-kuma: "disabled"
         velero: "disabled"
     - name: kubara-spoke-2
@@ -89,7 +89,7 @@ bootstrapValues:
         postgresql: "enabled"
         postgresql19: "enabled"
         reloader: "disabled"
-        traefik: "disabled"
+        traefik: "enabled"
         uptime-kuma: "enabled"
         velero: "disabled"
 

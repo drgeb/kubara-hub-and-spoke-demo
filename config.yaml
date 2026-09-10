@@ -124,7 +124,7 @@ clusters:
       reloader:
         status: disabled
       traefik:
-        status: disabled
+        status: enabled
       velero:
         status: disabled
         config:
@@ -322,7 +322,7 @@ clusters:
       reloader:
         status: disabled
       traefik:
-        status: disabled
+        status: enabled
       velero:
         status: disabled
         config:
