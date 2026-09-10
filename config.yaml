@@ -12,10 +12,10 @@ clusters:
       repo:
         https:
           configs:
-            url: https://github.com/la-demos/cds-2026-kubara-demo.git
+            url: https://github.com/drgeb/kubara-hub-and-spoke-demo.git
             targetRevision: main
           components:
-            url: https://github.com/la-demos/cds-2026-kubara-demo.git
+            url: https://github.com/drgeb/kubara-hub-and-spoke-demo.git
             targetRevision: main
     catalogs:
       - ./catalogs/general

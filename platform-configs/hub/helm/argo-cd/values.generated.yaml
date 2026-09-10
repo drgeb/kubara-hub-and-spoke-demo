@@ -80,11 +80,11 @@ bootstrapValues:
     hub-local:
       projectName: "hub-local"
       platformComponents:
-        repoURL: "https://github.com/la-demos/cds-2026-kubara-demo.git"
+        repoURL: "https://github.com/drgeb/kubara-hub-and-spoke-demo.git"
         path: "platform-components/helm"
         targetRevision: "main"
       platformConfigs:
-        repoURL: "https://github.com/la-demos/cds-2026-kubara-demo.git"
+        repoURL: "https://github.com/drgeb/kubara-hub-and-spoke-demo.git"
         path: "platform-configs"
         targetRevision: "main"
       apps:
