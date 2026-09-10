@@ -65,6 +65,20 @@ clusters:
             region: eu01
       harbor:
         status: disabled
+      forgejo:
+        status: disabled
+      kargo:
+        status: disabled
+      nexus:
+        status: disabled
+      openproject:
+        status: disabled
+      keycloak:
+        status: disabled
+      opa:
+        status: disabled
+      apicurio:
+        status: disabled
   - name: kubara-spoke-1
     stage: dev
     type: spoke
@@ -117,6 +131,7 @@ clusters:
           backupStorage:
             create: true
             region: eu01
+      # Harbor is an open-source container registry that provides secure storage and management of container images.
       harbor:
         status: enabled
         config:
@@ -138,6 +153,103 @@ clusters:
               kind: ClusterIssuer
               name: kubara-local-ca-issuer
           tlsCertSource: auto
+      # Forgejo is a self-hosted Git service that provides a web interface for managing Git repositories and collaboration.
+      forgejo:
+        status: enabled
+        config:
+          admin:
+            email: admin@local
+            password: ForgejoAdmin123!
+            username: gitea_admin
+          database:
+            host: postgresql.postgresql.svc.cluster.local
+            name: forgejo
+            password: APPPostgres123!
+            user: app
+          tls:
+            enabled: true
+            issuerRef:
+              kind: ClusterIssuer
+              name: kubara-local-ca-issuer
+      # Kargo is a lightweight, open-source platform for managing and deploying applications in Kubernetes clusters.
+      kargo:
+        status: enabled
+        config:
+          adminPassword: KargoAdmin123!
+          adminTokenSigningKey: PEv19OjdUxvp0TdFVOhmSvTNEdKAcNGmbgyZacK4Grx1ZHKbGF42PN_-klUbZDL7
+          host: kargo.172.18.0.3.traefik.me
+          integrations:
+            argocd: true
+            rollouts: true
+          tls:
+            enabled: true
+            issuerRef:
+              kind: ClusterIssuer
+              name: kubara-local-ca-issuer
+      # Nexus Repository Manager is a popular open-source repository manager for managing software artifacts and dependencies.
+      nexus:
+        status: enabled
+        config:
+          hostname: nexus.172.18.0.3.traefik.me
+          adminPassword: Nexus12345
+          tls:
+            enabled: true
+            issuerRef:
+              kind: ClusterIssuer
+              name: kubara-local-ca-issuer
+      # OpenProject is a web-based project management system for team collaboration and project tracking.
+      openproject:
+        status: enabled
+        config:
+          host: openproject.172.18.0.3.traefik.me
+          adminPassword: OpenProjectAdmin123!
+          adminName: OpenProject Administrator
+          adminEmail: admin@example.com
+          secretKeyBase: S6oKeeQOndga_J25QSRhLISQEsKvqLVugzitM46bI-IyKnbsmZhUhpnpyXpDcTyz5lquXGCN0LWVRcVwvQ29cA
+          database:
+            host: postgresql.postgresql.svc.cluster.local
+            port: 5432
+            name: openproject
+            username: openproject
+            password: OpenProject123
+          storage:
+            size: 20Gi
+          replicas: 1
+      # Keycloak is an open-source identity and access management solution for modern applications and services.
+      keycloak:
+        status: enabled
+        config:
+          host: keycloak.172.18.0.3.traefik.me
+          adminUser: admin
+          adminPassword: KeycloakAdmin123!
+          database:
+            host: postgresql.postgresql.svc.cluster.local
+            port: 5432
+            name: keycloak
+            username: keycloak
+            password: KEYCLOAK123!
+          replicas: 1
+      # An Open Policy Agent (OPA) server for policy-based control and decision-making.
+      opa:
+        status: enabled
+        config:
+          hostname: opa.172.18.0.3.traefik.me
+          replicas: 1
+      # A Schema Registry for OpenAPI and AsyncAPI specifications, with a UI for managing them.
+      apicurio: 
+        status: enabled
+        config:
+          hostname: apicurio.172.18.0.3.traefik.me
+          database:
+            host: postgresql.postgresql.svc.cluster.local
+            port: 5432
+            name: apicurio
+            username: apicurio
+            password: ApicurioDB123!
+          image:
+            tag: 2.5.9.Final
+          sync:
+            enabled: false  
   - name: kubara-spoke-2
     stage: prod
     type: spoke
