@@ -8,3 +8,14 @@ spec:
   - hub
   - spoke
   status: disabled
+  configSchema:
+    type: object
+    properties:
+      host:
+        type: string
+      storageSize:
+        type: string
+      models:
+        type: array
+        items:
+          type: string

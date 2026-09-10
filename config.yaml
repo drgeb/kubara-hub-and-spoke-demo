@@ -89,6 +89,7 @@ clusters:
       repo: {}
     catalogs:
       - ./catalogs/platform-engineering
+      - ./catalogs/backing-services
       - oci://ghcr.io/kubara-io/catalogs/general:2.0.0
     services:
       cert-manager:
@@ -131,6 +132,33 @@ clusters:
           backupStorage:
             create: true
             region: eu01
+      # PostgreSQL instance backing the dev applications (forgejo, openproject, keycloak, apicurio).
+      # The primary database/user is created from `database` (maps to chart auth); the remaining
+      # per-app databases and users are provisioned at first boot via primary.initdb.scripts.
+      postgresql:
+        status: enabled
+        config:
+          database:
+            name: forgejo
+            username: app
+            password: APPPostgres123!
+          postgresPassword: Postgres123!
+          primary:
+            initdb:
+              scripts:
+                01-create-app-databases.sql: |
+                  -- OpenProject
+                  CREATE ROLE openproject LOGIN PASSWORD 'OpenProject123';
+                  CREATE DATABASE openproject OWNER openproject;
+                  -- Keycloak
+                  CREATE ROLE keycloak LOGIN PASSWORD 'KEYCLOAK123!';
+                  CREATE DATABASE keycloak OWNER keycloak;
+                  -- Apicurio
+                  CREATE ROLE apicurio LOGIN PASSWORD 'ApicurioDB123!';
+                  CREATE DATABASE apicurio OWNER apicurio;
+          persistence:
+            size: 20Gi
+            storageClass: ''
       # Harbor is an open-source container registry that provides secure storage and management of container images.
       harbor:
         status: enabled

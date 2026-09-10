@@ -1,0 +1,10 @@
+---
+apiVersion: v2
+name: uptime-kuma
+description: Uptime Kuma is an easy-to-use self-hosted monitoring tool
+type: application
+version: 0.1.0
+dependencies:
+  - name: template-library
+    repository: file://../template-library
+    version: 0.2.1

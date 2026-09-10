@@ -8,3 +8,52 @@ spec:
   - hub
   - spoke
   status: disabled
+  configSchema:
+    type: object
+    properties:
+      database:
+        type: object
+        properties:
+          name:
+            type: string
+          password:
+            type: string
+          username:
+            type: string
+      # Maps directly to the chart's `auth` block (admin + custom user/DB).
+      auth:
+        type: object
+        properties:
+          enablePostgresUser:
+            type: boolean
+          postgresPassword:
+            type: string
+          username:
+            type: string
+          password:
+            type: string
+          database:
+            type: string
+      # Primary instance options; `initdb.scripts` runs as the postgres superuser on first boot
+      # and is used to provision additional per-application databases and users.
+      primary:
+        type: object
+        properties:
+          initdb:
+            type: object
+            properties:
+              scripts:
+                type: object
+              args:
+                type: array
+                items:
+                  type: string
+      postgresPassword:
+        type: string
+      persistence:
+        type: object
+        properties:
+          size:
+            type: string
+          storageClass:
+            type: string

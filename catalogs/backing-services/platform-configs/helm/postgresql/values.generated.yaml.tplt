@@ -1,0 +1,37 @@
+# AUTO-GENERATED; DO NOT MODIFY;
+# This template is rendered by kubara per-cluster from the `postgresql` service config.
+#
+# To customize values, add additional files named values-*.yaml to this directory.
+
+{{- $cfg := (index .cluster.services "postgresql" "config") | default dict }}
+{{- $db := $cfg.database | default dict }}
+{{- $persist := $cfg.persistence | default dict }}
+
+namespace:
+  labels:
+    project-name: "backing-services"
+    stage: "{{ .cluster.stage | default "local" }}"
+
+auth:
+  enablePostgresUser: true
+  postgresPassword: {{ $cfg.postgresPassword | default "Postgres123!" | quote }}
+  username: {{ $db.username | default "" | quote }}
+  password: {{ $db.password | default "" | quote }}
+  database: {{ $db.name | default "" | quote }}
+
+primary:
+{{- with $cfg.primary }}
+{{- with .initdb }}
+  initdb:
+{{- with .scripts }}
+    scripts:
+{{ toYaml . | indent 6 }}
+{{- end }}
+{{- end }}
+{{- end }}
+  persistence:
+    enabled: true
+{{- with $persist.storageClass }}
+    storageClass: {{ . | quote }}
+{{- end }}
+    size: {{ $persist.size | default "8Gi" | quote }}

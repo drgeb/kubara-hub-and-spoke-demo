@@ -8,3 +8,30 @@ spec:
   - hub
   - spoke
   status: disabled
+  configSchema:
+    type: object
+    properties:
+      database:
+        type: object
+        properties:
+          name:
+            type: string
+          password:
+            type: string
+          username:
+            type: string
+      imageName:
+        type: string
+      instanceName:
+        type: string
+      instances:
+        type: integer
+      postgresPassword:
+        type: string
+      persistence:
+        type: object
+        properties:
+          size:
+            type: string
+          storageClass:
+            type: string

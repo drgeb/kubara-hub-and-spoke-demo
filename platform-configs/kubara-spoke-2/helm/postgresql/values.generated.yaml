@@ -1,0 +1,21 @@
+# AUTO-GENERATED; DO NOT MODIFY;
+# This template is rendered by kubara per-cluster from the `postgresql` service config.
+#
+# To customize values, add additional files named values-*.yaml to this directory.
+
+namespace:
+  labels:
+    project-name: "backing-services"
+    stage: "prod"
+
+auth:
+  enablePostgresUser: true
+  postgresPassword: "Postgres123!"
+  username: "app"
+  password: "APPPostgres123!"
+  database: "app"
+
+primary:
+  persistence:
+    enabled: true
+    size: "8Gi"

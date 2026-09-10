@@ -1,0 +1,50 @@
+{{- if .Values.kafkaInstance.enabled }}
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaNodePool
+metadata:
+  name: dual-role
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    strimzi.io/cluster: {{ .Values.kafkaInstance.name }}
+spec:
+  replicas: {{ .Values.kafkaInstance.replicas }}
+  roles:
+    - controller
+    - broker
+  storage:
+    type: persistent-claim
+    size: {{ .Values.kafkaInstance.storageSize }}
+{{- with .Values.kafkaInstance.storageClass }}
+    class: {{ . }}
+{{- end }}
+    deleteClaim: false
+---
+apiVersion: kafka.strimzi.io/v1
+kind: Kafka
+metadata:
+  name: {{ .Values.kafkaInstance.name }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+  kafka:
+{{- with .Values.kafkaInstance.version }}
+    version: {{ . }}
+{{- end }}
+    listeners:
+      - name: plain
+        port: 9092
+        type: internal
+        tls: false
+      - name: tls
+        port: 9093
+        type: internal
+        tls: true
+    config:
+      offsets.topic.replication.factor: 1
+      transaction.state.log.replication.factor: 1
+      transaction.state.log.min.isr: 1
+      default.replication.factor: 1
+      min.insync.replicas: 1
+  entityOperator:
+    topicOperator: {}
+    userOperator: {}
+{{- end }}

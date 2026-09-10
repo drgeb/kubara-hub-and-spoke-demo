@@ -41,6 +41,7 @@ bootstrapValues:
         external-secrets: "enabled"
         forgejo: "enabled"
         harbor: "enabled"
+        kafka: "disabled"
         kargo: "enabled"
         keycloak: "enabled"
         kube-prometheus-stack: "disabled"
@@ -53,10 +54,14 @@ bootstrapValues:
         metrics-server: "disabled"
         nexus: "enabled"
         oauth2-proxy: "disabled"
+        ollama: "disabled"
         opa: "enabled"
         openproject: "enabled"
+        postgresql: "enabled"
+        postgresql19: "disabled"
         reloader: "disabled"
         traefik: "disabled"
+        uptime-kuma: "disabled"
         velero: "disabled"
     - name: kubara-spoke-2
       project: hub-local
@@ -70,6 +75,7 @@ bootstrapValues:
         cert-manager: "disabled"
         external-dns: "disabled"
         external-secrets: "enabled"
+        kafka: "enabled"
         kube-prometheus-stack: "disabled"
         kyverno: "disabled"
         kyverno-policies: "disabled"
@@ -79,8 +85,12 @@ bootstrapValues:
         metallb: "disabled"
         metrics-server: "disabled"
         oauth2-proxy: "disabled"
+        ollama: "enabled"
+        postgresql: "enabled"
+        postgresql19: "enabled"
         reloader: "disabled"
         traefik: "disabled"
+        uptime-kuma: "enabled"
         velero: "disabled"
 
 

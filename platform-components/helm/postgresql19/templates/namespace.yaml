@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ include "cloudnative-pg.namespace" . }}
+  {{- with .Values.namespace}}
+  {{- with .labels}}
+  labels:
+     {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- end }}
