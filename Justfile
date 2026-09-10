@@ -97,6 +97,12 @@ step-2-kubara-bootstrap:
     kubectl k8s.yml --env-file .env.local
     @echo "kubara bootstrap complete, then run `just step-3-verify-argocd` to continue"
     
+# Run kubara generate --helm and restore the charts kubara prunes from the
+# repo-root platform-components/helm tree (template-library, harbor).
+# Pass-through args are forwarded, e.g. just generate-helm --dry-run
+generate-helm *args:
+    ./z-demo-setup/scripts/generate-helm.sh {{args}}
+
 # Initialize kubara config with local-evaluation prep files (.env template)
 init-prep:
     kubara init --prep --local
