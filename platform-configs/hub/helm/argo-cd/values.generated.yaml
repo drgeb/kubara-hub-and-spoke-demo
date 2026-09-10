@@ -36,7 +36,7 @@ bootstrapValues:
         remoteKeyProperty: kubeconfig
       additionalLabels:
         apicurio: "enabled"
-        cert-manager: "disabled"
+        cert-manager: "enabled"
         external-dns: "disabled"
         external-secrets: "enabled"
         forgejo: "enabled"

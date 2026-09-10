@@ -93,7 +93,7 @@ clusters:
       - oci://ghcr.io/kubara-io/catalogs/general:2.0.0
     services:
       cert-manager:
-        status: disabled
+        status: enabled
         config:
           clusterIssuer:
             email: developer@drgeb.com
