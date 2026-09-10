@@ -38,6 +38,7 @@ bootstrapValues:
         cert-manager: "disabled"
         external-dns: "disabled"
         external-secrets: "enabled"
+        harbor: "disabled"
         kube-prometheus-stack: "disabled"
         kyverno: "disabled"
         kyverno-policies: "disabled"

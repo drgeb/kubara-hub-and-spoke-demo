@@ -71,6 +71,7 @@ clusters:
       selfManaged: disabled
       repo: {}
     catalogs:
+      - ./catalogs/platform-engineering
       - oci://ghcr.io/kubara-io/catalogs/general:2.0.0
     services:
       cert-manager:
@@ -113,6 +114,27 @@ clusters:
           backupStorage:
             create: true
             region: eu01
+    harbor:
+      status: enabled
+      config:
+        adminPassword: Harbor12345
+        databasePassword: changeit
+        hostname: harbor.172.18.0.3.traefik.me
+        additionalHosts:
+        - my.harbor.me
+        networking:
+          annotations: {}
+        persistence:
+          databaseSize: 1Gi
+          redisSize: 1Gi
+          registrySize: 10Gi
+          storageClass: ''
+        tls:
+          enabled: true
+          issuerRef:
+            kind: ClusterIssuer
+            name: kubara-local-ca-issuer
+        tlsCertSource: auto
   - name: kubara-spoke-2
     stage: prod
     type: spoke
