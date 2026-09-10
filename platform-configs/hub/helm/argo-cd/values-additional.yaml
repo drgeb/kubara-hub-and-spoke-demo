@@ -65,7 +65,7 @@ argo-cd:
       tls: false
   configs:
     cm:
-      url: http://172.18.0.4.traefik.me/argocd
+      url: http://172.18.0.5.traefik.me/argocd
     rbac:
       policy.default: role:admin
       policy.csv: ""

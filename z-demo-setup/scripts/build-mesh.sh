@@ -6,6 +6,11 @@ CONFIG_DIR="${ROOT_DIR}/z-demo-setup/config"
 
 CILIUM_VERSION="${CILIUM_VERSION:-1.19.5}"
 
+MESH_DOCKER_NETWORK="kubara-mesh"
+MESH_DOCKER_SUBNET="172.19.0.0/16"
+MESH_DOCKER_GATEWAY="172.19.0.1"
+MESH_DOCKER_IP_RANGE="172.19.0.10/28"
+
 HUB_KIND="hub"
 SPOKE1_KIND="kubara-spoke-1"
 SPOKE2_KIND="kubara-spoke-2"
@@ -131,6 +136,23 @@ ensure_cilium_helm_repo() {
     helm repo update cilium
 }
 
+ensure_mesh_docker_network() {
+    log "Ensuring mesh Docker network '${MESH_DOCKER_NETWORK}'"
+
+    if docker network inspect "$MESH_DOCKER_NETWORK" >/dev/null 2>&1; then
+        echo "    Docker network already exists"
+
+        return
+    fi
+
+    docker network create \
+        --driver bridge \
+        --subnet "$MESH_DOCKER_SUBNET" \
+        --gateway "$MESH_DOCKER_GATEWAY" \
+        --ip-range "$MESH_DOCKER_IP_RANGE" \
+        "$MESH_DOCKER_NETWORK"
+}
+
 check_kind_network() {
     log "Checking Kind Docker network"
 
@@ -191,9 +213,10 @@ create_kind_cluster() {
 
     log "Creating Kind cluster '${name}'"
 
+    KIND_EXPERIMENTAL_DOCKER_NETWORK="$MESH_DOCKER_NETWORK" \
     kind create cluster \
-        --name "$name" \
-        --config "$config"
+    --name "$name" \
+    --config "$config"
 }
 
 create_clusters() {
@@ -508,6 +531,99 @@ wait_for_clustermesh() {
     return 1
 }
 
+wait_for_mesh_connections() {
+    local timeout="${1:-300}"
+
+    log "Waiting for ClusterMesh connections"
+
+    local deadline=$((SECONDS + timeout))
+
+    while (( SECONDS < deadline )); do
+        local hub_status
+
+        hub_status="$(
+            cilium clustermesh status \
+                --kubeconfig "$MESH_KUBECONFIG" \
+                --context "$HUB_CONTEXT" \
+                2>/dev/null || true
+        )"
+
+        if [[ -z "$hub_status" ]]; then
+            echo "    Waiting for ClusterMesh status from hub..."
+            sleep 5
+            continue
+        fi
+
+        local spoke1_connected=false
+        local spoke2_connected=false
+
+        if grep -Eq \
+            'kubara-spoke-1: [0-9]+/[0-9]+ configured, [0-9]+/[0-9]+ connected - KVStoreMesh: [0-9]+/[0-9]+ configured, [0-9]+/[0-9]+ connected' \
+            <<< "$hub_status"; then
+
+            local spoke1_line
+            spoke1_line="$(
+                grep 'kubara-spoke-1:' <<< "$hub_status" || true
+            )"
+
+            if [[ "$spoke1_line" =~ configured,\ 1/1\ connected ]] &&
+               [[ "$spoke1_line" =~ KVStoreMesh:\ 1/1\ configured,\ 1/1\ connected ]]; then
+                spoke1_connected=true
+            fi
+        fi
+
+        if grep -Eq \
+            'kubara-spoke-2: [0-9]+/[0-9]+ configured, [0-9]+/[0-9]+ connected - KVStoreMesh: [0-9]+/[0-9]+ configured, [0-9]+/[0-9]+ connected' \
+            <<< "$hub_status"; then
+
+            local spoke2_line
+            spoke2_line="$(
+                grep 'kubara-spoke-2:' <<< "$hub_status" || true
+            )"
+
+            if [[ "$spoke2_line" =~ configured,\ 1/1\ connected ]] &&
+               [[ "$spoke2_line" =~ KVStoreMesh:\ 1/1\ configured,\ 1/1\ connected ]]; then
+                spoke2_connected=true
+            fi
+        fi
+
+        if [[ "$spoke1_connected" == true &&
+              "$spoke2_connected" == true ]]; then
+
+            echo "    ClusterMesh connections are established"
+            echo "      hub -> kubara-spoke-1: connected"
+            echo "      hub -> kubara-spoke-2: connected"
+            echo "      KVStoreMesh -> kubara-spoke-1: connected"
+            echo "      KVStoreMesh -> kubara-spoke-2: connected"
+
+            return 0
+        fi
+
+        local spoke1_line
+        local spoke2_line
+
+        spoke1_line="$(grep 'kubara-spoke-1:' <<< "$hub_status" || echo 'not ready')"
+        spoke2_line="$(grep 'kubara-spoke-2:' <<< "$hub_status" || echo 'not ready')"
+
+        echo "    waiting..."
+        echo "      ${spoke1_line}"
+        echo "      ${spoke2_line}"
+
+        sleep 5
+    done
+
+    echo "ERROR: ClusterMesh connections did not become established within ${timeout}s" >&2
+
+    echo
+    echo "Hub ClusterMesh status:"
+    cilium clustermesh status \
+        --kubeconfig "$MESH_KUBECONFIG" \
+        --context "$HUB_CONTEXT" \
+        || true
+
+    return 1
+}
+
 enable_clustermesh() {
     local context="$1"
 
@@ -721,6 +837,7 @@ main() {
         rebuild_clusters
     fi
 
+    ensure_mesh_docker_network
     create_clusters
     generate_kubeconfigs
     wait_for_api
@@ -737,6 +854,8 @@ main() {
     enforce_clustermesh_replicas "$SPOKE1_CONTEXT"
     enforce_clustermesh_replicas "$SPOKE2_CONTEXT"
 
+    wait_for_mesh_connections 300
+    
     verify_cluster_config
     show_mesh_status
     show_nodes
