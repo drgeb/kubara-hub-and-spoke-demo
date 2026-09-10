@@ -1,0 +1,10 @@
+apiVersion: kubara.io/v1alpha1
+kind: ServiceDefinition
+metadata:
+  name: postgresql19
+spec:
+  chartPath: postgresql19
+  clusterTypes:
+  - hub
+  - spoke
+  status: disabled

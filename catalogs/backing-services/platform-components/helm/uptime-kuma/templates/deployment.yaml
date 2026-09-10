@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Release.Name }}
+spec:
+  selector:
+    matchLabels:
+      app: {{.Release.Name }}
+      release: {{.Release.Name }}
+  template:
+    metadata:
+      annotations:
+{{if .Values.annotations}}
+{{ toYaml .Values.annotations | indent 8 }}
+{{end}}
+      labels:
+        app: {{.Release.Name }}
+        release: {{.Release.Name }}
+    spec:
+      securityContext:
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{.Release.Name }}
+          securityContext:
+            privileged: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              add:
+                - CHOWN
+                - SETGID
+                - SETUID
+              drop:
+                - ALL
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ default "IfNotPresent" .Values.image.pullPolicy }}
+          env:
+            {{- range $key, $value := .Values.env }}
+            - name: {{ printf "%s" $key | replace "." "_" | upper | quote }}
+              value: {{ $value | quote }}
+            {{- end }}
+          ports:
+            - name: app-internal
+              containerPort: {{ .Values.container.port }}
+          livenessProbe:
+            tcpSocket:
+              port: {{ .Values.container.port }}
+            initialDelaySeconds: {{ default 20 .Values.health.liveness.initialDelaySeconds }}
+            periodSeconds: 30
+            failureThreshold: {{ default 5 .Values.health.liveness.failureThreshold}}
+          readinessProbe:
+            tcpSocket:
+              port: {{ .Values.container.port }}
+            initialDelaySeconds: {{ default 20 .Values.health.readiness.initialDelaySeconds }}
+            periodSeconds: 30
+            failureThreshold: {{ default 5 .Values.health.readiness.failureThreshold}}
+          volumeMounts:
+            - mountPath: "/app/data"
+              name: data
+            - mountPath: "/run/uptime-kuma"
+              name: runtime
+            - mountPath: "/tmp"
+              name: temp-volume
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+      volumes:
+        - name: data
+        {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}
+        {{- else }}
+          emptyDir: {}
+        {{- end }}
+        - name: runtime
+          emptyDir: {}
+        - name: temp-volume
+          emptyDir: {}

@@ -259,6 +259,7 @@ clusters:
       selfManaged: disabled
       repo: {}
     catalogs:
+      - ./catalogs/backing-services
       - oci://ghcr.io/kubara-io/catalogs/general:2.0.0
     services:
       cert-manager:
@@ -301,3 +302,49 @@ clusters:
           backupStorage:
             create: true
             region: eu01
+      postgresql:
+        status: enabled
+        config:
+          database:
+            name: app
+            password: APPPostgres123!
+            username: app
+          persistence:
+            size: 8Gi
+            storageClass: ''
+          postgresPassword: Postgres123!
+      postgresql19:
+        status: enabled
+        config:
+          database:
+            name: app
+            password: APPPostgres123!
+            username: app
+          imageName: ghcr.io/cloudnative-pg/postgresql:19beta2-standard-trixie
+          instanceName: postgresql19
+          instances: 1
+          persistence:
+            size: 8Gi
+            storageClass: ''
+          postgresPassword: Postgres123!
+      uptime-kuma:
+        status: enabled
+        networking:
+          annotations:
+            cert-manager.io/cluster-issuer: kubara-local-ca-issuer
+      ollama:
+        status: enabled
+        config:
+          host: ollama.172.19.0.5.traefik.me
+          storageSize: 30Gi
+          models:
+            - llama3.2
+      kafka:
+        status: enabled
+        config:
+          name: my-kafka
+          persistence:
+            size: 10Gi
+            storageClass: ''
+          replicas: 1
+          version: ''

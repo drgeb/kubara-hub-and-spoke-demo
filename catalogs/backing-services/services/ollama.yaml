@@ -1,0 +1,10 @@
+apiVersion: kubara.io/v1alpha1
+kind: ServiceDefinition
+metadata:
+  name: ollama
+spec:
+  chartPath: ollama
+  clusterTypes:
+  - hub
+  - spoke
+  status: disabled

@@ -1,0 +1,10 @@
+apiVersion: kubara.io/v1alpha1
+kind: ServiceDefinition
+metadata:
+  name: kafka
+spec:
+  chartPath: kafka
+  clusterTypes:
+  - hub
+  - spoke
+  status: disabled

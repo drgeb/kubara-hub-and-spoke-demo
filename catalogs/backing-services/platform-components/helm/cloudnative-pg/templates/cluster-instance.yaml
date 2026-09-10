@@ -1,0 +1,47 @@
+{{- if .Values.clusterInstance.enabled }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Values.clusterInstance.name }}-superuser
+  namespace: {{ include "cloudnative-pg.namespace" . }}
+type: kubernetes.io/basic-auth
+stringData:
+  username: postgres
+  password: {{ .Values.clusterInstance.superuserPassword }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Values.clusterInstance.name }}-app
+  namespace: {{ include "cloudnative-pg.namespace" . }}
+type: kubernetes.io/basic-auth
+stringData:
+  username: {{ .Values.clusterInstance.database.username }}
+  password: {{ .Values.clusterInstance.database.password }}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ .Values.clusterInstance.name }}
+  namespace: {{ include "cloudnative-pg.namespace" . }}
+spec:
+  imageName: {{ .Values.clusterInstance.imageName }}
+  instances: {{ .Values.clusterInstance.instances }}
+  superuserSecret:
+    name: {{ .Values.clusterInstance.name }}-superuser
+  bootstrap:
+    initdb:
+      database: {{ .Values.clusterInstance.database.name }}
+      owner: {{ .Values.clusterInstance.database.username }}
+  managed:
+    roles:
+    - name: {{ .Values.clusterInstance.database.username }}
+      login: true
+      passwordSecret:
+        name: {{ .Values.clusterInstance.name }}-app
+  storage:
+    size: {{ .Values.clusterInstance.storageSize }}
+{{- with .Values.clusterInstance.storageClass }}
+    storageClass: {{ . }}
+{{- end }}
+{{- end }}

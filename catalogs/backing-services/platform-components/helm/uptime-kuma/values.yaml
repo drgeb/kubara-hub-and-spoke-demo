@@ -1,0 +1,31 @@
+---
+ingress:
+  enabled: false
+  path: /
+  annotations: {}
+image:
+  tag: "1"
+  repository: louislam/uptime-kuma
+  pullPolicy: IfNotPresent
+container:
+  port: 3001
+service:
+  port: 3001
+health:
+  liveness:
+    initialDelaySeconds: 10
+    failureThreshold: 5
+  readiness:
+    initialDelaySeconds: 10
+    failureThreshold: 5
+persistence:
+  enabled: true
+  size: 2Gi
+  accessMode: ReadWriteOnce
+  className: null
+resources:
+  requests:
+    cpu: 10m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
