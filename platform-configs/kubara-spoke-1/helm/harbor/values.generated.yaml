@@ -8,17 +8,17 @@ expose:
     enabled: true
     certSource: auto
     auto:
-      commonName: "harbor.172.19.0.5.traefik.me"
+      commonName: "harbor.172.19.0.6.traefik.me"
     secret:
       secretName: ""
   ingress:
     className: "traefik"
     hosts:
-      core: "harbor.172.19.0.5.traefik.me"
+      core: "harbor.172.19.0.6.traefik.me"
     annotations:
       cert-manager.io/cluster-issuer: kubara-local-ca-issuer
 
-externalURL: "https://harbor.172.19.0.5.traefik.me"
+externalURL: "https://harbor.172.19.0.6.traefik.me"
 harborAdminPassword: "Harbor12345"
 database:
   type: internal
