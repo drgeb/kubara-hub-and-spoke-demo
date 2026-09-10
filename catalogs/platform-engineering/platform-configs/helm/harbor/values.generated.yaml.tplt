@@ -5,7 +5,7 @@
 {{- $harbor := (index .cluster.services "harbor" "config") -}}
 {{- $tls := $harbor.tls | default (dict "enabled" true "issuerRef" (dict "kind" "ClusterIssuer" "name" "kubara-local-ca-issuer")) -}}
 {{- $issuerRef := $tls.issuerRef | default (dict "kind" "ClusterIssuer" "name" "kubara-local-ca-issuer") -}}
-{{- $ingressAnnotations := merge (dict "cert-manager.io/cluster-issuer" $issuerRef.name) ($harbor.networking.annotations | default (dict)) -}}
+{{- $ingressAnnotations := merge (dict "cert-manager.io/cluster-issuer" $issuerRef.name) ($harbor.networking.annotations | default (dict)) }}
 
 expose:
   type: ingress

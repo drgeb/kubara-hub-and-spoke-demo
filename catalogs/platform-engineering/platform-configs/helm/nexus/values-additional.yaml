@@ -1,0 +1,8 @@
+ingress:
+  additionalHosts:
+    - my.nexus.me
+  tls:
+    - secretName: nexus-tls
+      hosts:
+        - nexus.172.18.0.3.traefik.me
+        - my.nexus.me

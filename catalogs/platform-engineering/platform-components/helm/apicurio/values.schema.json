@@ -1,0 +1,150 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/eshepelyuk/apicurio-registry-helm-chart",
+  "title": "Apicurio Registry Helm values",
+
+  "definitions": {
+    "isEnabled": {
+      "type": "boolean", "title": "should be installed" , "default": true
+    },
+    "dockerImage": {
+      "type": "object", "title": "docker image settings",
+      "required": ["registry", "repository", "tag"],
+      "properties": {
+        "registry": {"type": "string", "default": "quay.io"},
+        "repository": {"type": "string"},
+        "tag": {"type": "string"},
+        "persistenceSuffix": {
+          "type": "boolean", "title": "Autodetect image suffix based on persistence type" , "default": true
+        }
+      }
+    },
+    "podResources": {
+      "type": "object", "title": "pod resources",
+      "additionalProperties": false,
+      "properties": {
+        "limits": {
+          "type": "object"
+        },
+        "requests": {
+          "type": "object"
+        }
+      }
+    },
+    "podSecurityContext": {
+      "type": "object",
+      "title": "The pod securityContext Schema",
+      "properties": {}
+    },
+    "securityContext": {
+      "type": "object",
+      "title": "The container securityContext Schema",
+      "properties": {}
+    },
+    "persistence": {
+      "kafka": {
+        "type": "object", "additionalProperties": false,
+        "required": ["bootstrapServers"],
+        "properties": {
+          "bootstrapServers": {"type": "string"}
+        }
+      },
+      "sql": {
+        "type": "object", "additionalProperties": false,
+        "required": ["url", "username", "password"],
+        "properties": {
+          "url": {"type": "string"},
+          "username": {"type": "string"},
+          "password": {"type": "string"}
+        }
+      }
+    },
+    "initContainers": {
+      "type": "array", "default": []
+    },
+    "volumeMounts": {
+      "type": "array", "default": []
+    },
+    "imagePullSecrets": {
+      "type": "array", "default": []
+    },
+    "volumes": {
+      "type": "array", "default": []
+    },
+    "labels": {
+      "type": "object", "default": {}
+    },
+    "ingress": {
+      "type": "object", "title": "ingress resource for registry",
+      "required": ["enabled", "host", "path"],
+      "properties": {
+        "enabled": {"type": "boolean", "default": false, "title": "enable ingress resource"},
+        "ingressClassName": {"type": "string", "default": "", "title": "set ingress controller used for this ingress rule"},
+        "host": {"type": "string", "default": "apicurio.local", "title": "hostname"},
+        "path": {"type": "string", "default": "/", "title": "ingress path"},
+        "tls": {"type": "boolean", "default": false, "title": "enable TLS for ingress host",
+        "description": "if TLS enabled the certificate is retrieved from secret with the same name as ingress host"},
+        "annotations": {"type": "object", "default": {}, "title": "ingress resource annotations"},
+        "labels": {"type": "object", "default": {}, "title": "ingress resource labels"}
+      }
+    }
+  },
+
+  "type": "object",
+
+  "properties": {
+    "registry": {
+      "type": "object", "title": "registry settings",
+      "required": ["enabled", "image", "resources", "ingress"],
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {"$ref": "#/definitions/isEnabled"},
+        "image": {"$ref": "#/definitions/dockerImage"},
+        "nodeSelector": {"type": "object", "title": "node selector for registry"},
+        "initContainers": {"$ref": "#/definitions/initContainers", "title": "init containers for registry"},
+        "extraEnv": {
+          "type": "array",
+          "title": "extra environment variables for registry",
+          "default": [],
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "resources": {"$ref": "#/definitions/podResources"},
+        "extraVolumeMounts": {"$ref": "#/definitions/volumeMounts", "title": "extra volume mounts for registry"},
+        "extraVolumes": {"$ref": "#/definitions/volumes", "title": "extra volumes for registry"},
+        "kafka": {"$ref": "#/definitions/persistence/kafka"},
+        "sql": {"$ref": "#/definitions/persistence/sql"},
+        "imagePullSecrets": {"$ref": "#/definitions/imagePullSecrets"},
+        "ingress": {"$ref": "#/definitions/ingress"},
+        "extraLabels": {"$ref": "#/definitions/labels", "title": "deployment and pod resources labels for registry"},
+        "podSecurityContext": {"$ref": "#/definitions/podSecurityContext"},
+        "securityContext": {"$ref": "#/definitions/securityContext"}
+      }
+    },
+    "sync": {
+      "type": "object", "title": "registry content sync settings",
+      "required": ["enabled", "image", "resources"],
+      "properties": {
+        "enabled": {"$ref": "#/definitions/isEnabled"},
+        "image": {"$ref": "#/definitions/dockerImage"},
+        "imagePullSecrets": {"$ref": "#/definitions/imagePullSecrets"},
+        "nodeSelector": {"type": "object", "title": "node selector for registry content sync"},
+        "initContainers": {"$ref": "#/definitions/initContainers", "title": "init containers for registry content sync"},
+        "resources": {"$ref": "#/definitions/podResources"},
+        "extraVolumeMounts": {"$ref": "#/definitions/volumeMounts", "title": "extra volume mounts for registry content sync"},
+        "extraVolumes": {"$ref": "#/definitions/volumes", "title": "extra volumes for registry content sync"},
+        "registryUrl": {"type": ["null", "string"], "default": null},
+        "extraLabels": {"$ref": "#/definitions/labels", "title": "deployment and pod resources labels for sync"},
+        "podSecurityContext": {"$ref": "#/definitions/podSecurityContext"},
+        "securityContext": {"$ref": "#/definitions/securityContext"}
+      }
+    }
+  }
+}

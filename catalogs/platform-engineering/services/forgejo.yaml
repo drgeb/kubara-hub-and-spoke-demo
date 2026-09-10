@@ -1,0 +1,10 @@
+apiVersion: kubara.io/v1alpha1
+kind: ServiceDefinition
+metadata:
+  name: forgejo
+spec:
+  chartPath: forgejo
+  clusterTypes:
+  - hub
+  - spoke
+  status: disabled

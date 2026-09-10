@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ $.Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: opa
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    openpolicyagent.org/webhook: ignore
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}

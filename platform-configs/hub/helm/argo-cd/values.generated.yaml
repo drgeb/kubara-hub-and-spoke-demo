@@ -35,10 +35,14 @@ bootstrapValues:
         remoteKey: hub/local/argocd/kubara-spoke-1-dev
         remoteKeyProperty: kubeconfig
       additionalLabels:
+        apicurio: "disabled"
         cert-manager: "disabled"
         external-dns: "disabled"
         external-secrets: "enabled"
+        forgejo: "disabled"
         harbor: "enabled"
+        kargo: "disabled"
+        keycloak: "disabled"
         kube-prometheus-stack: "disabled"
         kyverno: "disabled"
         kyverno-policies: "disabled"
@@ -47,7 +51,10 @@ bootstrapValues:
         longhorn: "disabled"
         metallb: "disabled"
         metrics-server: "disabled"
+        nexus: "disabled"
         oauth2-proxy: "disabled"
+        opa: "disabled"
+        openproject: "disabled"
         reloader: "disabled"
         traefik: "disabled"
         velero: "disabled"
@@ -93,6 +100,9 @@ bootstrapValues:
           name: argocd
           path: argo-cd
           namespace: argocd
+        apicurio:
+          name: apicurio
+          path: apicurio
         cert-manager:
           name: cert-manager
           path: cert-manager
@@ -102,12 +112,21 @@ bootstrapValues:
         external-secrets:
           name: external-secrets
           path: external-secrets
+        forgejo:
+          name: forgejo
+          path: forgejo
         harbor:
           name: harbor
           path: harbor
         homer-dashboard:
           name: homer-dashboard
           path: homer-dashboard
+        kargo:
+          name: kargo
+          path: kargo
+        keycloak:
+          name: keycloak
+          path: keycloak
         kube-prometheus-stack:
           name: kube-prometheus-stack
           path: kube-prometheus-stack
@@ -133,9 +152,18 @@ bootstrapValues:
         metrics-server:
           name: metrics-server
           path: metrics-server
+        nexus:
+          name: nexus
+          path: nexus
         oauth2-proxy:
           name: oauth2-proxy
           path: oauth2-proxy
+        opa:
+          name: opa
+          path: opa
+        openproject:
+          name: openproject
+          path: openproject
         reloader:
           name: reloader
           path: reloader
@@ -155,11 +183,15 @@ inClusterName: hub
 inClusterSecretLabels:
 ## Hub labels
   argocd: "enabled"
+  apicurio: "disabled"
   cert-manager: "enabled"
   external-dns: "disabled"
   external-secrets: "enabled"
+  forgejo: "disabled"
   harbor: "disabled"
   homer-dashboard: "enabled"
+  kargo: "disabled"
+  keycloak: "disabled"
   kube-prometheus-stack: "enabled"
   kyverno: "disabled"
   kyverno-policies: "disabled"
@@ -168,7 +200,10 @@ inClusterSecretLabels:
   longhorn: "disabled"
   metallb: "disabled"
   metrics-server: "enabled"
+  nexus: "disabled"
   oauth2-proxy: "disabled"
+  opa: "disabled"
+  openproject: "disabled"
   reloader: "disabled"
   traefik: "enabled"
   velero: "disabled"
