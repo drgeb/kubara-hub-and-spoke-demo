@@ -1,0 +1,9 @@
+# Hand-maintained customization layered over values.generated.yaml.
+#
+# spoke-1 has no Prometheus Operator (kube-prometheus-stack disabled), so the
+# ServiceMonitor rendered by the chart's default (prometheus.servicemonitor.enabled: true)
+# would break the sync with "failed to discover server resources for monitoring.coreos.com/v1".
+cert-manager:
+  prometheus:
+    servicemonitor:
+      enabled: false
