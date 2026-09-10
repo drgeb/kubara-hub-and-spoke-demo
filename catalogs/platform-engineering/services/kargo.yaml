@@ -8,3 +8,31 @@ spec:
   - hub
   - spoke
   status: disabled
+  configSchema:
+    type: object
+    properties:
+      adminPassword:
+        type: string
+      adminTokenSigningKey:
+        type: string
+      host:
+        type: string
+      integrations:
+        type: object
+        properties:
+          argocd:
+            type: boolean
+          rollouts:
+            type: boolean
+      tls:
+        type: object
+        properties:
+          enabled:
+            type: boolean
+          issuerRef:
+            type: object
+            properties:
+              kind:
+                type: string
+              name:
+                type: string

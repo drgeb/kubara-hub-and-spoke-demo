@@ -1,0 +1,108 @@
+registry:
+  enabled: true
+  # set imagePullSecret to pull image from an authenticated registry
+  imagePullSecrets: []
+  # - name: secretName
+
+  ## uncomment and adjust for kafka persistence
+  # kafka:
+  #   bootstrapServers: kafka1:9092,kafka2:9092
+
+  ## uncomment and adjust for sql persistence
+  # sql:
+  #   url: jdbc:postgresql://postgres/apicurio-registry
+  #   username: apicurio
+  #   password: apicurio-password
+
+  image:
+    registry: "quay.io"
+    repository: "apicurio/apicurio-registry"
+    tag: "2.5.8.Final"
+    # Autodetect image suffix based on persistence type
+    # the default is true, it is used by helpers.tpl to define the image to use
+    persistenceSuffix: true
+  # optional node selector
+  nodeSelector: {}
+  # optional init containers
+  initContainers: []
+  # list of name, value pairs of extra environment vars
+  extraEnv: []
+    # - name: SOME_ENV
+    #   value: SOME_VALUE
+  resources: {}
+    # limits:
+    #   cpu: 1000m
+    #   memory: 1300Mi
+    # requests:
+    #   cpu: 200m
+    #   memory: 600Mi
+  # list of extra volume mounts
+  extraVolumeMounts: []
+    # - name: kafkauser
+    #   mountPath: /opt/user
+    #   readOnly: true
+  # list of extra volumes
+  extraVolumes: []
+    # - name: kafkauser
+    #   secret:
+    #     secretName: kafka-user
+  # add extraLabels in deployment and pod objects
+  extraLabels: {}
+
+  ingress:
+    enabled: false
+    ingressClassName: ""
+    host: "apicurio.local"
+    path: "/"
+    tls: false
+    annotations: {}
+    labels: {}
+
+  # add podSecurityContext policy
+  podSecurityContext: {}
+    # fsGroup: 185
+    # runAsUser: 185
+    # runAsNonRoot: true
+
+  # securityContext policy
+  securityContext: {}
+sync:
+  enabled: true
+  # set imagePullSecret to pull image from an authenticated registry
+  imagePullSecrets: []
+  # - name: secretName
+  image:
+    registry: "quay.io"
+    repository: "apicurio/apicurio-registry-kube-sync"
+    tag: "1.0.1"
+  # optional node selector
+  nodeSelector: {}
+  # optional init containers
+  initContainers: []
+  # registryUrl:
+  resources: {}
+    # limits:
+    #   cpu: 500m
+    #   memory: 800Mi
+    # requests:
+    #   cpu: 200m
+    #   memory: 600Mi
+  # list of extra volume mounts
+  extraVolumeMounts: []
+    # - name: kafkauser
+    #   mountPath: /opt/user
+    #   readOnly: true
+  # list of extra volumes
+  extraVolumes: []
+    # - name: kafkauser
+    #   secret:
+    #     secretName: kafka-user
+  # add extraLabels in deployment and pod objects
+  extraLabels: {}
+  # add podSecurityContext policy
+  podSecurityContext: {}
+    # fsGroup: 185
+    # runAsUser: 185
+    # runAsNonRoot: true
+  # securityContext policy
+  securityContext: {}

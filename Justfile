@@ -454,8 +454,8 @@ open-postgres19-shell:
 inspect-what-certificate-Traefik-is-serving:
     @echo "Traefik is serving the following certificate:"
     echo | openssl s_client \
-        -connect forgejo.172.18.0.3.traefik.me:443 \
-        -servername forgejo.172.18.0.3.traefik.me \
+        -connect forgejo.172.19.0.5.traefik.me:443 \
+        -servername forgejo.172.19.0.5.traefik.me \
         2>/dev/null | openssl x509 -noout -subject -issuer -dates -ext subjectAltName
 
 get-harbor-credentials:

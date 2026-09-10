@@ -1,0 +1,15 @@
+# Expose Forgejo SSH externally via a LoadBalancer handled by cloud-provider-kind.
+# The loadBalancerIP / SSH_DOMAIN values are rendered at runtime by
+# scripts/render-runtime-config.sh (FORGEJO_SSH_IP); they are requested before
+# the Service exists, so they are a deliberate static pin, not a discovery.
+service:
+  ssh:
+    type: LoadBalancer
+    loadBalancerIP: 172.18.0.3
+gitea:
+  config:
+    server:
+      SSH_DOMAIN: 172.18.0.3
+    actions:
+      ENABLED: "true"
+      DEFAULT_ACTIONS_URL: github

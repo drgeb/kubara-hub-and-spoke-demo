@@ -1,0 +1,57 @@
+annotations:
+  artifacthub.io/crds: |
+    - kind: Artifact
+      version: v1
+      name: artifact
+      displayName: Artifact
+      description: Description of registry artifact
+  artifacthub.io/crdsExamples: |
+    - apiVersion: artifact.apicur.io/v1alpha1
+      kind: Artifact
+      metadata:
+        name: pets-avro-example-v1
+      spec:
+        artifactId: pets-avro-record
+        name: pets-avro
+        description: "super pets avro"
+        type: AVRO
+        state: ENABLED
+        content: |
+          {"namespace": "example.avro",
+           "type": "record",
+           "name": "Pet",
+           "fields": [
+               {"name": "name", "type": "string"},
+               {"name": "holderId",  "type": ["int", "null"]},
+               {"name": "type", "type": ["string", "null"]}
+           ]
+          }
+  artifacthub.io/links: |
+    - name: Apicurio Registry Site
+      url: https://www.apicur.io/registry/
+    - name: Apicurio Registry source
+      url: https://github.com/apicurio/apicurio-registry
+    - name: Apicurio Registry content sync source
+      url: https://github.com/Apicurio/apicurio-registry-content-sync-operator
+apiVersion: v2
+appVersion: 0.0.0
+description: Install and configure Apicurio Registry in Kubernetes.
+home: https://github.com/eshepelyuk/apicurio-registry-helm
+icon: https://design.jboss.org/apicurio/logo/final/svg/apicurio_registry_icon_default.svg
+keywords:
+- apicurio
+- schema-registry
+- kafka
+- kubernetes
+- ui
+- streaming
+- openapi
+- asyncapi
+- swagger
+maintainers:
+- email: eshepelyuk@gmail.com
+  name: Ievgenii Shepeliuk
+  url: https://github.com/eshepelyuk
+name: apicurio-registry
+type: application
+version: 3.8.0
