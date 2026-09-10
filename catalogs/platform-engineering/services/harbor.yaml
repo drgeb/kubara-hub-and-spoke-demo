@@ -1,0 +1,9 @@
+apiVersion: kubara.io/v1alpha1
+kind: ServiceDefinition
+metadata:
+  name: harbor
+spec:
+  chartPath: harbor  # Matches platform-components/helm/harbor
+  status: disabled   # Or "enabled" if you want it on by default
+  clusterTypes:
+    - spoke
