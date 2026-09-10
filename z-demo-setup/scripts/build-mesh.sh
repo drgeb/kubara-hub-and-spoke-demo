@@ -38,6 +38,17 @@ SPOKE1_KUBECONFIG="${TMP_DIR}/spoke1.kubeconfig"
 SPOKE2_KUBECONFIG="${TMP_DIR}/spoke2.kubeconfig"
 MESH_KUBECONFIG="${TMP_DIR}/mesh.kubeconfig"
 
+LOCAL_DIR="${ROOT_DIR}/.local"
+KIND_DEMO_DIR="${LOCAL_DIR}/kind-demo"
+
+OPENBAO_NAMESPACE="openbao"
+OPENBAO_MOUNT="kv"
+PLATFORM_CONFIG="${ROOT_DIR}/config.yaml"
+PERSISTENT_HUB_KUBECONFIG="${LOCAL_DIR}/kind.kubeconfig"
+
+SPOKE1_INTERNAL_KUBECONFIG="${KIND_DEMO_DIR}/${SPOKE1_KIND}.internal.kubeconfig"
+SPOKE2_INTERNAL_KUBECONFIG="${KIND_DEMO_DIR}/${SPOKE2_KIND}.internal.kubeconfig"
+
 REBUILD=false
 
 log() {
@@ -115,6 +126,33 @@ check_prerequisites() {
     log "Cilium CLI"
 
     cilium version
+}
+
+get_cluster_stage() {
+    local cluster_name="$1"
+
+    awk -v target="$cluster_name" '
+        function clean(value) {
+            sub(/[ \t]+#.*/, "", value)
+            gsub(/^[ \t]+|[ \t]+$/, "", value)
+            gsub(/^"|"$/, "", value)
+            return value
+        }
+
+        /^[ \t]*-[ \t]*name:[ \t]*/ {
+            line = $0
+            sub(/^[ \t]*-[ \t]*name:[ \t]*/, "", line)
+            current = clean(line)
+            next
+        }
+
+        current == target && /^[ \t]*stage:[ \t]*/ {
+            line = $0
+            sub(/^[ \t]*stage:[ \t]*/, "", line)
+            print clean(line)
+            exit
+        }
+    ' "$PLATFORM_CONFIG"
 }
 
 ensure_cilium_helm_repo() {
@@ -729,6 +767,147 @@ connect_cluster() {
         180
 }
 
+bootstrap_kubara_hub() {
+    log "Bootstrapping Kubara hub"
+
+    command -v kubara >/dev/null 2>&1 ||
+        die "kubara is not installed"
+
+    kubara bootstrap hub --local
+}
+
+generate_internal_kubeconfigs() {
+    log "Generating Docker-internal kubeconfigs"
+
+    mkdir -p "$KIND_DEMO_DIR"
+
+    kind get kubeconfig \
+        --name "$SPOKE1_KIND" \
+        --internal \
+        > "$SPOKE1_INTERNAL_KUBECONFIG"
+
+    kind get kubeconfig \
+        --name "$SPOKE2_KIND" \
+        --internal \
+        > "$SPOKE2_INTERNAL_KUBECONFIG"
+
+    chmod 600 \
+        "$SPOKE1_INTERNAL_KUBECONFIG" \
+        "$SPOKE2_INTERNAL_KUBECONFIG"
+
+    echo "    ${SPOKE1_INTERNAL_KUBECONFIG}"
+    echo "    ${SPOKE2_INTERNAL_KUBECONFIG}"
+}
+
+publish_spoke_kubeconfig() {
+    local cluster_name="$1"
+    local spoke_stage="$2"
+    local kubeconfig="$3"
+    local openbao_addr="$4"
+    local root_token="$5"
+
+    local secret_path="${HUB_NAME}/${HUB_STAGE}/argocd/${cluster_name}-${spoke_stage}"
+    local api_url="${openbao_addr}/v1/${OPENBAO_MOUNT}/data/${secret_path}"
+
+    [[ -f "$kubeconfig" ]] ||
+        die "Internal kubeconfig not found: $kubeconfig"
+
+    jq -Rs '{data: {kubeconfig: .}}' "$kubeconfig" |
+        curl -fsS \
+            --header "X-Vault-Token: ${root_token}" \
+            --header 'Content-Type: application/json' \
+            --request POST \
+            --data-binary @- \
+            "$api_url" >/dev/null
+
+    curl -fsS \
+        --header "X-Vault-Token: ${root_token}" \
+        "$api_url" |
+        jq -e '.data.data.kubeconfig | type == "string" and length > 0' \
+        >/dev/null
+
+    echo "    Published ${OPENBAO_MOUNT}/${secret_path}"
+}
+
+set_values_to_publish_spoke_kubeconfigs_to_openbao() {
+    HUB_STAGE="$(get_cluster_stage "$HUB_NAME")"
+    SPOKE1_STAGE="$(get_cluster_stage "$SPOKE1_NAME")"
+    SPOKE2_STAGE="$(get_cluster_stage "$SPOKE2_NAME")"
+
+    [[ -n "$HUB_STAGE" ]] ||
+        die "Stage not found for ${HUB_NAME}"
+
+    [[ -n "$SPOKE1_STAGE" ]] ||
+        die "Stage not found for ${SPOKE1_NAME}"
+
+    [[ -n "$SPOKE2_STAGE" ]] ||
+        die "Stage not found for ${SPOKE2_NAME}"
+}
+
+publish_spoke_kubeconfigs_to_openbao() {
+    log "Publishing spoke kubeconfigs to OpenBao"
+
+    command -v curl >/dev/null 2>&1 ||
+        die "curl is not installed"
+
+    command -v jq >/dev/null 2>&1 ||
+        die "jq is not installed"
+
+    local ingress_host
+
+    ingress_host="$(
+        kubectl \
+            --kubeconfig "$PERSISTENT_HUB_KUBECONFIG" \
+            --context "$HUB_CONTEXT" \
+            -n "$OPENBAO_NAMESPACE" \
+            get ingress openbao \
+            -o jsonpath='{.spec.rules[0].host}'
+    )"
+
+    [[ -n "$ingress_host" ]] ||
+        die "OpenBao ingress host not found"
+
+    local root_token
+
+    root_token="$(
+        kubectl \
+            --kubeconfig "$PERSISTENT_HUB_KUBECONFIG" \
+            --context "$HUB_CONTEXT" \
+            -n "$OPENBAO_NAMESPACE" \
+            exec openbao-0 -c openbao -- \
+            sh -c \
+            'tr -d "\n\r" < /openbao/data/local-bootstrap/init.json |
+             sed -n '\''s/.*"root_token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p'\'''
+    )"
+
+    [[ -n "$root_token" ]] ||
+        die "Could not read OpenBao root token"
+
+    local openbao_addr="http://${ingress_host}"
+
+    curl -fsS \
+        --header "X-Vault-Token: ${root_token}" \
+        "${openbao_addr}/v1/sys/health" >/dev/null
+
+    echo "    OpenBao: ${openbao_addr}"
+
+    publish_spoke_kubeconfig \
+        "$SPOKE1_KIND" \
+        "$SPOKE1_STAGE" \
+        "$SPOKE1_INTERNAL_KUBECONFIG" \
+        "$openbao_addr" \
+        "$root_token"
+
+    publish_spoke_kubeconfig \
+        "$SPOKE2_KIND" \
+        "$SPOKE2_STAGE" \
+        "$SPOKE2_INTERNAL_KUBECONFIG" \
+        "$openbao_addr" \
+        "$root_token"
+
+    unset root_token
+}
+
 connect_clusters() {
     connect_cluster "$HUB_CONTEXT" "$SPOKE1_CONTEXT"
     connect_cluster "$HUB_CONTEXT" "$SPOKE2_CONTEXT"
@@ -847,7 +1026,6 @@ main() {
     wait_for_nodes
 
     enable_all_clustermesh
-
     connect_clusters
 
     enforce_clustermesh_replicas "$HUB_CONTEXT"
@@ -856,6 +1034,11 @@ main() {
 
     wait_for_mesh_connections 300
     
+    bootstrap_kubara_hub
+    generate_internal_kubeconfigs
+    set_values_to_publish_spoke_kubeconfigs_to_openbao
+    publish_spoke_kubeconfigs_to_openbao
+
     verify_cluster_config
     show_mesh_status
     show_nodes
