@@ -19,6 +19,7 @@ clusters:
             targetRevision: main
     catalogs:
       - ./catalogs/general
+      - ./catalogs/platform-engineering
     services:
       cert-manager:
         status: enabled
@@ -62,6 +63,8 @@ clusters:
           backupStorage:
             create: true
             region: eu01
+      harbor:
+        status: disabled
   - name: kubara-spoke-1
     stage: dev
     type: spoke
@@ -114,27 +117,27 @@ clusters:
           backupStorage:
             create: true
             region: eu01
-    harbor:
-      status: enabled
-      config:
-        adminPassword: Harbor12345
-        databasePassword: changeit
-        hostname: harbor.172.18.0.3.traefik.me
-        additionalHosts:
-        - my.harbor.me
-        networking:
-          annotations: {}
-        persistence:
-          databaseSize: 1Gi
-          redisSize: 1Gi
-          registrySize: 10Gi
-          storageClass: ''
-        tls:
-          enabled: true
-          issuerRef:
-            kind: ClusterIssuer
-            name: kubara-local-ca-issuer
-        tlsCertSource: auto
+      harbor:
+        status: enabled
+        config:
+          adminPassword: Harbor12345
+          databasePassword: changeit
+          hostname: harbor.172.18.0.3.traefik.me
+          additionalHosts:
+          - my.harbor.me
+          networking:
+            annotations: {}
+          persistence:
+            databaseSize: 1Gi
+            redisSize: 1Gi
+            registrySize: 10Gi
+            storageClass: ''
+          tls:
+            enabled: true
+            issuerRef:
+              kind: ClusterIssuer
+              name: kubara-local-ca-issuer
+          tlsCertSource: auto
   - name: kubara-spoke-2
     stage: prod
     type: spoke

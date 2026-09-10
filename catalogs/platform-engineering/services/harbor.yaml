@@ -4,6 +4,66 @@ metadata:
   name: harbor
 spec:
   chartPath: harbor  # Matches platform-components/helm/harbor
-  status: disabled   # Or "enabled" if you want it on by default
+  status: enabled
   clusterTypes:
     - spoke
+  configSchema:
+    type: object
+    properties:
+      adminPassword:
+        type: string
+        default: Harbor12345
+      databasePassword:
+        type: string
+        default: changeit
+      hostname:
+        type: string
+        default: core.harbor.domain
+      additionalHosts:
+        type: array
+        items:
+          type: string
+        default: []
+      networking:
+        type: object
+        default: {}
+        properties:
+          annotations:
+            type: object
+            default: {}
+      persistence:
+        type: object
+        default: {}
+        properties:
+          databaseSize:
+            type: string
+            default: 1Gi
+          redisSize:
+            type: string
+            default: 1Gi
+          registrySize:
+            type: string
+            default: 10Gi
+          storageClass:
+            type: string
+            default: ""
+      tls:
+        type: object
+        required: [enabled]
+        properties:
+          enabled:
+            type: boolean
+            default: true
+          issuerRef:
+            type: object
+            default: {}
+            properties:
+              kind:
+                type: string
+                default: ClusterIssuer
+              name:
+                type: string
+                default: kubara-local-ca-issuer
+      tlsCertSource:
+        type: string
+        default: auto

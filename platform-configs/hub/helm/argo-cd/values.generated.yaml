@@ -38,7 +38,7 @@ bootstrapValues:
         cert-manager: "disabled"
         external-dns: "disabled"
         external-secrets: "enabled"
-        harbor: "disabled"
+        harbor: "enabled"
         kube-prometheus-stack: "disabled"
         kyverno: "disabled"
         kyverno-policies: "disabled"
@@ -102,6 +102,9 @@ bootstrapValues:
         external-secrets:
           name: external-secrets
           path: external-secrets
+        harbor:
+          name: harbor
+          path: harbor
         homer-dashboard:
           name: homer-dashboard
           path: homer-dashboard
@@ -155,6 +158,7 @@ inClusterSecretLabels:
   cert-manager: "enabled"
   external-dns: "disabled"
   external-secrets: "enabled"
+  harbor: "disabled"
   homer-dashboard: "enabled"
   kube-prometheus-stack: "enabled"
   kyverno: "disabled"
