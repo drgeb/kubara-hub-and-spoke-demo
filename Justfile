@@ -117,14 +117,17 @@ kubara-bootstrap-local-catalog:
 kubara-test-connection:
     kubara --test-connection
 
-# Start the cloud-provider-kind
+# Start the cloud-provider-kind (LBs are placed on the kubara-mesh network)
 start-cloud-provider-kind:
     @if [ -f .cloud-provider-kind ] && kill -0 "$(cat .cloud-provider-kind)" 2>/dev/null; then \
       echo "cloud-provider-kind already running (pid $(cat .cloud-provider-kind))"; \
     elif pgrep -f cloud-provider-kind >/dev/null; then \
       echo "cloud-provider-kind already running (pid $(pgrep -f cloud-provider-kind | head -1))"; \
     else \
-      nohup sudo -n cloud-provider-kind > .cloud-provider-kind.log 2>&1 & \
+      echo "removing stale load balancers so they are recreated on the kubara-mesh network"; \
+      docker rm -f $(docker ps -aq --filter label=io.x-k8s.cloud-provider-kind.cluster=hub) 2>/dev/null || true; \
+      sudo -n env KIND_EXPERIMENTAL_DOCKER_NETWORK=kubara-mesh \
+        nohup cloud-provider-kind > .cloud-provider-kind.log 2>&1 & \
       echo $! > .cloud-provider-kind; \
       echo "started cloud-provider-kind (pid $(cat .cloud-provider-kind)), logs in .cloud-provider-kind.log"; \
     fi
