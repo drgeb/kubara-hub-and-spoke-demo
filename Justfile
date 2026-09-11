@@ -1,6 +1,15 @@
-LB_ADDR := `kubectl get svc/traefik -n traefik -o=jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true`
+# Each kind cluster's traefik LoadBalancer IP is resolved explicitly instead of
+# relying on the current kubectl context. Hub apps (argocd, homer, grafana,
+# prometheus, alertmanager, openbao) live on kind-hub; PLTFME (platform
+# engineering: forgejo, kargo, harbor, nexus, keycloak, ...) on
+# kind-kubara-spoke-1; DEV apps on kind-kubara-spoke-2.
+HUB_LB_ADDR := `kubectl --kubeconfig .local/kind.kubeconfig --context kind-hub get svc/traefik -n traefik -o=jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true`
+PLTFME_LB_ADDR := `kubectl --kubeconfig .local/kind.kubeconfig --context kind-kubara-spoke-1 get svc/traefik -n traefik -o=jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true`
+DEV_LB_ADDR := `kubectl --kubeconfig .local/kind.kubeconfig --context kind-kubara-spoke-2 get svc/traefik -n traefik -o=jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true`
 CLUSTER_NAME := "test-cluster"
-DNS_NAME := LB_ADDR + ".traefik.me"
+HUB_DNS_NAME := HUB_LB_ADDR + ".traefik.me"
+PLTFME_DNS_NAME := PLTFME_LB_ADDR + ".traefik.me"
+DEV_DNS_NAME := DEV_LB_ADDR + ".traefik.me"
 
 # Apply CoreDNS patch (hosts entries pinned to service ClusterIPs, see refresh-coredns-hosts)
 apply-coredns-patch:
@@ -266,7 +275,7 @@ kind-restart:
 
 kargo-cli-login:
     @: "${KARGO_ADMIN_PASSWORD:?not set - run 'direnv allow' to load .env}"
-    @kargo login http://kargo.{{DNS_NAME}} --admin --password "$KARGO_ADMIN_PASSWORD"
+    @kargo login http://kargo.{{PLTFME_DNS_NAME}} --admin --password "$KARGO_ADMIN_PASSWORD"
 
 # Seed the go-hello delivery pipeline (Forgejo repo/CI, Harbor robot, Argo CD + Kargo)
 # Safe to re-run; required again after `bring-up` recreates the cluster.
@@ -281,11 +290,11 @@ go-hello-verify:
 
 # Open the go-hello service
 open-go-hello:
-    @open http://go-hello.{{DNS_NAME}}/
+    @open http://go-hello.{{DEV_DNS_NAME}}/
 
 # Curl the go-hello endpoint
 go-hello-test:
-    @curl http://go-hello.{{DNS_NAME}}/
+    @curl http://go-hello.{{DEV_DNS_NAME}}/
 
 # Seed the ebank delivery pipeline (Argo CD repo creds + AppProject/Applications)
 # Safe to re-run; required again after `bring-up` recreates the cluster.
@@ -300,11 +309,11 @@ ebank-verify:
 
 # Open the ebank service (pass staging or prod, default: dev)
 open-ebank env="dev":
-    @open http://ebank-simple-{{env}}.{{DNS_NAME}}/
+    @open http://ebank-simple-{{env}}.{{DEV_DNS_NAME}}/
 
 # Open the kargo-simple guestbook app (pass staging or prod, default: dev)
 open-kargo-simple env="dev":
-    @open http://guestbook-simple-{{env}}.{{DNS_NAME}}/
+    @open http://guestbook-simple-{{env}}.{{DEV_DNS_NAME}}/
 
 open-portal:
     @echo "Opening Argo CD portal in the default browser..."
@@ -312,50 +321,50 @@ open-portal:
     @sleep 5
     @open http://localhost:8080
 
-# Open Argo CD UI
+# Open Argo CD UI (hub)
 open-argo-cd:
     @echo user: wizard
     @echo passwd: $ARGOCD_WIZARD_ACCOUNT_PASSWORD
     @echo $ARGOCD_WIZARD_ACCOUNT_PASSWORD | pbcopy
-    @open https://{{DNS_NAME}}/argocd
+    @open https://{{HUB_DNS_NAME}}/argocd
 
-# Open Homer dashboard
+# Open Homer dashboard (hub)
 open-homer-dashboard:
     @echo user: 
     @echo passwd: 
-    @open https://{{DNS_NAME}}/
+    @open https://{{HUB_DNS_NAME}}/
 
-# Open Grafana
+# Open Grafana (hub)
 open-grafana:
     @echo user: 
     @echo passwd: 
-    @open https://{{DNS_NAME}}/grafana
+    @open https://{{HUB_DNS_NAME}}/grafana
 
-# Open Prometheus
+# Open Prometheus (hub)
 open-prometheus:
     @echo user: wizard
     @echo passwd: ${ARGOCD_WIZARD_ACCOUNT_PASSWORD}
     @echo $ARGOCD_WIZARD_ACCOUNT_PASSWORD | pbcopy
-    @open https://{{DNS_NAME}}/prometheus
+    @open https://{{HUB_DNS_NAME}}/prometheus
 
-# Open Alertmanager
+# Open Alertmanager (hub)
 open-alertmanager:
     @echo user: 
     @echo passwd: 
-    @open https://{{DNS_NAME}}/alertmanager
+    @open https://{{HUB_DNS_NAME}}/alertmanager
 
 # Open Uptime Kuma
 open-uptime-kuma:
     @echo user: 
     @echo passwd: 
-    @open https://uptime-kuma.{{DNS_NAME}}/
+    @open https://uptime-kuma.{{DEV_DNS_NAME}}/
 
 # Open Forgejo
 open-forgejo:
     @echo user: ${FORGEJO_ADMIN_USER}
     @echo passwd: ${FORGEJO_ADMIN_PASSWORD}
     @echo $FORGEJO_ADMIN_PASSWORD | pbcopy
-    @open https://forgejo.{{DNS_NAME}}/
+    @open https://forgejo.{{PLTFME_DNS_NAME}}/
 
 # Create the Forgejo repo for forgejo-build-image if missing, then push it
 push-forgejo-build-image:
@@ -367,7 +376,7 @@ push-forgejo-build-image:
     REPO_DIR="forgejo-build-image"
     REPO_NAME="$(basename "$REPO_DIR")"
     OWNER="$FORGEJO_ADMIN_USER"
-    FORGEJO_URL="https://forgejo.{{DNS_NAME}}"
+    FORGEJO_URL="https://forgejo.{{PLTFME_DNS_NAME}}"
 
     # "Push to create" is disabled for users on Forgejo, so create the repo first.
     status="$(curl -sk -o /dev/null -w '%{http_code}' \
@@ -395,7 +404,7 @@ set-forgejo-harbor-secrets:
 
     REPO_NAME="forgejo-build-image"
     OWNER="$FORGEJO_ADMIN_USER"
-    FORGEJO_URL="https://forgejo.{{DNS_NAME}}"
+    FORGEJO_URL="https://forgejo.{{PLTFME_DNS_NAME}}"
     AUTH=(-u "$FORGEJO_ADMIN_USER:$FORGEJO_ADMIN_PASSWORD" -H "Content-Type: application/json")
 
     api() {
@@ -412,34 +421,34 @@ set-forgejo-harbor-secrets:
 open-bao:
     @echo user: 
     @echo passwd: 
-    @open https://openbao.{{DNS_NAME}}/
+    @open https://openbao.{{HUB_DNS_NAME}}/
 
 # Open Harbor registry
 open-harbor:
     @echo user: admin
     @echo passwd: ${HARBOR_ADMIN_PASSWORD} 
     @echo ${HARBOR_ADMIN_PASSWORD} | pbcopy
-    @open https://harbor.{{DNS_NAME}}/
+    @open https://harbor.{{PLTFME_DNS_NAME}}/
 
 # Open Kargo
 open-kargo:
     @echo user: admin
     @echo passwd: ${KARGO_ADMIN_PASSWORD}
     @echo ${KARGO_ADMIN_PASSWORD} | pbcopy
-    @open https://kargo.{{DNS_NAME}}/
+    @open https://kargo.{{PLTFME_DNS_NAME}}/
 
 # Open Nexus
 open-nexus:
     @echo user: admin
     @echo passwd: ${NEXUS_ADMIN_PASSWORD}
     @echo ${NEXUS_ADMIN_PASSWORD} | pbcopy
-    @open https://nexus.{{DNS_NAME}}/
+    @open https://nexus.{{PLTFME_DNS_NAME}}/
 
 open-keycloak:
     @echo user: admin
     @echo passwd: ${KEYCLOAK_ADMIN_PASSWORD}
     @echo ${KEYCLOAK_ADMIN_PASSWORD} | pbcopy
-    @open https://keycloak.{{DNS_NAME}}/
+    @open https://keycloak.{{PLTFME_DNS_NAME}}/
 
 # Exec into the running postgres pod and open a psql shell
 open-postgres-shell:
@@ -454,8 +463,8 @@ open-postgres19-shell:
 inspect-what-certificate-Traefik-is-serving:
     @echo "Traefik is serving the following certificate:"
     echo | openssl s_client \
-        -connect forgejo.172.19.0.5.traefik.me:443 \
-        -servername forgejo.172.19.0.5.traefik.me \
+        -connect forgejo.{{PLTFME_DNS_NAME}}:443 \
+        -servername forgejo.{{PLTFME_DNS_NAME}} \
         2>/dev/null | openssl x509 -noout -subject -issuer -dates -ext subjectAltName
 
 get-harbor-credentials:
