@@ -6,15 +6,15 @@
 
 namespace:
   labels:
-    project-name: "platform-engineering"
-    stage: "local"
+    project-name: "kubara-spoke-1"
+    stage: "dev"
 
 image:
   pullPolicy: IfNotPresent
 
 openproject:
   https: true
-  host: openproject.172.19.0.5.traefik.me
+  host: openproject.172.19.0.6.traefik.me
   hsts: true
 
   admin_user:
@@ -45,7 +45,7 @@ postgresql:
 ingress:
   enabled: true
   ingressClassName: traefik
-  host: openproject.172.19.0.5.traefik.me
+  host: openproject.172.19.0.6.traefik.me
   path: /
   pathType: Prefix
 
@@ -58,7 +58,7 @@ ingress:
 
 persistence:
   enabled: true
-  size: 20Gi
+  size: "20Gi"
   accessModes:
     - ReadWriteOnce
 

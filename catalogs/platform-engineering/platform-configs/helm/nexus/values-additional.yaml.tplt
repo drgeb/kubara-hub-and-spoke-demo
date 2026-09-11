@@ -1,4 +1,6 @@
 # This file is rendered from a catalog template per-cluster.
+{{- $cfg := index .cluster.services "nexus" "config" | default dict }}
+{{- $host := $cfg.hostname | default (printf "nexus.%s" .cluster.dnsName) }}
 
 ingress:
   additionalHosts:
@@ -6,5 +8,5 @@ ingress:
   tls:
     - secretName: nexus-tls
       hosts:
-        - nexus.172.19.0.6.traefik.me
+        - {{ $host }}
         - my.nexus.me

@@ -11,6 +11,8 @@ spec:
   configSchema:
     type: object
     properties:
+      host:
+        type: string
       admin:
         type: object
         properties:
