@@ -142,21 +142,6 @@ clusters:
           database:
             name: forgejo
             username: app
-            password: APPPostgres123!
-          postgresPassword: Postgres123!
-          primary:
-            initdb:
-              scripts:
-                01-create-app-databases.sql: |
-                  -- OpenProject
-                  CREATE ROLE openproject LOGIN PASSWORD 'OpenProject123';
-                  CREATE DATABASE openproject OWNER openproject;
-                  -- Keycloak
-                  CREATE ROLE keycloak LOGIN PASSWORD 'KEYCLOAK123!';
-                  CREATE DATABASE keycloak OWNER keycloak;
-                  -- Apicurio
-                  CREATE ROLE apicurio LOGIN PASSWORD 'ApicurioDB123!';
-                  CREATE DATABASE apicurio OWNER apicurio;
           persistence:
             size: 20Gi
             storageClass: ''
@@ -164,8 +149,6 @@ clusters:
       harbor:
         status: enabled
         config:
-          adminPassword: Harbor12345
-          databasePassword: changeit
           hostname: harbor.172.19.0.7.traefik.me
           additionalHosts:
           - my.harbor.me
@@ -189,12 +172,10 @@ clusters:
           host: forgejo.172.19.0.7.traefik.me
           admin:
             email: admin@local
-            password: ForgejoAdmin123!
             username: gitea_admin
           database:
             host: postgresql.postgresql.svc.cluster.local
             name: forgejo
-            password: APPPostgres123!
             user: app
           tls:
             enabled: true
@@ -205,8 +186,6 @@ clusters:
       kargo:
         status: enabled
         config:
-          adminPassword: KargoAdmin123!
-          adminTokenSigningKey: PEv19OjdUxvp0TdFVOhmSvTNEdKAcNGmbgyZacK4Grx1ZHKbGF42PN_-klUbZDL7
           host: kargo.172.19.0.7.traefik.me
           integrations:
             argocd: true
@@ -221,7 +200,6 @@ clusters:
         status: enabled
         config:
           hostname: nexus.172.19.0.7.traefik.me
-          adminPassword: Nexus12345
           tls:
             enabled: true
             issuerRef:
@@ -232,16 +210,13 @@ clusters:
         status: enabled
         config:
           host: openproject.172.19.0.7.traefik.me
-          adminPassword: OpenProjectAdmin123!
           adminName: OpenProject Administrator
           adminEmail: admin@example.com
-          secretKeyBase: S6oKeeQOndga_J25QSRhLISQEsKvqLVugzitM46bI-IyKnbsmZhUhpnpyXpDcTyz5lquXGCN0LWVRcVwvQ29cA
           database:
             host: postgresql.postgresql.svc.cluster.local
             port: 5432
             name: openproject
             username: openproject
-            password: OpenProject123
           storage:
             size: 20Gi
           replicas: 1
@@ -251,13 +226,11 @@ clusters:
         config:
           host: keycloak.172.19.0.7.traefik.me
           adminUser: admin
-          adminPassword: KeycloakAdmin123!
           database:
             host: postgresql.postgresql.svc.cluster.local
             port: 5432
             name: keycloak
             username: keycloak
-            password: KEYCLOAK123!
           replicas: 1
       # An Open Policy Agent (OPA) server for policy-based control and decision-making.
       opa:
@@ -275,7 +248,6 @@ clusters:
             port: 5432
             name: apicurio
             username: apicurio
-            password: ApicurioDB123!
           image:
             tag: 2.5.9.Final
           sync:
@@ -337,18 +309,15 @@ clusters:
         config:
           database:
             name: app
-            password: APPPostgres123!
             username: app
           persistence:
             size: 8Gi
             storageClass: ''
-          postgresPassword: Postgres123!
       postgresql19:
         status: enabled
         config:
           database:
             name: app
-            password: APPPostgres123!
             username: app
           imageName: ghcr.io/cloudnative-pg/postgresql:19beta2-standard-trixie
           instanceName: postgresql19
@@ -356,7 +325,6 @@ clusters:
           persistence:
             size: 8Gi
             storageClass: ''
-          postgresPassword: Postgres123!
       uptime-kuma:
         status: enabled
         networking:

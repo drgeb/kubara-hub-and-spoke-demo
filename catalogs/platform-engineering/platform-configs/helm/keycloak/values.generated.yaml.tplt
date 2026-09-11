@@ -18,7 +18,8 @@ proxyHeaders: xforwarded
 
 auth:
   adminUser: {{ $cfg.adminUser | default "admin" | quote }}
-  adminPassword: {{ $cfg.adminPassword | default "KeycloakAdmin123!" | quote }}
+  existingSecret: keycloak-credentials
+  passwordSecretKey: admin-password
 
 postgresql:
   enabled: false
@@ -29,7 +30,8 @@ externalDatabase:
   database: {{ $cfg.database.name | default "keycloak" | quote }}
   username: {{ $cfg.database.username | default "keycloak" | quote }}
   user: {{ $cfg.database.username | default "keycloak" | quote }}
-  password: {{ $cfg.database.password | default "KEYCLOAK123!" | quote }}
+  existingSecret: keycloak-credentials
+  existingSecretPasswordKey: db-password
   schema: public
 
 replicaCount: {{ $cfg.replicas | default 1 }}

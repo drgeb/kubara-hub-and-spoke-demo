@@ -21,10 +21,15 @@ openproject:
   hsts: true
 
   admin_user:
-    password: {{ $cfg.adminPassword | default "OpenProjectAdmin123!" | quote }}
+    secret: openproject-secrets
     password_reset: "false"
     name: {{ $cfg.adminName | default "OpenProject Administrator" | quote }}
     mail: {{ $cfg.adminEmail | default "admin@example.com" | quote }}
+
+  secrets:
+    secretKeyBase:
+      existingSecret: openproject-secrets
+      secretKey: secret-key-base
 
   cache:
     store: memcache
@@ -38,7 +43,6 @@ postgresql:
 
   auth:
     existingSecret: openproject-postgresql
-    password: {{ $cfg.database.password | default "OpenProject123" | quote }}
     secretKeys:
       adminPasswordKey: postgres-password
       userPasswordKey: password

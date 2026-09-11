@@ -254,33 +254,33 @@ open-portal:
     @sleep 5
     @open http://localhost:8080
 
-# Open Argo CD UI (hub)
+# Open Argo CD UI
 open-argo-cd:
-    @echo user: wizard
+    @echo user: ${ARGOCD_ADMIN_USER}
     @echo passwd: $ARGOCD_WIZARD_ACCOUNT_PASSWORD
     @echo $ARGOCD_WIZARD_ACCOUNT_PASSWORD | pbcopy
     @open https://{{HUB_DNS_NAME}}/argocd
 
-# Open Homer dashboard (hub)
+# Open Homer dashboard
 open-homer-dashboard:
     @echo user: 
     @echo passwd: 
     @open https://{{HUB_DNS_NAME}}/
 
-# Open Grafana (hub)
+# Open Grafana
 open-grafana:
     @echo user: 
     @echo passwd: 
     @open https://{{HUB_DNS_NAME}}/grafana
 
-# Open Prometheus (hub)
+# Open Prometheus
 open-prometheus:
-    @echo user: wizard
+    @echo user: ${ARGOCD_ADMIN_USER}
     @echo passwd: ${ARGOCD_WIZARD_ACCOUNT_PASSWORD}
     @echo $ARGOCD_WIZARD_ACCOUNT_PASSWORD | pbcopy
     @open https://{{HUB_DNS_NAME}}/prometheus
 
-# Open Alertmanager (hub)
+# Open Alertmanager
 open-alertmanager:
     @echo user: 
     @echo passwd: 
@@ -332,8 +332,8 @@ set-forgejo-harbor-secrets:
     set -euo pipefail
     : "${FORGEJO_ADMIN_USER:?set in .env - run 'direnv allow'}"
     : "${FORGEJO_ADMIN_PASSWORD:?set in .env - run 'direnv allow'}"
+    : "${HARBOR_ADMIN_USER:?set in .env - run 'direnv allow'}"
     : "${HARBOR_ADMIN_PASSWORD:?set in .env - run 'direnv allow'}"
-    HARBOR_ADMIN_USER="${HARBOR_ADMIN_USER:-admin}"
 
     REPO_NAME="forgejo-build-image"
     OWNER="$FORGEJO_ADMIN_USER"
@@ -358,27 +358,27 @@ open-bao:
 
 # Open Harbor registry
 open-harbor:
-    @echo user: admin
+    @echo user: ${HARBOR_ADMIN_USER}
     @echo passwd: ${HARBOR_ADMIN_PASSWORD} 
     @echo ${HARBOR_ADMIN_PASSWORD} | pbcopy
     @open https://harbor.{{PLTFME_DNS_NAME}}/
 
 # Open Kargo
 open-kargo:
-    @echo user: admin
+    @echo user: ${KARGO_ADMIN_USER}
     @echo passwd: ${KARGO_ADMIN_PASSWORD}
     @echo ${KARGO_ADMIN_PASSWORD} | pbcopy
     @open https://kargo.{{PLTFME_DNS_NAME}}/
 
 # Open Nexus
 open-nexus:
-    @echo user: admin
+    @echo user: ${NEXUS_ADMIN_USER}
     @echo passwd: ${NEXUS_ADMIN_PASSWORD}
     @echo ${NEXUS_ADMIN_PASSWORD} | pbcopy
     @open https://nexus.{{PLTFME_DNS_NAME}}/
 
 open-keycloak:
-    @echo user: admin
+    @echo user: ${KEYCLOAK_ADMIN_USER}
     @echo passwd: ${KEYCLOAK_ADMIN_PASSWORD}
     @echo ${KEYCLOAK_ADMIN_PASSWORD} | pbcopy
     @open https://keycloak.{{PLTFME_DNS_NAME}}/

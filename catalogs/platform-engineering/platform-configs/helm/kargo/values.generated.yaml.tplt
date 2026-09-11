@@ -17,6 +17,8 @@ image:
 api:
   host: {{ $host }}
   basePath: ""
+  secret:
+    name: kargo-admin
   tls:
     enabled: false
   ingress:

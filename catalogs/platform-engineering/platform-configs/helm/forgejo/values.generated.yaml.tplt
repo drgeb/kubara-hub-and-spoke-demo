@@ -37,8 +37,14 @@ ingress:
 gitea:
   admin:
     username: {{ $cfg.admin.username | default "gitea_admin" | quote }}
-    password: {{ $cfg.admin.password | default "ForgejoAdmin123!" | quote }}
+    existingSecret: forgejo-admin
     email: {{ $cfg.admin.email | default "admin@local" | quote }}
+  env:
+    - name: GITEA__database__PASSWD
+      valueFrom:
+        secretKeyRef:
+          name: forgejo-credentials
+          key: password
   config:
     server:
       DOMAIN: {{ $host }}
@@ -48,5 +54,4 @@ gitea:
       HOST: {{ $cfg.database.host | default "postgresql.postgresql.svc.cluster.local" | quote }}
       NAME: {{ $cfg.database.name | default "forgejo" | quote }}
       USER: {{ $cfg.database.user | default "app" | quote }}
-      PASSWD: {{ $cfg.database.password | default "APPPostgres123!" | quote }}
       SSL_MODE: disable
