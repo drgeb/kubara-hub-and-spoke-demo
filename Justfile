@@ -1,12 +1,15 @@
 # Each kind cluster's traefik LoadBalancer IP is resolved explicitly instead of
 # relying on the current kubectl context. Hub apps (argocd, homer, grafana,
-# prometheus, alertmanager, openbao) live on kind-hub; PLTFME (platform
-# engineering: forgejo, kargo, harbor, nexus, keycloak, ...) on
-# kind-kubara-spoke-1; DEV apps on kind-kubara-spoke-2.
+# prometheus, alertmanager, openbao) live on the "hub" kind cluster; PLTFME
+# (platform engineering: forgejo, kargo, harbor, nexus, keycloak, ...) on
+# kubara-spoke-1; DEV apps on kubara-spoke-2.
+HUB_CLUSTER_NAME := "hub"
+PLTFME_CLUSTER_NAME := "kubara-spoke-1"
+DEV_CLUSTER_NAME := "kubara-spoke-2"
+
 HUB_LB_ADDR := `kubectl --kubeconfig .local/kind.kubeconfig --context kind-hub get svc/traefik -n traefik -o=jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true`
 PLTFME_LB_ADDR := `kubectl --kubeconfig .local/kind.kubeconfig --context kind-kubara-spoke-1 get svc/traefik -n traefik -o=jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true`
 DEV_LB_ADDR := `kubectl --kubeconfig .local/kind.kubeconfig --context kind-kubara-spoke-2 get svc/traefik -n traefik -o=jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true`
-CLUSTER_NAME := "test-cluster"
 HUB_DNS_NAME := HUB_LB_ADDR + ".traefik.me"
 PLTFME_DNS_NAME := PLTFME_LB_ADDR + ".traefik.me"
 DEV_DNS_NAME := DEV_LB_ADDR + ".traefik.me"
@@ -120,14 +123,6 @@ init-prep:
 kubara-init-local:
     kubara init --local
 
-# Bootstrap Argo CD onto the local {{CLUSTER_NAME}}
-kubara-bootstrap-local:
-    kubara bootstrap --local {{CLUSTER_NAME}}
-
-# Bootstrap Argo CD onto the local {{CLUSTER_NAME}} using a local catalog fix
-kubara-bootstrap-local-catalog:
-    kubara bootstrap --local {{CLUSTER_NAME}} --catalog .local-catalog-fix --catalog-overwrite
-
 # Test the Kubernetes cluster connection and list namespaces
 kubara-test-connection:
     kubara --test-connection
@@ -179,99 +174,37 @@ verify-argocd:
     kubectl rollout status deploy/argocd-server -n argocd
     kubectl get events -n argocd --sort-by=.lastTimestamp
 
-# Create the local kind cluster using Cilium (disables the default kindnet CNI)
-kind-cluster-create-cilium:
-    kind create cluster --name {{CLUSTER_NAME}} --config kind-config-cilium.yaml
-
-# Delete the local kind cluster (destroys all local workloads and data)
-kind-cluster-delete:
-    kind delete cluster --name {{CLUSTER_NAME}}
-
-# Install Cilium (CNI + kube-proxy replacement + Hubble) on the kind cluster
-cilium-install:
-    cilium install --context kind-{{CLUSTER_NAME}} -f cilium-values.yaml
-    cilium status --wait --context kind-{{CLUSTER_NAME}}
-
-# Uninstall Cilium from the kind cluster
-cilium-uninstall:
-    cilium uninstall --context kind-{{CLUSTER_NAME}}
-
-# Run the Cilium connectivity test suite
-cilium-connectivity-test:
-    cilium connectivity test --context kind-{{CLUSTER_NAME}}
-
-# Open the Hubble observability UI
+# Open the Hubble observability UI for every kind cluster
 cilium-hubble-ui:
-    cilium hubble ui --context kind-{{CLUSTER_NAME}}
-
-# Bootstrap the local platform on a kind cluster using Cilium as the CNI
-bootstrap-local-cilium:
-    #!/usr/bin/env bash
-    if ! kind get clusters 2>/dev/null | grep -q "^{{CLUSTER_NAME}}$"; then
-        kind create cluster --name {{CLUSTER_NAME}} --config kind-config-cilium.yaml
-    else
-        echo "Reusing existing kind cluster: {{CLUSTER_NAME}}"
-    fi
-    cilium install --context kind-{{CLUSTER_NAME}} -f cilium-values.yaml
-    cilium status --wait --context kind-{{CLUSTER_NAME}}
-    kubara bootstrap --local {{CLUSTER_NAME}}
-
-# Regenerate the local kubeconfig for the kind cluster
-regenerate-local-kubeconfig:
-    kind get kubeconfig --name {{CLUSTER_NAME}} > .local/kind.kubeconfig
-    echo "Regenerated local kubeconfig for kind cluster: {{CLUSTER_NAME}}"
-
-# Bring the whole platform back up after kind delete cluster {{CLUSTER_NAME}}
-bring-up:
     #!/usr/bin/env bash
     set -euo pipefail
-    if ! kind get clusters 2>/dev/null | grep -q "^{{CLUSTER_NAME}}$"; then
-        kind create cluster --name {{CLUSTER_NAME}} --config kind-config-cilium.yaml
-    else
-        echo "Reusing existing kind cluster: {{CLUSTER_NAME}}"
-    fi
-    kind get kubeconfig --name {{CLUSTER_NAME}} > .local/kind.kubeconfig
-    if ! kubectl get daemonset cilium -n kube-system --context kind-{{CLUSTER_NAME}} >/dev/null 2>&1; then
-        cilium install --context kind-{{CLUSTER_NAME}} -f cilium-values.yaml
-    else
-        echo "Reusing existing Cilium installation"
-    fi
-    cilium status --wait --context kind-{{CLUSTER_NAME}}
-    # kubara bootstrap --local rewrites config.yaml: it updates the cluster
-    # dnsName to the LoadBalancer IP of this cluster but forces every service to
-    # disabled except its fixed local whitelist. Merge the bootstrapped config
-    # back with the pre-bootstrap config so the user's service statuses and the
-    # freshly discovered LoadBalancer IP are both kept.
-    cp config.yaml .local/config.yaml.pre-bootstrap
-    kubara bootstrap --local {{CLUSTER_NAME}} --catalog .local-catalog-fix --catalog-overwrite
-    python3 scripts/merge-config.py config.yaml .local/config.yaml.pre-bootstrap
-    kubara generate --helm --catalog .local-catalog-fix --catalog-overwrite
-    # Render the runtime-discovered LoadBalancer IPs (forgejo SSH pin, traefik
-    # dashboard, argo-cd url) into the hand-maintained additional-values files.
-    ./scripts/render-runtime-config.sh
-    # kubara bootstrap re-writes kube-prometheus-stack values-additional.yaml with
-    # a 384Mi prometheus limit that OOM-kills the pod; raise it after generate.
-    yq -iy '."kube-prometheus-stack".prometheus.prometheusSpec.resources.requests.memory = "1Gi" | ."kube-prometheus-stack".prometheus.prometheusSpec.resources.limits.memory = "1Gi"' platform-configs/{{CLUSTER_NAME}}/helm/kube-prometheus-stack/values-additional.yaml
-    echo ""
-    echo "==> Waiting for Argo CD to sync all applications"
-    until kubectl get application -n argocd >/dev/null 2>&1; do sleep 5; done
-    kubectl wait --timeout=5m --for=jsonpath='{.status.health.status}'=Healthy application -n argocd --all
-    @just apply-coredns-patch
+    port=12100
+    for cluster in {{HUB_CLUSTER_NAME}} {{PLTFME_CLUSTER_NAME}} {{DEV_CLUSTER_NAME}}; do
+        echo "Opening Hubble UI for kind-$cluster on :$port"
+        cilium hubble ui --context "kind-$cluster" --port-forward "$port" &
+        port=$((port + 1))
+    done
+    wait
 
 # Prune all Docker resources except images
 docker-prune-images:
     docker container prune -f && docker network prune -f && docker volume prune -f && docker builder prune -f
 
-docker-restart:
-    docker restart {{CLUSTER_NAME}}-control-plane 2>&1
-
-# Stop the kind cluster (and its cloud-provider-kind load balancers) without deleting it
+# Stop all kind clusters (and their cloud-provider-kind load balancers) without deleting them
 kind-stop:
-    docker stop $(docker ps -qa --filter "label=io.x-k8s.kind.cluster={{CLUSTER_NAME}}") $(docker ps -qa --filter "label=io.x-k8s.cloud-provider-kind.cluster={{CLUSTER_NAME}}")
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for cluster in {{HUB_CLUSTER_NAME}} {{PLTFME_CLUSTER_NAME}} {{DEV_CLUSTER_NAME}}; do
+        docker stop $(docker ps -qa --filter "label=io.x-k8s.kind.cluster=$cluster") $(docker ps -qa --filter "label=io.x-k8s.cloud-provider-kind.cluster=$cluster")
+    done
 
-# Restart a stopped kind cluster (containers, load balancers, and services come back)
+# Restart all stopped kind clusters (containers, load balancers, and services come back)
 kind-restart:
-    docker start $(docker ps -aq --filter "label=io.x-k8s.kind.cluster={{CLUSTER_NAME}}") $(docker ps -aq --filter "label=io.x-k8s.cloud-provider-kind.cluster={{CLUSTER_NAME}}")
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for cluster in {{HUB_CLUSTER_NAME}} {{PLTFME_CLUSTER_NAME}} {{DEV_CLUSTER_NAME}}; do
+        docker start $(docker ps -aq --filter "label=io.x-k8s.kind.cluster=$cluster") $(docker ps -aq --filter "label=io.x-k8s.cloud-provider-kind.cluster=$cluster")
+    done
 
 kargo-cli-login:
     @: "${KARGO_ADMIN_PASSWORD:?not set - run 'direnv allow' to load .env}"
