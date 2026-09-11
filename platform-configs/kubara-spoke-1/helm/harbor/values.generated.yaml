@@ -19,11 +19,9 @@ expose:
       cert-manager.io/cluster-issuer: kubara-local-ca-issuer
 
 externalURL: "https://harbor.172.19.0.7.traefik.me"
-harborAdminPassword: "Harbor12345"
+existingSecretAdminPassword: harbor-credentials
 database:
   type: internal
-  internal:
-    password: "changeit"
 persistence:
   persistentVolumeClaim:
     database:

@@ -18,10 +18,15 @@ openproject:
   hsts: true
 
   admin_user:
-    password: "OpenProjectAdmin123!"
+    secret: openproject-secrets
     password_reset: "false"
     name: "OpenProject Administrator"
     mail: "admin@example.com"
+
+  secrets:
+    secretKeyBase:
+      existingSecret: openproject-secrets
+      secretKey: secret-key-base
 
   cache:
     store: memcache
@@ -35,7 +40,6 @@ postgresql:
 
   auth:
     existingSecret: openproject-postgresql
-    password: "OpenProject123"
     secretKeys:
       adminPasswordKey: postgres-password
       userPasswordKey: password

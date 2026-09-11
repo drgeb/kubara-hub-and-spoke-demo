@@ -16,7 +16,7 @@ registry:
   sql:
     url: "jdbc:postgresql://postgresql.postgresql.svc.cluster.local:%!d(float64=5432)/apicurio"
     username: "apicurio"
-    password: "ApicurioDB123!"
+    passwordSecret: apicurio-credentials
   podSecurityContext:
     runAsNonRoot: true
     fsGroup: 1000

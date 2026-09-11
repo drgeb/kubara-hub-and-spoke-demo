@@ -12,7 +12,7 @@ auth:
   enablePostgresUser: true
   postgresPassword: "Postgres123!"
   username: "app"
-  password: "APPPostgres123!"
+  password: ""
   database: "app"
 
 primary:

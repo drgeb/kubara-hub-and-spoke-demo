@@ -15,7 +15,8 @@ proxyHeaders: xforwarded
 
 auth:
   adminUser: "admin"
-  adminPassword: "KeycloakAdmin123!"
+  existingSecret: keycloak-credentials
+  passwordSecretKey: admin-password
 
 postgresql:
   enabled: false
@@ -26,7 +27,8 @@ externalDatabase:
   database: "keycloak"
   username: "keycloak"
   user: "keycloak"
-  password: "KEYCLOAK123!"
+  existingSecret: keycloak-credentials
+  existingSecretPasswordKey: db-password
   schema: public
 
 replicaCount: 1

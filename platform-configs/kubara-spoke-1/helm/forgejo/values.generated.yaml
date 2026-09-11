@@ -34,8 +34,14 @@ ingress:
 gitea:
   admin:
     username: "gitea_admin"
-    password: "ForgejoAdmin123!"
+    existingSecret: forgejo-admin
     email: "admin@local"
+  env:
+    - name: GITEA__database__PASSWD
+      valueFrom:
+        secretKeyRef:
+          name: forgejo-credentials
+          key: password
   config:
     server:
       DOMAIN: forgejo.172.19.0.7.traefik.me
@@ -45,5 +51,4 @@ gitea:
       HOST: "postgresql.postgresql.svc.cluster.local"
       NAME: "forgejo"
       USER: "app"
-      PASSWD: "APPPostgres123!"
       SSL_MODE: disable
