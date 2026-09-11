@@ -20,6 +20,7 @@ clusters:
     catalogs:
       - ./catalogs/general
       - ./catalogs/platform-engineering
+      - ./catalogs/backing-services
     services:
       cert-manager:
         status: enabled

@@ -131,6 +131,9 @@ bootstrapValues:
         homer-dashboard:
           name: homer-dashboard
           path: homer-dashboard
+        kafka:
+          name: kafka
+          path: kafka
         kargo:
           name: kargo
           path: kargo
@@ -168,18 +171,30 @@ bootstrapValues:
         oauth2-proxy:
           name: oauth2-proxy
           path: oauth2-proxy
+        ollama:
+          name: ollama
+          path: ollama
         opa:
           name: opa
           path: opa
         openproject:
           name: openproject
           path: openproject
+        postgresql:
+          name: postgresql
+          path: postgresql
+        postgresql19:
+          name: postgresql19
+          path: postgresql19
         reloader:
           name: reloader
           path: reloader
         traefik:
           name: traefik
           path: traefik
+        uptime-kuma:
+          name: uptime-kuma
+          path: uptime-kuma
         velero:
           name: velero
           path: velero
@@ -200,6 +215,7 @@ inClusterSecretLabels:
   forgejo: "disabled"
   harbor: "disabled"
   homer-dashboard: "enabled"
+  kafka: "disabled"
   kargo: "disabled"
   keycloak: "disabled"
   kube-prometheus-stack: "enabled"
@@ -212,10 +228,14 @@ inClusterSecretLabels:
   metrics-server: "enabled"
   nexus: "disabled"
   oauth2-proxy: "disabled"
+  ollama: "disabled"
   opa: "disabled"
   openproject: "disabled"
+  postgresql: "disabled"
+  postgresql19: "disabled"
   reloader: "disabled"
   traefik: "enabled"
+  uptime-kuma: "disabled"
   velero: "disabled"
 
 externalSecrets:
