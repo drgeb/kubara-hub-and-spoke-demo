@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Kubernetes Hub and Spoke Lab",
+    "output": "kubernetes-hub-and-spoke.html",
+    "quality_profile": "showcase",
+    "viewBox": [1270, 540]
+  },
+  "components": [
+    { "id": "dev", "type": "external", "label": "Developer Workstation", "sublabel": "kubernetes · kubectl · cilium CLI", "pos": [540, 8], "size": [280, 44] },
+    { "id": "kubernetes_hub", "type": "cloud", "label": "Kubernetes Hub", "sublabel": "bootstrap hub --local", "pos": [540, 96], "size": [280, 48] },
+    { "id": "openbao", "type": "security", "label": "OpenBao", "sublabel": "spoke kubeconfigs · secrets", "pos": [540, 196], "size": [280, 48] },
+    { "id": "cilium_h1", "type": "backend", "label": "Cilium ClusterMesh", "sublabel": "cluster-id 1 · CNI + Hubble", "pos": [540, 468], "size": [280, 48] },
+    { "id": "spoke1_tools", "type": "backend", "label": "Dev & Test Tools", "sublabel": "harbor · forgejo · nexus · keycloak", "pos": [150, 88], "size": [240, 64] },
+    { "id": "spoke1_postgres", "type": "database", "label": "PostgreSQL", "sublabel": "backing dev apps", "pos": [150, 198], "size": [240, 44] },
+    { "id": "spoke1_kargo", "type": "backend", "label": "Kargo", "sublabel": "continuous delivery", "pos": [150, 288], "size": [240, 44] },
+    { "id": "cilium_s1", "type": "backend", "label": "Cilium ClusterMesh", "sublabel": "cluster-id 2", "pos": [150, 470], "size": [240, 44] },
+    { "id": "spoke2_services", "type": "cloud", "label": "Backing Services", "sublabel": "uptime-kuma · ollama", "pos": [970, 96], "size": [240, 48] },
+    { "id": "spoke2_postgres", "type": "database", "label": "PostgreSQL", "sublabel": "16 + 19 instances", "pos": [970, 198], "size": [240, 44] },
+    { "id": "spoke2_runtime", "type": "backend", "label": "App Runtime", "sublabel": "future developed artifacts", "pos": [970, 288], "size": [240, 44] },
+    { "id": "spoke2_kafka", "type": "messagebus", "label": "Kafka", "sublabel": "Strimzi", "pos": [970, 380], "size": [240, 44] },
+    { "id": "cilium_s2", "type": "backend", "label": "Cilium ClusterMesh", "sublabel": "cluster-id 3", "pos": [970, 470], "size": [240, 44] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "kubernetes-mesh Docker network · 172.19.0.0/16", "wraps": ["kubernetes_hub", "openbao", "cilium_h1", "spoke1_tools", "spoke1_postgres", "spoke1_kargo", "cilium_s1", "spoke2_services", "spoke2_postgres", "spoke2_runtime", "spoke2_kafka", "cilium_s2"], "pad": 16 },
+    { "kind": "region", "label": "hub · stage local", "wraps": ["kubernetes_hub", "openbao", "cilium_h1"], "pad": 12 },
+    { "kind": "region", "label": "kubernetes-spoke-1 · stage dev", "wraps": ["spoke1_tools", "spoke1_postgres", "spoke1_kargo", "cilium_s1"], "pad": 12 },
+    { "kind": "region", "label": "kubernetes-spoke-2 · stage prod", "wraps": ["spoke2_services", "spoke2_postgres", "spoke2_runtime", "spoke2_kafka", "cilium_s2"], "pad": 12 }
+  ],
+  "connections": [
+    { "from": "dev", "to": "kubernetes_hub", "label": "kubernetes bootstrap hub --local", "variant": "emphasis", "route": "orthogonal-v", "fromSide": "bottom", "toSide": "top" },
+    { "from": "kubernetes_hub", "to": "openbao", "label": "writes spoke kubeconfigs", "route": "orthogonal-v", "fromSide": "bottom", "toSide": "top" },
+    { "from": "kubernetes_hub", "to": "spoke1_tools", "label": "installs & configures", "route": "orthogonal-h", "fromSide": "left", "toSide": "right" },
+    { "from": "kubernetes_hub", "to": "spoke2_services", "label": "installs & configures", "route": "orthogonal-h", "fromSide": "right", "toSide": "left" },
+    { "from": "cilium_s1", "to": "cilium_h1", "label": "ClusterMesh · KVStoreMesh", "variant": "security", "route": "orthogonal-h", "fromSide": "right", "toSide": "left" },
+    { "from": "cilium_s2", "to": "cilium_h1", "label": "ClusterMesh · KVStoreMesh", "variant": "security", "route": "orthogonal-h", "fromSide": "left", "toSide": "right" },
+    { "from": "spoke1_tools", "to": "spoke1_postgres", "label": "forgejo · keycloak · openproject · apicurio", "route": "orthogonal-v", "fromSide": "bottom", "toSide": "top" },
+    { "from": "spoke1_kargo", "to": "spoke2_runtime", "label": "deploys artifacts", "variant": "emphasis", "route": "orthogonal-h", "fromSide": "right", "toSide": "left" },
+    { "from": "spoke2_runtime", "to": "spoke2_postgres", "label": "app data", "route": "orthogonal-v", "fromSide": "top", "toSide": "bottom" },
+    { "from": "spoke2_runtime", "to": "spoke2_kafka", "label": "events", "route": "orthogonal-v", "fromSide": "bottom", "toSide": "top" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Cluster Mesh", "items": ["Cilium ClusterMesh links the hub to both spokes", "cluster-id 1 hub · 2 kubernetes-spoke-1 · 3 kubernetes-spoke-2", "Hub runs Hubble metrics plus Prometheus ServiceMonitors"] },
+    { "dot": "violet", "title": "Hub Control Plane", "items": ["Kubernetes Hub bootstraps and configures the whole lab", "Self-managed Argo CD drives installs across the fleet", "OpenBao publishes spoke kubeconfigs; spokes pull app secrets via External Secrets", "Hub also hosts traefik, cert-manager, external-secrets, homer-dashboard, kube-prometheus-stack, metrics-server"] },
+    { "dot": "emerald", "title": "Delivery & Runtime", "items": ["Kargo on kubernetes-spoke-1 promotes developed artifacts", "kubernetes-spoke-1 runs harbor · forgejo · keycloak · nexus · openproject · opa · apicurio", "kubernetes-spoke-2 holds PostgreSQL and Kafka as the future artifact runtime"] }
+  ]
+}
