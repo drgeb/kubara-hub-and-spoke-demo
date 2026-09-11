@@ -14,7 +14,7 @@ image:
 
 openproject:
   https: true
-  host: openproject.172.19.0.6.traefik.me
+  host: openproject.172.19.0.7.traefik.me
   hsts: true
 
   admin_user:
@@ -45,7 +45,7 @@ postgresql:
 ingress:
   enabled: true
   ingressClassName: traefik
-  host: openproject.172.19.0.6.traefik.me
+  host: openproject.172.19.0.7.traefik.me
   path: /
   pathType: Prefix
 

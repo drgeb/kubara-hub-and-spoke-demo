@@ -32,7 +32,7 @@ registry:
   ingress:
     enabled: true
     ingressClassName: traefik
-    host: apicurio.172.19.0.6.traefik.me
+    host: apicurio.172.19.0.7.traefik.me
     path: /
     tls: true
     annotations:

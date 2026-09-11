@@ -166,7 +166,7 @@ clusters:
         config:
           adminPassword: Harbor12345
           databasePassword: changeit
-          hostname: harbor.172.19.0.6.traefik.me
+          hostname: harbor.172.19.0.7.traefik.me
           additionalHosts:
           - my.harbor.me
           networking:
@@ -186,7 +186,7 @@ clusters:
       forgejo:
         status: enabled
         config:
-          host: forgejo.172.19.0.6.traefik.me
+          host: forgejo.172.19.0.7.traefik.me
           admin:
             email: admin@local
             password: ForgejoAdmin123!
@@ -207,7 +207,7 @@ clusters:
         config:
           adminPassword: KargoAdmin123!
           adminTokenSigningKey: PEv19OjdUxvp0TdFVOhmSvTNEdKAcNGmbgyZacK4Grx1ZHKbGF42PN_-klUbZDL7
-          host: kargo.172.19.0.6.traefik.me
+          host: kargo.172.19.0.7.traefik.me
           integrations:
             argocd: true
             rollouts: true
@@ -220,7 +220,7 @@ clusters:
       nexus:
         status: enabled
         config:
-          hostname: nexus.172.19.0.6.traefik.me
+          hostname: nexus.172.19.0.7.traefik.me
           adminPassword: Nexus12345
           tls:
             enabled: true
@@ -231,7 +231,7 @@ clusters:
       openproject:
         status: enabled
         config:
-          host: openproject.172.19.0.6.traefik.me
+          host: openproject.172.19.0.7.traefik.me
           adminPassword: OpenProjectAdmin123!
           adminName: OpenProject Administrator
           adminEmail: admin@example.com
@@ -249,7 +249,7 @@ clusters:
       keycloak:
         status: enabled
         config:
-          host: keycloak.172.19.0.6.traefik.me
+          host: keycloak.172.19.0.7.traefik.me
           adminUser: admin
           adminPassword: KeycloakAdmin123!
           database:
@@ -263,13 +263,13 @@ clusters:
       opa:
         status: enabled
         config:
-          hostname: opa.172.19.0.6.traefik.me
+          hostname: opa.172.19.0.7.traefik.me
           replicas: 1
       # A Schema Registry for OpenAPI and AsyncAPI specifications, with a UI for managing them.
       apicurio: 
         status: enabled
         config:
-          hostname: apicurio.172.19.0.6.traefik.me
+          hostname: apicurio.172.19.0.7.traefik.me
           database:
             host: postgresql.postgresql.svc.cluster.local
             port: 5432
@@ -365,7 +365,7 @@ clusters:
       ollama:
         status: enabled
         config:
-          host: ollama.172.19.0.7.traefik.me
+          host: ollama.172.19.0.8.traefik.me
           storageSize: 30Gi
           models:
             - llama3.2

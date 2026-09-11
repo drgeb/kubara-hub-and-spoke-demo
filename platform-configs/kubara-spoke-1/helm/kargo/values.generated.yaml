@@ -12,7 +12,7 @@ image:
     - name: image-pull-secret
 
 api:
-  host: kargo.172.19.0.6.traefik.me
+  host: kargo.172.19.0.7.traefik.me
   basePath: ""
   tls:
     enabled: false
