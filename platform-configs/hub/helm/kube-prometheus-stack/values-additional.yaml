@@ -28,6 +28,27 @@ kube-prometheus-stack:
           memory: 384Mi
         limits:
           memory: 384Mi
+      additionalScrapeConfigs:
+        # Static IPs of the spoke control-plane nodes on the kubara-mesh
+        # Docker network. These addresses change if the kind cluster is
+        # recreated - refresh them after a rebuild with:
+        #   docker inspect kubara-spoke-1-control-plane kubara-spoke-2-control-plane
+        #   (Cilium runs hostNetwork, so agent/operator/hubble metrics are
+        #   reachable on the node IPs at ports 9962/9963/9965).
+        - job_name: cilium-spoke-1
+          scrape_interval: 30s
+          static_configs:
+            - targets:
+                - 172.19.0.3:9962 # cilium-agent
+                - 172.19.0.3:9963 # cilium-operator
+                - 172.19.0.3:9965 # hubble metrics
+        - job_name: cilium-spoke-2
+          scrape_interval: 30s
+          static_configs:
+            - targets:
+                - 172.19.0.4:9962 # cilium-agent
+                - 172.19.0.4:9963 # cilium-operator
+                - 172.19.0.4:9965 # hubble metrics
   alertmanager:
     ingress:
       enabled: true

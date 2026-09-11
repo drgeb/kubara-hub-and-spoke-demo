@@ -3,12 +3,22 @@ ipam:
   mode: kubernetes
 image:
   pullPolicy: IfNotPresent
+prometheus:
+  enabled: true
 hubble:
   enabled: true
   relay:
     enabled: true
   ui:
     enabled: true
+  metrics:
+    enabled:
+      - dns
+      - drop
+      - tcp
+      - flow
+      - http
+      - icmp
   tls:
     auto:
       enabled: true

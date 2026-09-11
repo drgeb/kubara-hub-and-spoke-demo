@@ -355,6 +355,24 @@ install_cilium() {
 
     # Cilium CLI may time out while Kubernetes components are still
     # becoming ready. Do not make the CLI timeout itself fatal.
+    local servicemonitor_args=()
+    # Only the hub runs Prometheus Operator, so only it can consume
+    # Cilium ServiceMonitors.
+    if [[ "$cluster_id" == "$HUB_ID" ]]; then
+        servicemonitor_args=(
+            --set "prometheus.serviceMonitor.enabled=true"
+            --set "prometheus.serviceMonitor.trustCRDsExist=true"
+            --set "prometheus.serviceMonitor.labels.monitoring\.instance=hub-local"
+            --set "hubble.metrics.serviceMonitor.enabled=true"
+            --set "hubble.metrics.serviceMonitor.trustCRDsExist=true"
+            --set "hubble.metrics.serviceMonitor.labels.monitoring\.instance=hub-local"
+            --set "operator.prometheus.enabled=true"
+            --set "operator.prometheus.serviceMonitor.enabled=true"
+            --set "operator.prometheus.serviceMonitor.trustCRDsExist=true"
+            --set "operator.prometheus.serviceMonitor.labels.monitoring\.instance=hub-local"
+        )
+    fi
+
     cilium install \
         --kubeconfig "$MESH_KUBECONFIG" \
         --context "$context" \
@@ -363,6 +381,9 @@ install_cilium() {
         --set "cluster.id=${cluster_id}" \
         --set "ipam.mode=kubernetes" \
         --set "clustermesh.apiserver.replicas=1" \
+        --set "prometheus.enabled=true" \
+        --set "hubble.metrics.enabled={dns,drop,tcp,flow,http,icmp}" \
+        "${servicemonitor_args[@]}" \
         --wait \
         || {
             echo "    Cilium install returned non-zero; Kubernetes readiness will be checked separately."
