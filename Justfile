@@ -115,6 +115,10 @@ step-2-kubara-bootstrap:
 generate-helm *args:
     ./z-demo-setup/scripts/generate-helm.sh {{args}}
 
+# Create Kubernetes Secrets for platform services from .env credentials
+create-platform-secrets:
+    ./z-demo-setup/scripts/create-platform-secrets.sh
+
 # Initialize kubara config with local-evaluation prep files (.env template)
 init-prep:
     kubara init --prep --local

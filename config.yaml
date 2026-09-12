@@ -142,6 +142,9 @@ clusters:
           database:
             name: forgejo
             username: app
+          primary:
+            initdb:
+              scriptsSecret: postgresql-initdb-scripts
           persistence:
             size: 20Gi
             storageClass: ''

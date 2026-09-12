@@ -20,6 +20,20 @@ expose:
 
 externalURL: "https://harbor.172.19.0.7.traefik.me"
 existingSecretAdminPassword: harbor-credentials
+jobservice:
+  initContainers:
+  - name: wait-for-core
+    image: busybox:1.36
+    command:
+    - sh
+    - -c
+    - |
+      echo "Waiting for Harbor core to be ready..."
+      until wget -qO- --no-check-certificate http://harbor-core:80/api/v2.0/ping >/dev/null 2>&1; do
+        echo "  Harbor core not ready, retrying in 5s..."
+        sleep 5
+      done
+      echo "Harbor core is ready."
 database:
   type: internal
 persistence:

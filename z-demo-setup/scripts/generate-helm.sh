@@ -45,3 +45,6 @@ for spec in "${RESTORE_CHARTS[@]}"; do
   rm -rf "${ROOT_DIR}/${target}"
   cp -R "${source}" "${ROOT_DIR}/${target}"
 done
+
+echo "==> creating platform secrets"
+"${ROOT_DIR}/z-demo-setup/scripts/create-platform-secrets.sh"

@@ -19,7 +19,9 @@ registry:
   sql:
     url: {{ printf "jdbc:postgresql://%s:%d/apicurio" ($cfg.database.host | default "postgresql.postgresql.svc.cluster.local") ($cfg.database.port | default 5432) | quote }}
     username: {{ $cfg.database.username | default "apicurio" | quote }}
-    passwordSecret: apicurio-credentials
+    passwordSecret:
+      name: apicurio-credentials
+      key: password
   podSecurityContext:
     runAsNonRoot: true
     fsGroup: 1000

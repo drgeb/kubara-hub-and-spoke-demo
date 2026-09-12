@@ -16,6 +16,7 @@ auth:
   database: "forgejo"
 
 primary:
+  initdb:
   persistence:
     enabled: true
     size: "20Gi"
