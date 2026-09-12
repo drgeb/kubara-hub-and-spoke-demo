@@ -17,7 +17,7 @@ registry:
     repository: "apicurio/apicurio-registry"
     tag: {{ $cfg.image.tag | default "2.5.9.Final" | quote }}
   sql:
-    url: {{ printf "jdbc:postgresql://%s:%d/apicurio" ($cfg.database.host | default "postgresql.postgresql.svc.cluster.local") ($cfg.database.port | default 5432) | quote }}
+    url: {{ printf "jdbc:postgresql://%s:%d/apicurio" ($cfg.database.host | default "postgresql.postgresql.svc.cluster.local") (int ($cfg.database.port | default 5432)) | quote }}
     username: {{ $cfg.database.username | default "apicurio" | quote }}
     passwordSecret:
       name: apicurio-credentials

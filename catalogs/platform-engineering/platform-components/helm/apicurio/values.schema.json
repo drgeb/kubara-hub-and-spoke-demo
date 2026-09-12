@@ -51,11 +51,19 @@
       },
       "sql": {
         "type": "object", "additionalProperties": false,
-        "required": ["url", "username", "password"],
+        "required": ["url", "username"],
         "properties": {
           "url": {"type": "string"},
           "username": {"type": "string"},
-          "password": {"type": "string"}
+          "password": {"type": "string"},
+          "passwordSecret": {
+            "type": "object",
+            "title": "Kubernetes secret containing the database password",
+            "properties": {
+              "name": {"type": "string"},
+              "key": {"type": "string"}
+            }
+          }
         }
       }
     },

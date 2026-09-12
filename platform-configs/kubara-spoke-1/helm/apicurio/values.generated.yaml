@@ -14,7 +14,7 @@ registry:
     repository: "apicurio/apicurio-registry"
     tag: "2.5.9.Final"
   sql:
-    url: "jdbc:postgresql://postgresql.postgresql.svc.cluster.local:%!d(float64=5432)/apicurio"
+    url: "jdbc:postgresql://postgresql.postgresql.svc.cluster.local:5432/apicurio"
     username: "apicurio"
     passwordSecret:
       name: apicurio-credentials

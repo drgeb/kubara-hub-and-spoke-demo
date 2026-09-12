@@ -65,8 +65,16 @@ spec:
               value: {{ .Values.registry.sql.url }}
             - name: REGISTRY_DATASOURCE_USERNAME
               value: {{ .Values.registry.sql.username }}
+            {{- if .Values.registry.sql.passwordSecret }}
+            - name: REGISTRY_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.registry.sql.passwordSecret.name }}
+                  key: {{ .Values.registry.sql.passwordSecret.key }}
+            {{- else }}
             - name: REGISTRY_DATASOURCE_PASSWORD
               value: {{ .Values.registry.sql.password }}
+            {{- end }}
             {{- end }}
             {{- if hasKey .Values.registry "kafka" }}
             - name: KAFKA_BOOTSTRAP_SERVERS
