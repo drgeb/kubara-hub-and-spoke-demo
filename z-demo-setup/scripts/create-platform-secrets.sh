@@ -10,6 +10,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # ── Cluster / context ────────────────────────────────────────────────────────
 SPOKE1_CONTEXT="kind-kubara-spoke-1"
+SPOKE2_CONTEXT="kind-kubara-spoke-2"
 HUB_CONTEXT="kind-hub"
 
 OPENBAO_NAMESPACE="openbao"
@@ -18,6 +19,8 @@ HUB_NAME="hub"
 HUB_STAGE="local"
 CLUSTER_NAME="kubara-spoke-1"
 CLUSTER_STAGE="dev"
+CLUSTER2_NAME="kubara-spoke-2"
+CLUSTER2_STAGE="prod"
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 log()  { printf '\n==> %s\n' "$*"; }
@@ -92,6 +95,16 @@ else
 fi
 
 if [[ "$SKIP_KUBECTL" == false ]]; then
+    # Backing database (bitnami postgresql chart) credentials used by the
+    # `postgresql` Deployment in the postgresql namespace. The chart is
+    # configured with auth.existingSecret=postgresql (see
+    # catalogs/backing-services/platform-configs/helm/postgresql) so the
+    # secret below is the single source for the superuser (POSTGRES_PASSWORD)
+    # and app user (APP_POSTGRES_PASSWORD) passwords, never a committed value.
+    create_secret "$SPOKE1_CONTEXT" postgresql postgresql \
+        --from-literal=postgres-password="$POSTGRES_PASSWORD" \
+        --from-literal=password="$APP_POSTGRES_PASSWORD"
+
     # Kargo — bcrypt hash of admin password
     BCRYPT_HASH=$(htpasswd -nbBC 10 "" "$KARGO_ADMIN_PASSWORD" | cut -d: -f2)
 
@@ -128,6 +141,15 @@ if [[ "$SKIP_KUBECTL" == false ]]; then
     # Apicurio
     create_secret "$SPOKE1_CONTEXT" apicurio apicurio-credentials \
         --from-literal=password="$APICURIO_DB_PASSWORD"
+fi
+
+if is_cluster_reachable "$SPOKE2_CONTEXT"; then
+    log "Creating backing database secret on ${SPOKE2_CONTEXT}"
+    create_secret "$SPOKE2_CONTEXT" postgresql postgresql \
+        --from-literal=postgres-password="$POSTGRES_PASSWORD" \
+        --from-literal=password="$APP_POSTGRES_PASSWORD"
+else
+    warn "Cluster ${SPOKE2_CONTEXT} is not reachable; skipping spoke-2 postgresql secret"
 fi
 
 # ── Publish to OpenBao (best-effort) ────────────────────────────────────────
@@ -198,6 +220,15 @@ else
         echo "    OpenBao: ${OPENBAO_ADDR}"
 
         PREFIX="platform/${CLUSTER_NAME}-${CLUSTER_STAGE}"
+        PREFIX2="platform/${CLUSTER2_NAME}-${CLUSTER2_STAGE}"
+
+        publish_to_openbao "${PREFIX}/postgresql/postgresql" \
+            "$(jq -n --arg pg "$POSTGRES_PASSWORD" --arg app "$APP_POSTGRES_PASSWORD" \
+                '{data: {"postgres-password": $pg, password: $app}}')"
+
+        publish_to_openbao "${PREFIX2}/postgresql/postgresql" \
+            "$(jq -n --arg pg "$POSTGRES_PASSWORD" --arg app "$APP_POSTGRES_PASSWORD" \
+                '{data: {"postgres-password": $pg, password: $app}}')"
 
         publish_to_openbao "${PREFIX}/kargo/kargo-admin" \
             "$(jq -n --arg hash "$BCRYPT_HASH" --arg key "$KARGO_ADMIN_TOKEN_SIGNING_KEY" \

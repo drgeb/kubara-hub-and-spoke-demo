@@ -12,11 +12,15 @@ namespace:
     project-name: "backing-services"
     stage: "{{ .cluster.stage | default "local" }}"
 
+# Passwords are never rendered into these manifests. `auth.existingSecret`
+# points at the `postgresql` Secret in the same namespace, which is populated
+# from .env by z-demo-setup/scripts/create-platform-secrets.sh
+# (POSTGRES_PASSWORD -> postgres-password, APP_POSTGRES_PASSWORD -> password)
+# and mirrored to OpenBao.
 auth:
   enablePostgresUser: true
-  postgresPassword: {{ $cfg.postgresPassword | default "Postgres123!" | quote }}
+  existingSecret: postgresql
   username: {{ $db.username | default "" | quote }}
-  password: {{ $db.password | default "" | quote }}
   database: {{ $db.name | default "" | quote }}
 
 primary:

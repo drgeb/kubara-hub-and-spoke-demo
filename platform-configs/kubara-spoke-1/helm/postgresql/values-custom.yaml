@@ -1,23 +1,14 @@
+# Local overrides for the shared backing postgres on kubara-spoke-1.
+#
+# Credentials are NEVER stored in this repository. The postgres superuser
+# password (POSTGRES_PASSWORD) and the application user password for forgejo
+# (APP_POSTGRES_PASSWORD) live only in the .env file and are written to the
+# Kubernetes Secret `postgresql` (namespace: postgresql) by
+# z-demo-setup/scripts/create-platform-secrets.sh, which also mirrors them to
+# OpenBao. The chart references that Secret instead of rendering its own.
+#
+# Per-application databases and roles (openproject, keycloak, apicurio) are
+# created by the liquibase-bootstrap job (`just liquibase-bootstrap`), whose
+# passwords also come from .env at install time and are never committed.
 auth:
-  password: "AppPassword123!"
-
-primary:
-  initdb:
-    args: []
-    scripts:
-      01-create-multiple-db.sql: |
-        CREATE DATABASE openproject;
-        CREATE USER openproject WITH ENCRYPTED PASSWORD 'OpenProjectPass123!';
-        GRANT ALL PRIVILEGES ON DATABASE openproject TO openproject;
-
-        CREATE DATABASE keycloak;
-        CREATE USER keycloak WITH ENCRYPTED PASSWORD 'KeycloakPass123!';
-        GRANT ALL PRIVILEGES ON DATABASE keycloak TO keycloak;
-
-        CREATE DATABASE apicurio;
-        CREATE USER apicurio WITH ENCRYPTED PASSWORD 'ApicurioPass123!';
-        GRANT ALL PRIVILEGES ON DATABASE apicurio TO apicurio;
-
-        CREATE DATABASE harbor;
-        CREATE USER harbor WITH ENCRYPTED PASSWORD 'HarborPass123!';
-        GRANT ALL PRIVILEGES ON DATABASE harbor TO harbor;
+  existingSecret: postgresql
