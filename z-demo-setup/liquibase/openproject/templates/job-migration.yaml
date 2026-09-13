@@ -1,0 +1,66 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "liquibase-service.fullname" . }}-migrate-{{ .Release.Revision }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ include "liquibase-service.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    release: {{ .Release.Name }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": {{ .Values.liquibase.hookWeight | quote }}
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 300
+  template:
+    metadata:
+      labels:
+        app: {{ include "liquibase-service.name" . }}
+        release: {{ .Release.Name }}
+    spec:
+      restartPolicy: Never
+      initContainers:
+        - name: wait-for-db
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for PostgreSQL..."
+              until nc -z postgresql.postgresql.svc.cluster.local 5432; do
+                echo "  not ready, retrying in 3s..."
+                sleep 3
+              done
+              echo "PostgreSQL is ready."
+      containers:
+        - name: liquibase
+          image: {{ .Values.liquibase.image }}
+          args:
+            - "--changelog-file=/liquibase/changelog/db.changelog-master.yaml"
+            - "update"
+          env:
+            - name: LIQUIBASE_COMMAND_URL
+              value: {{ .Values.db.url | quote }}
+            - name: LIQUIBASE_COMMAND_USERNAME
+              value: {{ .Values.db.username | quote }}
+            - name: LIQUIBASE_COMMAND_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.db.secretName }}
+                  key: {{ .Values.db.passwordKey }}
+          volumeMounts:
+            - name: changelog
+              mountPath: /liquibase/changelog
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+      volumes:
+        - name: changelog
+          configMap:
+            name: {{ include "liquibase-service.fullname" . }}-changelog

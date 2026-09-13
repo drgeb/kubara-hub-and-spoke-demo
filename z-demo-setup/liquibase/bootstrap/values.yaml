@@ -1,0 +1,23 @@
+bootstrap:
+  hookWeight: "-10"
+
+db:
+  host: postgresql.postgresql.svc.cluster.local
+  port: 5432
+  adminSecretName: postgresql
+  adminUsernameKey: postgres-password
+  adminPasswordKey: postgres-password
+
+services:
+  - name: openproject
+    database: openproject
+    passwordSecretName: openproject-postgresql
+    passwordSecretKey: password
+  - name: keycloak
+    database: keycloak
+    passwordSecretName: keycloak-credentials
+    passwordSecretKey: db-password
+  - name: apicurio
+    database: apicurio
+    passwordSecretName: apicurio-credentials
+    passwordSecretKey: password

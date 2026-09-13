@@ -119,6 +119,41 @@ generate-helm *args:
 create-platform-secrets:
     ./z-demo-setup/scripts/create-platform-secrets.sh
 
+# Build the custom Liquibase Docker image with PostgreSQL driver
+liquibase-build-image:
+    docker build -t liquibase-bootstrap:local z-demo-setup/liquibase/
+
+# Install bootstrap chart (creates PostgreSQL roles/databases)
+liquibase-bootstrap:
+    helm upgrade --install liquibase-bootstrap z-demo-setup/liquibase/bootstrap/ \
+        --namespace postgresql --create-namespace \
+        --set "services[0].name=openproject" \
+        --set "services[0].database=openproject" \
+        --set "services[0].password=${OPENPROJECT_DB_PASSWORD}" \
+        --set "services[0].passwordSecretName=openproject-postgresql" \
+        --set "services[0].passwordSecretKey=password" \
+        --set "services[1].name=keycloak" \
+        --set "services[1].database=keycloak" \
+        --set "services[1].password=${KEYCLOAK_DB_PASSWORD}" \
+        --set "services[1].passwordSecretName=keycloak-credentials" \
+        --set "services[1].passwordSecretKey=db-password" \
+        --set "services[2].name=apicurio" \
+        --set "services[2].database=apicurio" \
+        --set "services[2].password=${APICURIO_DB_PASSWORD}" \
+        --set "services[2].passwordSecretName=apicurio-credentials" \
+        --set "services[2].passwordSecretKey=password" \
+        --wait --timeout 5m
+
+# Install all Liquibase migration charts (bootstrap + per-service)
+liquibase-install: liquibase-build-image liquibase-bootstrap
+    @for svc in openproject keycloak apicurio; do \
+        echo "==> Installing liquibase-$${svc}"; \
+        helm upgrade --install "liquibase-$${svc}" "z-demo-setup/liquibase/$${svc}/" \
+            --namespace "$${svc}" --create-namespace \
+            --wait --timeout 5m; \
+    done
+    @echo "All Liquibase charts installed."
+
 # Initialize kubara config with local-evaluation prep files (.env template)
 init-prep:
     kubara init --prep --local
@@ -259,6 +294,12 @@ open-portal:
     @open http://localhost:8080
 
 # Open Argo CD UI
+login-argo-cd:
+    @echo user: ${ARGOCD_ADMIN_USER}
+    @echo passwd: $ARGOCD_WIZARD_ACCOUNT_PASSWORD
+    @echo $ARGOCD_WIZARD_ACCOUNT_PASSWORD | pbcopy
+    argocd login {{HUB_DNS_NAME}} --grpc-web --grpc-web-root-path argocd --insecure
+
 open-argo-cd:
     @echo user: ${ARGOCD_ADMIN_USER}
     @echo passwd: $ARGOCD_WIZARD_ACCOUNT_PASSWORD

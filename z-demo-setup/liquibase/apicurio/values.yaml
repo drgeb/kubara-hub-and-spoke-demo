@@ -1,0 +1,10 @@
+liquibase:
+  image: liquibase/liquibase:4.31
+  hookWeight: "0"
+
+db:
+  url: "jdbc:postgresql://postgresql.postgresql.svc.cluster.local:5432/apicurio"
+  secretName: apicurio-credentials
+  usernameKey: password
+  passwordKey: password
+  username: apicurio

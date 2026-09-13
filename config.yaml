@@ -112,7 +112,7 @@ clusters:
         status: disabled
       kyverno-policy-reporter:
         status: disabled
-      loki:
+      loki: 
         status: disabled
       longhorn:
         status: disabled
@@ -133,22 +133,15 @@ clusters:
           backupStorage:
             create: true
             region: eu01
-      # PostgreSQL instance backing the dev applications (forgejo, openproject, keycloak, apicurio).
-      # The primary database/user is created from `database` (maps to chart auth); the remaining
-      # per-app databases and users are provisioned at first boot via primary.initdb.scripts.
       postgresql:
         status: enabled
         config:
           database:
             name: forgejo
             username: app
-          primary:
-            initdb:
-              scriptsSecret: postgresql-initdb-scripts
           persistence:
             size: 20Gi
             storageClass: ''
-      # Harbor is an open-source container registry that provides secure storage and management of container images.
       harbor:
         status: enabled
         config:
@@ -168,7 +161,6 @@ clusters:
               kind: ClusterIssuer
               name: kubara-local-ca-issuer
           tlsCertSource: auto
-      # Forgejo is a self-hosted Git service that provides a web interface for managing Git repositories and collaboration.
       forgejo:
         status: enabled
         config:
@@ -185,7 +177,6 @@ clusters:
             issuerRef:
               kind: ClusterIssuer
               name: kubara-local-ca-issuer
-      # Kargo is a lightweight, open-source platform for managing and deploying applications in Kubernetes clusters.
       kargo:
         status: enabled
         config:
@@ -198,7 +189,6 @@ clusters:
             issuerRef:
               kind: ClusterIssuer
               name: kubara-local-ca-issuer
-      # Nexus Repository Manager is a popular open-source repository manager for managing software artifacts and dependencies.
       nexus:
         status: enabled
         config:
@@ -208,7 +198,6 @@ clusters:
             issuerRef:
               kind: ClusterIssuer
               name: kubara-local-ca-issuer
-      # OpenProject is a web-based project management system for team collaboration and project tracking.
       openproject:
         status: enabled
         config:
@@ -223,7 +212,6 @@ clusters:
           storage:
             size: 20Gi
           replicas: 1
-      # Keycloak is an open-source identity and access management solution for modern applications and services.
       keycloak:
         status: enabled
         config:
@@ -235,13 +223,11 @@ clusters:
             name: keycloak
             username: keycloak
           replicas: 1
-      # An Open Policy Agent (OPA) server for policy-based control and decision-making.
       opa:
         status: enabled
         config:
           hostname: opa.172.19.0.7.traefik.me
           replicas: 1
-      # A Schema Registry for OpenAPI and AsyncAPI specifications, with a UI for managing them.
       apicurio: 
         status: enabled
         config:

@@ -128,28 +128,6 @@ if [[ "$SKIP_KUBECTL" == false ]]; then
     # Apicurio
     create_secret "$SPOKE1_CONTEXT" apicurio apicurio-credentials \
         --from-literal=password="$APICURIO_DB_PASSWORD"
-
-    # PostgreSQL initdb scripts — SQL with passwords injected from .env
-    ensure_namespace "$SPOKE1_CONTEXT" postgresql
-    INITDB_SQL=$(cat <<-EOSQL
--- OpenProject
-CREATE ROLE openproject LOGIN PASSWORD '${OPENPROJECT_DB_PASSWORD}';
-CREATE DATABASE openproject OWNER openproject;
--- Keycloak
-CREATE ROLE keycloak LOGIN PASSWORD '${KEYCLOAK_DB_PASSWORD}';
-CREATE DATABASE keycloak OWNER keycloak;
--- Apicurio
-CREATE ROLE apicurio LOGIN PASSWORD '${APICURIO_DB_PASSWORD}';
-CREATE DATABASE apicurio OWNER apicurio;
-EOSQL
-    )
-
-    kubectl --context "$SPOKE1_CONTEXT" -n postgresql \
-        create secret generic postgresql-initdb-scripts \
-        --from-literal=01-create-app-databases.sql="$INITDB_SQL" \
-        --dry-run=client -o yaml |
-        kubectl --context "$SPOKE1_CONTEXT" -n postgresql apply -f -
-    echo "    postgresql/postgresql-initdb-scripts"
 fi
 
 # ── Publish to OpenBao (best-effort) ────────────────────────────────────────
@@ -252,10 +230,6 @@ else
         publish_to_openbao "${PREFIX}/apicurio/apicurio-credentials" \
             "$(jq -n --arg pass "$APICURIO_DB_PASSWORD" \
                 '{data: {password: $pass}}')"
-
-        publish_to_openbao "${PREFIX}/postgresql/postgresql-initdb-scripts" \
-            "$(jq -n --arg sql "$INITDB_SQL" \
-                '{data: {"01-create-app-databases.sql": $sql}}')"
     fi
 fi
 

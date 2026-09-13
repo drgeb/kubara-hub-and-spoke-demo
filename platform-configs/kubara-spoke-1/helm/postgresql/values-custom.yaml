@@ -1,0 +1,23 @@
+auth:
+  password: "AppPassword123!"
+
+primary:
+  initdb:
+    args: []
+    scripts:
+      01-create-multiple-db.sql: |
+        CREATE DATABASE openproject;
+        CREATE USER openproject WITH ENCRYPTED PASSWORD 'OpenProjectPass123!';
+        GRANT ALL PRIVILEGES ON DATABASE openproject TO openproject;
+
+        CREATE DATABASE keycloak;
+        CREATE USER keycloak WITH ENCRYPTED PASSWORD 'KeycloakPass123!';
+        GRANT ALL PRIVILEGES ON DATABASE keycloak TO keycloak;
+
+        CREATE DATABASE apicurio;
+        CREATE USER apicurio WITH ENCRYPTED PASSWORD 'ApicurioPass123!';
+        GRANT ALL PRIVILEGES ON DATABASE apicurio TO apicurio;
+
+        CREATE DATABASE harbor;
+        CREATE USER harbor WITH ENCRYPTED PASSWORD 'HarborPass123!';
+        GRANT ALL PRIVILEGES ON DATABASE harbor TO harbor;

@@ -1,0 +1,75 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "liquibase-bootstrap.fullname" . }}-{{ .Release.Revision }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ include "liquibase-bootstrap.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    release: {{ .Release.Name }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": {{ .Values.bootstrap.hookWeight | quote }}
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 300
+  template:
+    metadata:
+      labels:
+        app: {{ include "liquibase-bootstrap.name" . }}
+        release: {{ .Release.Name }}
+    spec:
+      restartPolicy: Never
+      initContainers:
+        - name: wait-for-db
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for PostgreSQL..."
+              until nc -z {{ .Values.db.host }} {{ .Values.db.port }}; do
+                echo "  not ready, retrying in 3s..."
+                sleep 3
+              done
+              echo "PostgreSQL is ready."
+      containers:
+        - name: init-db
+          image: alpine:3.19
+          command:
+            - /bin/sh
+            - -c
+            - |
+              apk add --no-cache postgresql16-client &&
+              cp /scripts/init-db.sh /tmp/init-db.sh &&
+              chmod +x /tmp/init-db.sh &&
+              /tmp/init-db.sh
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.db.adminSecretName }}
+                  key: {{ .Values.db.adminPasswordKey }}
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+            - name: passwords
+              mountPath: /secrets
+              readOnly: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+      volumes:
+        - name: scripts
+          configMap:
+            name: {{ include "liquibase-bootstrap.fullname" . }}-init
+            defaultMode: 0755
+        - name: passwords
+          secret:
+            secretName: {{ include "liquibase-bootstrap.fullname" . }}-passwords
