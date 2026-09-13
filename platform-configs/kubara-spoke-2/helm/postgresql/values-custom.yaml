@@ -5,11 +5,11 @@
 # and z-demo-setup/scripts/create-platform-secrets.sh
 # (POSTGRES_PASSWORD -> postgres-password, APP_POSTGRES_PASSWORD -> password).
 #
-# The bitnami postgresql 18 image enables the OpenSSL FIPS provider by default
-# (OPENSSL_FIPS=yes), which rejects MD5. GoodJob (used by OpenProject for
-# background jobs) posts advisory-lock queries that call SQL `md5(...)`, so
-# FIPS breaks the seeder/web/worker. Disable the FIPS provider for this demo.
+# The bitnami postgresql 18 chart enables the OpenSSL FIPS provider by default
+# (chart annotation fips: "true" -> OPENSSL_FIPS=yes), which rejects MD5.
+# GoodJob (used by OpenProject for background jobs) posts advisory-lock queries
+# that call SQL `md5(...)`, so FIPS breaks the seeder/web/worker. Turn it off
+# for this demo (renders OPENSSL_FIPS=no).
 primary:
-  extraEnvVars:
-    - name: OPENSSL_FIPS
-      value: "no"
+  fips:
+    openssl: "off"
