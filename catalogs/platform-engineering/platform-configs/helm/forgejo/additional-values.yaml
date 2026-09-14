@@ -5,11 +5,11 @@
 service:
   ssh:
     type: LoadBalancer
-    loadBalancerIP: 172.18.0.3
+    loadBalancerIP: 172.19.0.9
 gitea:
   config:
     server:
-      SSH_DOMAIN: 172.18.0.3
+      SSH_DOMAIN: 172.19.0.9
     actions:
       ENABLED: "true"
       DEFAULT_ACTIONS_URL: github
