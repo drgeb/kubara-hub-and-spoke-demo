@@ -3,7 +3,7 @@ kind: ServiceDefinition
 metadata:
   name: keycloak
 spec:
-  chartPath: keycloak
+  chartPath: keycloak/keycloak
   clusterTypes:
   - hub
   - spoke

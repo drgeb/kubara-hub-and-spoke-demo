@@ -43,7 +43,7 @@ persistence:
     redis:
       size: "1Gi"
     registry:
-      size: "10Gi"
+      size: "5Gi"
 
 namespace:
   labels:

@@ -57,7 +57,7 @@ persistence:
       {{- with $harbor.persistence.storageClass }}
       storageClass: {{ . | quote }}
       {{- end }}
-      size: {{ $harbor.persistence.registrySize | default "10Gi" | quote }}
+      size: {{ $harbor.persistence.registrySize | default "5Gi" | quote }}
 
 namespace:
   labels:

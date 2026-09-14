@@ -139,7 +139,7 @@ bootstrapValues:
           path: kargo
         keycloak:
           name: keycloak
-          path: keycloak
+          path: keycloak/keycloak
         kube-prometheus-stack:
           name: kube-prometheus-stack
           path: kube-prometheus-stack
@@ -167,7 +167,7 @@ bootstrapValues:
           path: metrics-server
         nexus:
           name: nexus
-          path: nexus
+          path: nexus/nexus-repository-manager
         oauth2-proxy:
           name: oauth2-proxy
           path: oauth2-proxy

@@ -212,3 +212,13 @@ generateNetworkPolicy: true
 connectBuildTimeoutMs: 300000
 # Controls whether Strimzi generates pod disruption budget resources (By default true)
 generatePodDisruptionBudget: true
+
+# Provision a dual-role (controller+broker) Kafka instance via the Strimzi CRDs.
+# When enabled, templates/kafka-instance.yaml creates a KafkaNodePool and Kafka.
+kafkaInstance:
+  enabled: false
+  name: demo
+  replicas: 1
+  version: 3.9.0
+  storageSize: 1Gi
+  storageClass: ""
