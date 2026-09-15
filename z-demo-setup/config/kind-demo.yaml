@@ -1,8 +1,18 @@
 # Local kind spokes for the kubara demo. The hub is managed separately.
 clusters:
   - name: kubara-spoke-1
-    stage: dev
+    stage: platform-engineering
     kind_config: kind/spoke-1.yaml
   - name: kubara-spoke-2
-    stage: prod
+    stage: poc
     kind_config: kind/spoke-2.yaml
+  - name: kubara-dev
+    stage: dev
+    kind_config: kind/dev.yaml
+  - name: kubara-staging
+    stage: staging
+    kind_config: kind/staging.yaml
+  - name: kubara-prod
+    stage: prod
+    kind_config: kind/prod.yaml
+  

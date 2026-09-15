@@ -4,7 +4,7 @@
 
 clusterIssuer:
   name: letsencrypt-staging
-  email: developer@drgeb.com
+  email: yourname@your-domain.de
   server: https://acme-staging-v02.api.letsencrypt.org/directory
   ingressClassName: traefik
 
@@ -16,9 +16,9 @@ cert-manager:
   prometheus:
     servicemonitor:
       labels:
-        monitoring.instance: kubara-spoke-1-platform-engineering
+        monitoring.instance: kubara-prod-prod
 
 namespace:
   labels:
-    project-name: "kubara-spoke-1"
-    stage: "platform-engineering"
+    project-name: "kubara-prod"
+    stage: "prod"

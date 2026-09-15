@@ -14,9 +14,9 @@ traefik:
     prometheus:
       serviceMonitor:
         additionalLabels:
-          monitoring.instance: "kubara-spoke-2-prod"
+          monitoring.instance: "kubara-spoke-2-poc"
 
 namespace:
   labels:
     project-name: "kubara-spoke-2"
-    stage: "prod"
+    stage: "poc"

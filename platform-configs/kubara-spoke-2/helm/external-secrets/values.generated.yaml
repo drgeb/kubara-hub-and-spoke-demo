@@ -5,7 +5,7 @@ clusterSecretStores: {}
 namespace:
   labels:
     project-name: "kubara-spoke-2"
-    stage: "prod"
+    stage: "poc"
 external-secrets:
   certController:
     imagePullSecrets:
@@ -17,6 +17,6 @@ external-secrets:
     - name: image-pull-secret
   serviceMonitor:
     additionalLabels:
-      monitoring.instance: "kubara-spoke-2-prod"
+      monitoring.instance: "kubara-spoke-2-poc"
   bitwarden-sdk-server:
     enabled: false

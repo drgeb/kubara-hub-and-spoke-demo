@@ -6,7 +6,7 @@
 namespace:
   labels:
     project-name: "backing-services"
-    stage: "dev"
+    stage: "platform-engineering"
 
 # Passwords are never rendered into these manifests. `auth.existingSecret`
 # points at the `postgresql` Secret in the same namespace, which is populated

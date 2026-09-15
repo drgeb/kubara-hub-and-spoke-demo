@@ -6,7 +6,7 @@
 namespace:
   labels:
     project-name: "kubara-spoke-1"
-    stage: "dev"
+    stage: "platform-engineering"
 
 imagePullSecrets:
   - name: image-pull-secret

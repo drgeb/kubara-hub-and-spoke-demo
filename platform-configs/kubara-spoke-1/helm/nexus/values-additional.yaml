@@ -1,0 +1,10 @@
+# This file is rendered from a catalog template per-cluster.
+
+ingress:
+  additionalHosts:
+    - my.nexus.me
+  tls:
+    - secretName: nexus-tls
+      hosts:
+        - nexus.172.19.0.7.traefik.me
+        - my.nexus.me

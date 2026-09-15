@@ -43,9 +43,9 @@ persistence:
     redis:
       size: "1Gi"
     registry:
-      size: "5Gi"
+      size: "10Gi"
 
 namespace:
   labels:
     project-name: "kubara-spoke-1"
-    stage: "dev"
+    stage: "platform-engineering"

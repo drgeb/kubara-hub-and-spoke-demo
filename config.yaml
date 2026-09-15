@@ -81,7 +81,7 @@ clusters:
       apicurio:
         status: disabled
   - name: kubara-spoke-1
-    stage: dev
+    stage: platform-engineering
     type: spoke
     dnsName: kubara-spoke-1-control-plane
     ingressClassName: traefik
@@ -242,7 +242,7 @@ clusters:
           sync:
             enabled: false  
   - name: kubara-spoke-2
-    stage: prod
+    stage: poc
     type: spoke
     dnsName: kubara-spoke-2-control-plane
     ingressClassName: traefik
@@ -335,3 +335,180 @@ clusters:
             storageClass: ''
           replicas: 1
           version: ''
+  - name: kubara-dev
+    stage: dev
+    type: spoke
+    dnsName: kubara-dev-control-plane
+    ingressClassName: traefik
+    argocd:
+      selfManaged: disabled
+      repo: {}
+    catalogs:
+      - ./catalogs/backing-services
+      - oci://ghcr.io/kubara-io/catalogs/general:2.0.0
+    services:
+      cert-manager:
+        status: enabled
+      external-dns:
+        status: disabled
+      external-secrets:
+        status: enabled
+      kube-prometheus-stack:
+        status: disabled
+      kyverno:
+        status: disabled
+      kyverno-policies:
+        status: disabled
+      kyverno-policy-reporter:
+        status: disabled
+      loki:
+        status: disabled
+      longhorn:
+        status: disabled
+      metallb:
+        status: disabled
+      metrics-server:
+        status: disabled
+      oauth2-proxy:
+        status: disabled
+      reloader:
+        status: disabled
+      traefik:
+        status: enabled
+      velero:
+        status: disabled
+      postgresql:
+        status: enabled
+        config:
+          database:
+            name: app
+            username: app
+          persistence:
+            size: 8Gi
+            storageClass: ''
+      postgresql19:
+        status: disabled
+      uptime-kuma:
+        status: disabled
+      ollama:
+        status: disabled
+      kafka:
+        status: disabled
+  - name: kubara-staging
+    stage: staging
+    type: spoke
+    dnsName: kubara-staging-control-plane
+    ingressClassName: traefik
+    argocd:
+      selfManaged: disabled
+      repo: {}
+    catalogs:
+      - ./catalogs/backing-services
+      - oci://ghcr.io/kubara-io/catalogs/general:2.0.0
+    services:
+      cert-manager:
+        status: enabled
+      external-dns:
+        status: disabled
+      external-secrets:
+        status: enabled
+      kube-prometheus-stack:
+        status: disabled
+      kyverno:
+        status: disabled
+      kyverno-policies:
+        status: disabled
+      kyverno-policy-reporter:
+        status: disabled
+      loki:
+        status: disabled
+      longhorn:
+        status: disabled
+      metallb:
+        status: disabled
+      metrics-server:
+        status: disabled
+      oauth2-proxy:
+        status: disabled
+      reloader:
+        status: disabled
+      traefik:
+        status: enabled
+      velero:
+        status: disabled
+      postgresql:
+        status: enabled
+        config:
+          database:
+            name: app
+            username: app
+          persistence:
+            size: 8Gi
+            storageClass: ''
+      postgresql19:
+        status: disabled
+      uptime-kuma:
+        status: disabled
+      ollama:
+        status: disabled
+      kafka:
+        status: disabled
+  - name: kubara-prod
+    stage: prod
+    type: spoke
+    dnsName: kubara-prod-control-plane
+    ingressClassName: traefik
+    argocd:
+      selfManaged: disabled
+      repo: {}
+    catalogs:
+      - ./catalogs/backing-services
+      - oci://ghcr.io/kubara-io/catalogs/general:2.0.0
+    services:
+      cert-manager:
+        status: enabled
+      external-dns:
+        status: disabled
+      external-secrets:
+        status: enabled
+      kube-prometheus-stack:
+        status: disabled
+      kyverno:
+        status: disabled
+      kyverno-policies:
+        status: disabled
+      kyverno-policy-reporter:
+        status: disabled
+      loki:
+        status: disabled
+      longhorn:
+        status: disabled
+      metallb:
+        status: disabled
+      metrics-server:
+        status: disabled
+      oauth2-proxy:
+        status: disabled
+      reloader:
+        status: disabled
+      traefik:
+        status: enabled
+      velero:
+        status: disabled
+      postgresql:
+        status: enabled
+        config:
+          database:
+            name: app
+            username: app
+          persistence:
+            size: 8Gi
+            storageClass: ''
+      postgresql19:
+        status: disabled
+      uptime-kuma:
+        status: disabled
+      ollama:
+        status: disabled
+      kafka:
+        status: disabled
