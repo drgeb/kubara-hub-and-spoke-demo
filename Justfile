@@ -92,24 +92,6 @@ export-loadbalancer-ip:
     @echo "LoadBalancer service was assigned an EXTERNAL-IP by cloud-provider-kind"
     @kubectl get svc/traefik -n traefik -o=jsonpath='{.status.loadBalancer.ingress[0].ip}'
 
-step-0-init-prep:
-    kubara init --prep
-    @echo analyze the .env template and edit it to your liking, then run `just step-0-2-init-local` to continue
-
-step-0-2-init-local:
-    kubara init --env .env.local
-    @echo "kubara config initialized for local-only cluster profile, then run `just step-1-kubara-generate` to continue"
-
-step-1-kubara-generate:
-    kubara generate --env .env.local
-    @echo "kubara config generated for local-only cluster profile, then run `just step-2-kubara-bootstrap` to continue"
-
-step-2-kubara-bootstrap:
-    kubara bootstrap \
-        control-plane \
-        --with-es-css-file clustersecretstore.yaml \
-        --with-es-crds -- kubectl k8s.yml --env-file .env.local
-    @echo "kubara bootstrap complete, then run `just step-3-verify-argocd` to continue"
     
 # Run kubara generate --helm and restore the charts kubara prunes from the
 # repo-root platform-components/helm tree (template-library, harbor).
@@ -156,14 +138,6 @@ liquibase-install: liquibase-build-image liquibase-bootstrap
     done
     @echo "All Liquibase charts installed."
 
-# Initialize kubara config with local-evaluation prep files (.env template)
-init-prep:
-    kubara init --prep --local
-
-# Initialize kubara config for a local-only cluster profile
-kubara-init-local:
-    kubara init --local
-
 # Test the Kubernetes cluster connection and list namespaces
 kubara-test-connection:
     kubara --test-connection
@@ -205,8 +179,6 @@ stop-cloud-provider-kind:
     else \
       echo "cloud-provider-kind is not running"; \
     fi
-
-
 
 # Verify Argo CD is deployed and running after bootstrap
 verify-argocd:
