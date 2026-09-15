@@ -5,6 +5,12 @@ DEMO_SETUP_ROOT="$(cd "${DEMO_LIB_DIR}/../.." && pwd)"
 DEMO_REPO_ROOT="$(cd "${DEMO_SETUP_ROOT}/.." && pwd)"
 DEMO_DEFAULT_CONFIG="${DEMO_SETUP_ROOT}/config/kind-demo.yaml"
 
+# Docker resources created by the demo's mesh setup (build-mesh.sh).
+# The 'kind' default network is shared by all local kind clusters.
+DEMO_MESH_DOCKER_NETWORK="kubara-mesh"
+DEMO_KIND_NETWORK="kind"
+DEMO_HUB_CLUSTER_NAME="hub"
+
 demo_die() {
   printf 'ERROR: %s\n' "$*" >&2
   exit 1
@@ -385,4 +391,48 @@ demo_run() {
 
 demo_cluster_exists() {
   kind get clusters 2>/dev/null | awk -v name="$1" '$0 == name { found = 1 } END { exit found ? 0 : 1 }'
+}
+
+demo_docker_network_exists() {
+  docker network inspect "$1" >/dev/null 2>&1
+}
+
+demo_docker_network_has_containers() {
+  [ -n "$(docker network inspect "$1" --format '{{range .Containers}}{{.Name}}{{end}}' 2>/dev/null)" ]
+}
+
+demo_delete_cloud_provider_kind_lbs() {
+  local cluster="$1"
+  local lb_containers
+
+  lb_containers="$(docker ps -aq --filter label=io.x-k8s.cloud-provider-kind.cluster="$cluster" 2>/dev/null || true)"
+
+  if [ -n "$lb_containers" ]; then
+    # shellcheck disable=SC2086
+    demo_run docker rm -f $lb_containers
+  fi
+}
+
+demo_cleanup_demo_networks() {
+  local network
+  local in_use=false
+
+  for network in "$DEMO_MESH_DOCKER_NETWORK" "$DEMO_KIND_NETWORK"; do
+    if ! demo_docker_network_exists "$network"; then
+      continue
+    fi
+
+    if demo_docker_network_has_containers "$network"; then
+      printf 'Docker network still in use, skipping: %s\n' "$network"
+      in_use=true
+      continue
+    fi
+
+    printf 'Deleting unused Docker network: %s\n' "$network"
+    demo_run docker network rm "$network"
+  done
+
+  if [ "$in_use" = "true" ]; then
+    printf 'Docker networks in use were left in place.\n'
+  fi
 }

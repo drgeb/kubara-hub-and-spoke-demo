@@ -6,6 +6,10 @@ CONFIG_DIR="${ROOT_DIR}/z-demo-setup/config"
 
 CILIUM_VERSION="${CILIUM_VERSION:-1.19.5}"
 
+# Must match the kube-prometheus-stack dependency pinned in
+# platform-components/helm/bootstrap-crds/Chart.yaml.
+KUBE_PROMETHEUS_STACK_VERSION="${KUBE_PROMETHEUS_STACK_VERSION:-88.6.3}"
+
 MESH_DOCKER_NETWORK="kubara-mesh"
 MESH_DOCKER_SUBNET="172.19.0.0/16"
 MESH_DOCKER_GATEWAY="172.19.0.1"
@@ -193,6 +197,25 @@ ensure_cilium_helm_repo() {
     echo "    Updating Cilium Helm repository"
 
     helm repo update cilium
+}
+
+ensure_prometheus_helm_repo() {
+    log "Checking Prometheus Helm repository"
+
+    if ! helm repo list 2>/dev/null |
+        awk 'NR > 1 {print $1}' |
+        grep -Fxq "prometheus-community"; then
+
+        echo "    Prometheus Helm repository not found; adding it"
+
+        helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+    else
+        echo "    Prometheus Helm repository already exists"
+    fi
+
+    echo "    Updating Prometheus Helm repository"
+
+    helm repo update prometheus-community
 }
 
 ensure_mesh_docker_network() {
@@ -385,6 +408,28 @@ wait_for_nodes() {
 
         printf '    %s node is ready\n' "$context"
     done
+}
+
+ensure_hub_prometheus_crds() {
+    log "Installing Prometheus Operator CRDs on hub"
+
+    helm show crds prometheus-community/kube-prometheus-stack \
+        --version "$KUBE_PROMETHEUS_STACK_VERSION" |
+        kubectl \
+            --kubeconfig "$MESH_KUBECONFIG" \
+            --context "$HUB_CONTEXT" \
+            apply --server-side -f - \
+            >/dev/null
+
+    kubectl \
+        --kubeconfig "$MESH_KUBECONFIG" \
+        --context "$HUB_CONTEXT" \
+        wait \
+        --for=condition=Established \
+        crd/servicemonitors.monitoring.coreos.com \
+        --timeout=120s
+
+    echo "    ServiceMonitor CRDs are ready on hub"
 }
 
 install_cilium() {
@@ -1272,6 +1317,7 @@ test_connectivity() {
 main() {
     check_prerequisites
     ensure_cilium_helm_repo
+    ensure_prometheus_helm_repo
     check_kind_network
 
     if "$REBUILD"; then
@@ -1283,6 +1329,7 @@ main() {
     generate_kubeconfigs
     wait_for_api
 
+    ensure_hub_prometheus_crds
     install_all_cilium
     wait_for_cilium
     wait_for_nodes
