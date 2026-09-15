@@ -3,7 +3,7 @@ clusters:
   - name: hub
     stage: local
     type: hub
-    dnsName: 172.19.0.5.traefik.me
+    dnsName: 172.19.0.3.traefik.me
     ssoOrg: local
     ssoTeam: local
     ingressClassName: traefik
@@ -22,6 +22,8 @@ clusters:
       - ./catalogs/platform-engineering
       - ./catalogs/backing-services
     services:
+      apicurio:
+        status: disabled
       cert-manager:
         status: enabled
         config:
@@ -33,8 +35,18 @@ clusters:
         status: disabled
       external-secrets:
         status: enabled
+      forgejo:
+        status: disabled
+      harbor:
+        status: disabled
       homer-dashboard:
         status: enabled
+      kafka:
+        status: disabled
+      kargo:
+        status: disabled
+      keycloak:
+        status: disabled
       kube-prometheus-stack:
         status: enabled
       kyverno:
@@ -51,12 +63,26 @@ clusters:
         status: disabled
       metrics-server:
         status: enabled
+      nexus:
+        status: disabled
       oauth2-proxy:
+        status: disabled
+      ollama:
+        status: disabled
+      opa:
+        status: disabled
+      openproject:
+        status: disabled
+      postgresql:
+        status: disabled
+      postgresql19:
         status: disabled
       reloader:
         status: disabled
       traefik:
         status: enabled
+      uptime-kuma:
+        status: disabled
       velero:
         status: disabled
         config:
@@ -64,22 +90,6 @@ clusters:
           backupStorage:
             create: true
             region: eu01
-      harbor:
-        status: disabled
-      forgejo:
-        status: disabled
-      kargo:
-        status: disabled
-      nexus:
-        status: disabled
-      openproject:
-        status: disabled
-      keycloak:
-        status: disabled
-      opa:
-        status: disabled
-      apicurio:
-        status: disabled
   - name: kubara-spoke-1
     stage: platform-engineering
     type: spoke
@@ -93,6 +103,19 @@ clusters:
       - ./catalogs/backing-services
       - oci://ghcr.io/kubara-io/catalogs/general:2.0.0
     services:
+      apicurio:
+        status: enabled
+        config:
+          database:
+            host: postgresql.postgresql.svc.cluster.local
+            name: apicurio
+            port: 5432
+            username: apicurio
+          hostname: apicurio.172.19.0.7.traefik.me
+          image:
+            tag: 2.5.9.Final
+          sync:
+            enabled: false
       cert-manager:
         status: enabled
         config:
@@ -104,67 +127,9 @@ clusters:
         status: disabled
       external-secrets:
         status: enabled
-      kube-prometheus-stack:
-        status: disabled
-      kyverno:
-        status: disabled
-      kyverno-policies:
-        status: disabled
-      kyverno-policy-reporter:
-        status: disabled
-      loki: 
-        status: disabled
-      longhorn:
-        status: disabled
-      metallb:
-        status: disabled
-      metrics-server:
-        status: disabled
-      oauth2-proxy:
-        status: disabled
-      reloader:
-        status: disabled
-      traefik:
-        status: enabled
-      velero:
-        status: disabled
-        config:
-          backupMode: fs-backup
-          backupStorage:
-            create: true
-            region: eu01
-      postgresql:
-        status: enabled
-        config:
-          database:
-            name: forgejo
-            username: app
-          persistence:
-            size: 20Gi
-            storageClass: ''
-      harbor:
-        status: enabled
-        config:
-          hostname: harbor.172.19.0.7.traefik.me
-          additionalHosts:
-          - my.harbor.me
-          networking:
-            annotations: {}
-          persistence:
-            databaseSize: 1Gi
-            redisSize: 1Gi
-            registrySize: 10Gi
-            storageClass: ''
-          tls:
-            enabled: true
-            issuerRef:
-              kind: ClusterIssuer
-              name: kubara-local-ca-issuer
-          tlsCertSource: auto
       forgejo:
         status: enabled
         config:
-          host: forgejo.172.19.0.7.traefik.me
           admin:
             email: admin@local
             username: gitea_admin
@@ -172,11 +137,35 @@ clusters:
             host: postgresql.postgresql.svc.cluster.local
             name: forgejo
             user: app
+          host: forgejo.172.19.0.7.traefik.me
           tls:
             enabled: true
             issuerRef:
               kind: ClusterIssuer
               name: kubara-local-ca-issuer
+      harbor:
+        status: enabled
+        config:
+          additionalHosts:
+            - my.harbor.me
+          adminPassword: Harbor12345
+          databasePassword: changeit
+          hostname: harbor.172.19.0.7.traefik.me
+          networking:
+            annotations: {}
+          persistence:
+            databaseSize: 1Gi
+            redisSize: 1Gi
+            registrySize: 10Gi
+            storageClass: ""
+          tls:
+            enabled: true
+            issuerRef:
+              kind: ClusterIssuer
+              name: kubara-local-ca-issuer
+          tlsCertSource: auto
+      kafka:
+        status: disabled
       kargo:
         status: enabled
         config:
@@ -189,6 +178,33 @@ clusters:
             issuerRef:
               kind: ClusterIssuer
               name: kubara-local-ca-issuer
+      keycloak:
+        status: enabled
+        config:
+          adminUser: admin
+          database:
+            host: postgresql.postgresql.svc.cluster.local
+            name: keycloak
+            port: 5432
+            username: keycloak
+          host: keycloak.172.19.0.7.traefik.me
+          replicas: 1
+      kube-prometheus-stack:
+        status: disabled
+      kyverno:
+        status: disabled
+      kyverno-policies:
+        status: disabled
+      kyverno-policy-reporter:
+        status: disabled
+      loki:
+        status: disabled
+      longhorn:
+        status: disabled
+      metallb:
+        status: disabled
+      metrics-server:
+        status: disabled
       nexus:
         status: enabled
         config:
@@ -198,49 +214,53 @@ clusters:
             issuerRef:
               kind: ClusterIssuer
               name: kubara-local-ca-issuer
-      openproject:
-        status: enabled
-        config:
-          host: openproject.172.19.0.7.traefik.me
-          adminName: OpenProject Administrator
-          adminEmail: admin@example.com
-          database:
-            host: postgresql.postgresql.svc.cluster.local
-            port: 5432
-            name: openproject
-            username: openproject
-          storage:
-            size: 20Gi
-          replicas: 1
-      keycloak:
-        status: enabled
-        config:
-          host: keycloak.172.19.0.7.traefik.me
-          adminUser: admin
-          database:
-            host: postgresql.postgresql.svc.cluster.local
-            port: 5432
-            name: keycloak
-            username: keycloak
-          replicas: 1
+      oauth2-proxy:
+        status: disabled
+      ollama:
+        status: disabled
       opa:
         status: enabled
         config:
           hostname: opa.172.19.0.7.traefik.me
           replicas: 1
-      apicurio: 
+      openproject:
         status: enabled
         config:
-          hostname: apicurio.172.19.0.7.traefik.me
+          adminEmail: admin@example.com
+          adminName: OpenProject Administrator
           database:
             host: postgresql.postgresql.svc.cluster.local
+            name: openproject
             port: 5432
-            name: apicurio
-            username: apicurio
-          image:
-            tag: 2.5.9.Final
-          sync:
-            enabled: false  
+            username: openproject
+          host: openproject.172.19.0.7.traefik.me
+          replicas: 1
+          storage:
+            size: 20Gi
+      postgresql:
+        status: enabled
+        config:
+          database:
+            name: forgejo
+            username: app
+          persistence:
+            size: 20Gi
+            storageClass: ""
+      postgresql19:
+        status: disabled
+      reloader:
+        status: disabled
+      traefik:
+        status: enabled
+      uptime-kuma:
+        status: disabled
+      velero:
+        status: disabled
+        config:
+          backupMode: fs-backup
+          backupStorage:
+            create: true
+            region: eu01
   - name: kubara-spoke-2
     stage: poc
     type: spoke
@@ -264,6 +284,15 @@ clusters:
         status: disabled
       external-secrets:
         status: enabled
+      kafka:
+        status: enabled
+        config:
+          name: my-kafka
+          persistence:
+            size: 10Gi
+            storageClass: ""
+          replicas: 1
+          version: ""
       kube-prometheus-stack:
         status: disabled
       kyverno:
@@ -282,17 +311,13 @@ clusters:
         status: disabled
       oauth2-proxy:
         status: disabled
-      reloader:
-        status: disabled
-      traefik:
+      ollama:
         status: enabled
-      velero:
-        status: disabled
         config:
-          backupMode: fs-backup
-          backupStorage:
-            create: true
-            region: eu01
+          host: ollama.172.19.0.8.traefik.me
+          models:
+            - llama3.2
+          storageSize: 30Gi
       postgresql:
         status: enabled
         config:
@@ -301,7 +326,7 @@ clusters:
             username: app
           persistence:
             size: 8Gi
-            storageClass: ''
+            storageClass: ""
       postgresql19:
         status: enabled
         config:
@@ -313,28 +338,23 @@ clusters:
           instances: 1
           persistence:
             size: 8Gi
-            storageClass: ''
+            storageClass: ""
+      reloader:
+        status: disabled
+      traefik:
+        status: enabled
       uptime-kuma:
         status: enabled
         networking:
           annotations:
             cert-manager.io/cluster-issuer: kubara-local-ca-issuer
-      ollama:
-        status: enabled
+      velero:
+        status: disabled
         config:
-          host: ollama.172.19.0.8.traefik.me
-          storageSize: 30Gi
-          models:
-            - llama3.2
-      kafka:
-        status: enabled
-        config:
-          name: my-kafka
-          persistence:
-            size: 10Gi
-            storageClass: ''
-          replicas: 1
-          version: ''
+          backupMode: fs-backup
+          backupStorage:
+            create: true
+            region: eu01
   - name: kubara-dev
     stage: dev
     type: spoke
@@ -349,10 +369,17 @@ clusters:
     services:
       cert-manager:
         status: enabled
+        config:
+          clusterIssuer:
+            email: yourname@your-domain.de
+            name: letsencrypt-staging
+            server: https://acme-staging-v02.api.letsencrypt.org/directory
       external-dns:
         status: disabled
       external-secrets:
         status: enabled
+      kafka:
+        status: disabled
       kube-prometheus-stack:
         status: disabled
       kyverno:
@@ -371,11 +398,7 @@ clusters:
         status: disabled
       oauth2-proxy:
         status: disabled
-      reloader:
-        status: disabled
-      traefik:
-        status: enabled
-      velero:
+      ollama:
         status: disabled
       postgresql:
         status: enabled
@@ -385,15 +408,22 @@ clusters:
             username: app
           persistence:
             size: 8Gi
-            storageClass: ''
+            storageClass: ""
       postgresql19:
         status: disabled
+      reloader:
+        status: disabled
+      traefik:
+        status: enabled
       uptime-kuma:
         status: disabled
-      ollama:
+      velero:
         status: disabled
-      kafka:
-        status: disabled
+        config:
+          backupMode: fs-backup
+          backupStorage:
+            create: true
+            region: eu01
   - name: kubara-staging
     stage: staging
     type: spoke
@@ -408,10 +438,17 @@ clusters:
     services:
       cert-manager:
         status: enabled
+        config:
+          clusterIssuer:
+            email: yourname@your-domain.de
+            name: letsencrypt-staging
+            server: https://acme-staging-v02.api.letsencrypt.org/directory
       external-dns:
         status: disabled
       external-secrets:
         status: enabled
+      kafka:
+        status: disabled
       kube-prometheus-stack:
         status: disabled
       kyverno:
@@ -430,11 +467,7 @@ clusters:
         status: disabled
       oauth2-proxy:
         status: disabled
-      reloader:
-        status: disabled
-      traefik:
-        status: enabled
-      velero:
+      ollama:
         status: disabled
       postgresql:
         status: enabled
@@ -444,15 +477,22 @@ clusters:
             username: app
           persistence:
             size: 8Gi
-            storageClass: ''
+            storageClass: ""
       postgresql19:
         status: disabled
+      reloader:
+        status: disabled
+      traefik:
+        status: enabled
       uptime-kuma:
         status: disabled
-      ollama:
+      velero:
         status: disabled
-      kafka:
-        status: disabled
+        config:
+          backupMode: fs-backup
+          backupStorage:
+            create: true
+            region: eu01
   - name: kubara-prod
     stage: prod
     type: spoke
@@ -467,10 +507,17 @@ clusters:
     services:
       cert-manager:
         status: enabled
+        config:
+          clusterIssuer:
+            email: yourname@your-domain.de
+            name: letsencrypt-staging
+            server: https://acme-staging-v02.api.letsencrypt.org/directory
       external-dns:
         status: disabled
       external-secrets:
         status: enabled
+      kafka:
+        status: disabled
       kube-prometheus-stack:
         status: disabled
       kyverno:
@@ -489,11 +536,7 @@ clusters:
         status: disabled
       oauth2-proxy:
         status: disabled
-      reloader:
-        status: disabled
-      traefik:
-        status: enabled
-      velero:
+      ollama:
         status: disabled
       postgresql:
         status: enabled
@@ -503,12 +546,19 @@ clusters:
             username: app
           persistence:
             size: 8Gi
-            storageClass: ''
+            storageClass: ""
       postgresql19:
         status: disabled
+      reloader:
+        status: disabled
+      traefik:
+        status: enabled
       uptime-kuma:
         status: disabled
-      ollama:
+      velero:
         status: disabled
-      kafka:
-        status: disabled
+        config:
+          backupMode: fs-backup
+          backupStorage:
+            create: true
+            region: eu01

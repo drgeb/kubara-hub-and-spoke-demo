@@ -105,8 +105,10 @@ step-1-kubara-generate:
     @echo "kubara config generated for local-only cluster profile, then run `just step-2-kubara-bootstrap` to continue"
 
 step-2-kubara-bootstrap:
-    kubara bootstrap control-plane --with-es-css-file clustersecretstore.yaml --with-es-crds --
-    kubectl k8s.yml --env-file .env.local
+    kubara bootstrap \
+        control-plane \
+        --with-es-css-file clustersecretstore.yaml \
+        --with-es-crds -- kubectl k8s.yml --env-file .env.local
     @echo "kubara bootstrap complete, then run `just step-3-verify-argocd` to continue"
     
 # Run kubara generate --helm and restore the charts kubara prunes from the
