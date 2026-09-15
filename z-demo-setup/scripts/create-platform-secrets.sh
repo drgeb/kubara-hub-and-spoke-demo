@@ -152,6 +152,39 @@ else
     warn "Cluster ${SPOKE2_CONTEXT} is not reachable; skipping spoke-2 postgresql secret"
 fi
 
+# Image pull secret (empty registry auth, images are public) referenced by
+# several workloads via imagePullSecrets.name=image-pull-secret. Not managed
+# by Argo CD and not covered by ExternalSecrets on the spokes, so it has to be
+# bootstrapped here on freshly recreated clusters.
+ensure_image_pull_secret() {
+    local context="$1" namespace="$2"
+    kubectl --context "$context" get namespace "$namespace" >/dev/null 2>&1 || return 0
+    kubectl --context "$context" -n "$namespace" get secret image-pull-secret >/dev/null 2>&1 && return 0
+    local tmp="/tmp/image-pull-secret.$$"
+    printf '%s' '{"auths":{}}' > "$tmp"
+    kubectl --context "$context" -n "$namespace" \
+        create secret generic image-pull-secret \
+        --from-file=.dockerconfigjson="$tmp" \
+        --type=kubernetes.io/dockerconfigjson --dry-run=client -o yaml |
+        kubectl --context "$context" -n "$namespace" apply -f - >/dev/null
+    rm -f "$tmp"
+    echo "    ${namespace}/image-pull-secret"
+}
+
+if is_cluster_reachable "$SPOKE1_CONTEXT"; then
+    log "Ensuring image-pull-secret on ${SPOKE1_CONTEXT}"
+    for ns in external-secrets forgejo kargo traefik; do
+        ensure_image_pull_secret "$SPOKE1_CONTEXT" "$ns"
+    done
+fi
+
+if is_cluster_reachable "$SPOKE2_CONTEXT"; then
+    log "Ensuring image-pull-secret on ${SPOKE2_CONTEXT}"
+    for ns in external-secrets traefik; do
+        ensure_image_pull_secret "$SPOKE2_CONTEXT" "$ns"
+    done
+fi
+
 # ── Publish to OpenBao (best-effort) ────────────────────────────────────────
 log "Publishing secrets to OpenBao (best-effort)"
 
