@@ -103,6 +103,29 @@ generate-helm *args:
 create-platform-secrets:
     ./z-demo-setup/scripts/create-platform-secrets.sh
 
+# Publish the Docker-internal spoke kubeconfigs to OpenBao so the hub
+# ExternalSecrets can materialize the argocd cluster secrets.
+setup-openbao-secrets:
+    make -C z-demo-setup openbao-secrets
+
+# Verify the spoke ExternalSecrets synced their OpenBao kubeconfigs into
+# Kubernetes secrets and that the hub-argocd app is healthy.
+verify-secrets:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "==> Kubernetes secrets (argocd) =="
+    kubectl --kubeconfig .local/kind.kubeconfig --context kind-hub \
+        get secrets -n argocd | grep -Ei 'spoke|dev|staging|prod' || echo "  (none found)"
+    echo
+    echo "==> ExternalSecrets status =="
+    kubectl --kubeconfig .local/kind.kubeconfig --context kind-hub \
+        get externalsecret -n argocd
+    echo
+    echo "==> hub-argocd application =="
+    kubectl --kubeconfig .local/kind.kubeconfig --context kind-hub \
+        get application hub-argocd -n argocd \
+        -o custom-columns=NAME:.metadata.name,SYNC:.status.sync.status,HEALTH:.status.health.status
+
 # Build the custom Liquibase Docker image with PostgreSQL driver
 liquibase-build-image:
     docker build -t liquibase-bootstrap:local z-demo-setup/liquibase/

@@ -219,6 +219,10 @@ else
     else
         echo "    OpenBao: ${OPENBAO_ADDR}"
 
+        HUB_PREFIX="${HUB_NAME}/${HUB_STAGE}"
+        publish_to_openbao "${HUB_PREFIX}/cluster_secrets/docker_config" \
+            "$(jq -n --arg ds '{"auths":{}}' '{data: {pull-secret: $ds}}')"
+
         PREFIX="platform/${CLUSTER_NAME}-${CLUSTER_STAGE}"
         PREFIX2="platform/${CLUSTER2_NAME}-${CLUSTER2_STAGE}"
 

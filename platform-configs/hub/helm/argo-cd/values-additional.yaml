@@ -43,9 +43,9 @@ argo-cd:
   controller:
     resources:
       requests:
-        memory: 1000Mi
+        memory: 6144Mi
       limits:
-        memory: 1000Mi
+        memory: 6144Mi
   server:
     resources:
       requests:
