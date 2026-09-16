@@ -1099,9 +1099,6 @@ publish_spoke_kubeconfigs_to_openbao() {
 
     local openbao_addr="http://${ingress_host}"
 
-    curl -fsS \
-        --header "X-Vault-Token: ${root_token}" \
-        "${openbao_addr}/v1/sys/health" >/dev/null
 
     echo "    OpenBao: ${openbao_addr}"
 
