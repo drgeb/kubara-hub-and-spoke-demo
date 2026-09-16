@@ -452,6 +452,17 @@ install_cilium() {
 
     log "Installing Cilium ${CILIUM_VERSION} on ${cluster_name}"
 
+    # Check if Cilium is already installed
+    if kubectl \
+        --kubeconfig "$MESH_KUBECONFIG" \
+        --context "$context" \
+        -n kube-system \
+        get deployment cilium-operator >/dev/null 2>&1; then
+
+        log "Cilium is already installed on ${cluster_name}"
+        return
+    fi
+
     # Cilium CLI may time out while Kubernetes components are still
     # becoming ready. Do not make the CLI timeout itself fatal.
     local servicemonitor_args=()
