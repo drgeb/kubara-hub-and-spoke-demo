@@ -33,13 +33,13 @@ ingress:
   enabled: true
   annotations:
     cert-manager.io/cluster-issuer: kubara-local-ca-issuer
-  hostRepo: nexus.hub.kubara.test
+  hostRepo: nexus.172.19.0.8.traefik.me
   hostPath: /
   ingressClassName: traefik
   tls:
     - secretName: nexus-tls
       hosts:
-        - nexus.hub.kubara.test
+        - nexus.172.19.0.8.traefik.me
 
 namespace:
   labels:

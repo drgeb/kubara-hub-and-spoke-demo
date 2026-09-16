@@ -351,6 +351,17 @@ generate_kubeconfigs() {
         "$STAGING_KUBECONFIG" \
         "$PROD_KUBECONFIG" \
         "$MESH_KUBECONFIG"
+
+    # Added to locally update the kind.kubeconfig file in .local directory for convenience
+    mkdir -p .local/tmp
+    for c in $(kind get clusters); do
+    kind get kubeconfig --name "$c" > ".local/tmp/$c.yaml"
+    done
+
+    KUBECONFIG=$(echo .local/tmp/*.yaml | tr ' ' ':') \
+    kubectl config view --flatten > .local/kind.kubeconfig
+
+    rm -rf .local/tmp
 }
 
 wait_for_api_cluster() {

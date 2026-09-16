@@ -3,7 +3,7 @@ clusters:
   - name: hub
     stage: local
     type: hub
-    dnsName: hub.kubara.test
+    dnsName: 172.19.0.8.traefik.me
     ssoOrg: local
     ssoTeam: local
     ingressClassName: traefik
@@ -97,7 +97,10 @@ clusters:
     ingressClassName: traefik
     argocd:
       selfManaged: disabled
-      repo: {}
+      config:
+        destination:
+          server: https://kubara-spoke-1-control-plane:6443
+        secretName: kubara-spoke-1-cluster-secret
     catalogs:
       - ./catalogs/platform-engineering
       - ./catalogs/backing-services
@@ -261,7 +264,10 @@ clusters:
     ingressClassName: traefik
     argocd:
       selfManaged: disabled
-      repo: {}
+      config:
+        destination:
+          server: https://kubara-spoke-2-control-plane:6443
+        secretName: kubara-spoke-2-cluster-secret
     catalogs:
       - ./catalogs/backing-services
       - oci://ghcr.io/kubara-io/catalogs/general:2.0.0
@@ -354,7 +360,10 @@ clusters:
     ingressClassName: traefik
     argocd:
       selfManaged: disabled
-      repo: {}
+      config:
+        destination:
+          server: https://kubara-dev-control-plane:6443
+        secretName: kubara-dev-cluster-secret
     catalogs:
       - ./catalogs/backing-services
       - oci://ghcr.io/kubara-io/catalogs/general:2.0.0
@@ -423,7 +432,10 @@ clusters:
     ingressClassName: traefik
     argocd:
       selfManaged: disabled
-      repo: {}
+      config:
+        destination:
+          server: https://kubara-staging-control-plane:6443
+        secretName: kubara-staging-cluster-secret
     catalogs:
       - ./catalogs/backing-services
       - oci://ghcr.io/kubara-io/catalogs/general:2.0.0
@@ -492,7 +504,10 @@ clusters:
     ingressClassName: traefik
     argocd:
       selfManaged: disabled
-      repo: {}
+      config:
+        destination:
+          server: https://kubara-prod-control-plane:6443
+        secretName: kubara-prod-cluster-secret
     catalogs:
       - ./catalogs/backing-services
       - oci://ghcr.io/kubara-io/catalogs/general:2.0.0
