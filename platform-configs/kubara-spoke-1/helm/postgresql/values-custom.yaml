@@ -8,8 +8,11 @@
 # OpenBao. The chart references that Secret instead of rendering its own.
 #
 # Per-application databases and roles (openproject, keycloak, apicurio) are
-# created by the liquibase-bootstrap job (`just liquibase-bootstrap`), whose
-# passwords also come from .env at install time and are never committed.
+# created by the liquibase-bootstrap job, whose passwords also come from .env
+# at install time and are never committed. Provisioning is automated by
+# z-demo-setup/scripts/provision-platform.sh (invoked by build-mesh.sh after
+# the mesh is up and manually via `just provision-platform`); `just
+# liquibase-install` remains for a manual cluster-local run.
 auth:
   existingSecret: postgresql
 

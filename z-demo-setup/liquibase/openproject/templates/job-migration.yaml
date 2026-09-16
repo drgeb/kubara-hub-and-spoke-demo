@@ -38,7 +38,7 @@ spec:
         - name: liquibase
           image: {{ .Values.liquibase.image }}
           args:
-            - "--changelog-file=/liquibase/changelog/db.changelog-master.yaml"
+            - "--changelog-file=changelog/db.changelog-master.yaml"
             - "update"
           env:
             - name: LIQUIBASE_COMMAND_URL

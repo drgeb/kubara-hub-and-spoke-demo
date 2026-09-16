@@ -1,17 +1,29 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Create Kubernetes Secrets for platform services on kubara-spoke-1 from
-# environment variables (loaded from .env via direnv). Publishes the same
+# Create Kubernetes Secrets for platform services across the spoke clusters
+# (kubara-spoke-1, kubara-spoke-2, kubara-dev, kubara-staging, kubara-prod)
+# from environment variables (loaded from .env via direnv). Publishes the same
 # secrets to OpenBao (Vault) on a best-effort basis — warns if OpenBao is
-# unreachable (chicken-and-egg during initial bootstrap).
+# unreachable (chicken-and-egg during initial bootstrap). Creating secrets with
+# kubectl apply is idempotent, so the script is safe to re-run on recreated
+# clusters and during subsequent build-mesh bring-ups.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # ── Cluster / context ────────────────────────────────────────────────────────
 SPOKE1_CONTEXT="kind-kubara-spoke-1"
 SPOKE2_CONTEXT="kind-kubara-spoke-2"
+DEV_CONTEXT="kind-kubara-dev"
+STAGING_CONTEXT="kind-kubara-staging"
+PROD_CONTEXT="kind-kubara-prod"
 HUB_CONTEXT="kind-hub"
+
+# Standalone backing-cluster postgres deployments (db "app", user "app").
+# Each of these has a bitnami postgresql Deployment in the postgresql
+# namespace wired to auth.existingSecret=postgresql, so every cluster that
+# runs the chart needs the secret seeded before its pod initializes.
+POSTGRES_ONLY_CONTEXTS=("$SPOKE2_CONTEXT" "$DEV_CONTEXT" "$STAGING_CONTEXT" "$PROD_CONTEXT")
 
 OPENBAO_NAMESPACE="openbao"
 OPENBAO_MOUNT="kv"
@@ -21,6 +33,12 @@ CLUSTER_NAME="kubara-spoke-1"
 CLUSTER_STAGE="dev"
 CLUSTER2_NAME="kubara-spoke-2"
 CLUSTER2_STAGE="prod"
+CLUSTER3_NAME="kubara-dev"
+CLUSTER3_STAGE="dev"
+CLUSTER4_NAME="kubara-staging"
+CLUSTER4_STAGE="staging"
+CLUSTER5_NAME="kubara-prod"
+CLUSTER5_STAGE="prod"
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 log()  { printf '\n==> %s\n' "$*"; }
@@ -143,14 +161,21 @@ if [[ "$SKIP_KUBECTL" == false ]]; then
         --from-literal=password="$APICURIO_DB_PASSWORD"
 fi
 
-if is_cluster_reachable "$SPOKE2_CONTEXT"; then
-    log "Creating backing database secret on ${SPOKE2_CONTEXT}"
-    create_secret "$SPOKE2_CONTEXT" postgresql postgresql \
+create_postgresql_secret() {
+    local context="$1"
+    if ! is_cluster_reachable "$context"; then
+        warn "Cluster ${context} is not reachable; skipping postgresql secret"
+        return 0
+    fi
+    log "Creating backing database secret on ${context}"
+    create_secret "$context" postgresql postgresql \
         --from-literal=postgres-password="$POSTGRES_PASSWORD" \
         --from-literal=password="$APP_POSTGRES_PASSWORD"
-else
-    warn "Cluster ${SPOKE2_CONTEXT} is not reachable; skipping spoke-2 postgresql secret"
-fi
+}
+
+for ctx in "${POSTGRES_ONLY_CONTEXTS[@]}"; do
+    create_postgresql_secret "$ctx"
+done
 
 # Image pull secret (empty registry auth, images are public) referenced by
 # several workloads via imagePullSecrets.name=image-pull-secret. Not managed
@@ -184,6 +209,15 @@ if is_cluster_reachable "$SPOKE2_CONTEXT"; then
         ensure_image_pull_secret "$SPOKE2_CONTEXT" "$ns"
     done
 fi
+
+for ctx in "$DEV_CONTEXT" "$STAGING_CONTEXT" "$PROD_CONTEXT"; do
+    if is_cluster_reachable "$ctx"; then
+        log "Ensuring image-pull-secret on ${ctx}"
+        for ns in external-secrets traefik; do
+            ensure_image_pull_secret "$ctx" "$ns"
+        done
+    fi
+done
 
 # ── Publish to OpenBao (best-effort) ────────────────────────────────────────
 log "Publishing secrets to OpenBao (best-effort)"
@@ -258,12 +292,27 @@ else
 
         PREFIX="platform/${CLUSTER_NAME}-${CLUSTER_STAGE}"
         PREFIX2="platform/${CLUSTER2_NAME}-${CLUSTER2_STAGE}"
+        PREFIX3="platform/${CLUSTER3_NAME}-${CLUSTER3_STAGE}"
+        PREFIX4="platform/${CLUSTER4_NAME}-${CLUSTER4_STAGE}"
+        PREFIX5="platform/${CLUSTER5_NAME}-${CLUSTER5_STAGE}"
 
         publish_to_openbao "${PREFIX}/postgresql/postgresql" \
             "$(jq -n --arg pg "$POSTGRES_PASSWORD" --arg app "$APP_POSTGRES_PASSWORD" \
                 '{data: {"postgres-password": $pg, password: $app}}')"
 
         publish_to_openbao "${PREFIX2}/postgresql/postgresql" \
+            "$(jq -n --arg pg "$POSTGRES_PASSWORD" --arg app "$APP_POSTGRES_PASSWORD" \
+                '{data: {"postgres-password": $pg, password: $app}}')"
+
+        publish_to_openbao "${PREFIX3}/postgresql/postgresql" \
+            "$(jq -n --arg pg "$POSTGRES_PASSWORD" --arg app "$APP_POSTGRES_PASSWORD" \
+                '{data: {"postgres-password": $pg, password: $app}}')"
+
+        publish_to_openbao "${PREFIX4}/postgresql/postgresql" \
+            "$(jq -n --arg pg "$POSTGRES_PASSWORD" --arg app "$APP_POSTGRES_PASSWORD" \
+                '{data: {"postgres-password": $pg, password: $app}}')"
+
+        publish_to_openbao "${PREFIX5}/postgresql/postgresql" \
             "$(jq -n --arg pg "$POSTGRES_PASSWORD" --arg app "$APP_POSTGRES_PASSWORD" \
                 '{data: {"postgres-password": $pg, password: $app}}')"
 

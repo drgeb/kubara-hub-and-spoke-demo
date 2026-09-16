@@ -7,6 +7,9 @@ HUB_CLUSTER_NAME := "hub"
 PLTFME_CLUSTER_NAME := "kubara-spoke-1"
 DEV_CLUSTER_NAME := "kubara-spoke-2"
 
+KUBARA_KUBECONFIG := ".local/kind.kubeconfig"
+PLTFME_KUBE_CONTEXT := "kind-kubara-spoke-1"
+
 HUB_LB_ADDR := `kubectl --kubeconfig .local/kind.kubeconfig --context kind-hub get svc/traefik -n traefik -o=jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true`
 PLTFME_LB_ADDR := `kubectl --kubeconfig .local/kind.kubeconfig --context kind-kubara-spoke-1 get svc/traefik -n traefik -o=jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true`
 DEV_LB_ADDR := `kubectl --kubeconfig .local/kind.kubeconfig --context kind-kubara-spoke-2 get svc/traefik -n traefik -o=jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true`
@@ -134,6 +137,8 @@ liquibase-build-image:
 liquibase-bootstrap:
     helm upgrade --install liquibase-bootstrap z-demo-setup/liquibase/bootstrap/ \
         --namespace postgresql --create-namespace \
+        --kubeconfig {{ KUBARA_KUBECONFIG }} \
+        --kube-context {{ PLTFME_KUBE_CONTEXT }} \
         --set "services[0].name=openproject" \
         --set "services[0].database=openproject" \
         --set "services[0].password=${OPENPROJECT_DB_PASSWORD}" \
@@ -157,9 +162,48 @@ liquibase-install: liquibase-build-image liquibase-bootstrap
         echo "==> Installing liquibase-$${svc}"; \
         helm upgrade --install "liquibase-$${svc}" "z-demo-setup/liquibase/$${svc}/" \
             --namespace "$${svc}" --create-namespace \
+            --kubeconfig {{ KUBARA_KUBECONFIG }} \
+            --kube-context {{ PLTFME_KUBE_CONTEXT }} \
             --wait --timeout 5m; \
     done
     @echo "All Liquibase charts installed."
+
+# Idempotent platform provisioning: seed secrets on all spokes, wait for
+# postgres, then run liquibase bootstrap + per-service migrations per cluster.
+# Safe to re-run (kubectl apply + helm upgrade + guarded SQL).
+provision-platform:
+    ./z-demo-setup/scripts/provision-platform.sh --refresh-local-kubeconfig
+
+# Re-merge all six kind cluster kubeconfigs into .local/kind.kubeconfig
+refresh-kind-kubeconfig:
+    ./z-demo-setup/scripts/provision-platform.sh --refresh-only
+
+# Verify liquibase roles/databases exist on each spoke cluster
+verify-liquibase:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    KCFG="{{ KUBARA_KUBECONFIG }}"
+    ADMIN_PASS="${POSTGRES_PASSWORD:-}"
+    if [[ -z "$ADMIN_PASS" ]]; then
+        echo "POSTGRES_PASSWORD is not set — run 'direnv allow'" >&2
+        exit 1
+    fi
+    declare -A SVC=(
+        [kind-kubara-spoke-1]="openproject keycloak apicurio"
+        [kind-kubara-spoke-2]="app"
+        [kind-kubara-dev]="app"
+        [kind-kubara-staging]="app"
+        [kind-kubara-prod]="app"
+    )
+    for ctx in "${!SVC[@]}"; do
+        for svc in ${SVC[$ctx]}; do
+            role="$(kubectl --kubeconfig "$KCFG" --context "$ctx" exec postgresql-0 -n postgresql -- \
+                bash -c "PGPASSWORD='$ADMIN_PASS' psql -U postgres -tAc \"SELECT rolname FROM pg_roles WHERE rolname='$svc'\"")" || true
+            db="$(kubectl --kubeconfig "$KCFG" --context "$ctx" exec postgresql-0 -n postgresql -- \
+                bash -c "PGPASSWORD='$ADMIN_PASS' psql -U postgres -tAc \"SELECT datname FROM pg_database WHERE datname='$svc'\"")" || true
+            printf '%s/%s  role=%s db=%s\n' "$ctx" "$svc" "${role:-MISSING}" "${db:-MISSING}"
+        done
+    done
 
 # Test the Kubernetes cluster connection and list namespaces
 kubara-test-connection:

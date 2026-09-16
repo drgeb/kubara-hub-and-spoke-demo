@@ -1171,6 +1171,19 @@ verify_cluster_config() {
     show_cluster_config "$PROD_CONTEXT"
 }
 
+provision_platform() {
+    log "Provisioning platform secrets and databases"
+
+    # Create platform secrets on all spokes, wait for postgres, then run the
+    # (idempotent) liquibase bootstrap + per-service migrations. Uses the
+    # shared merge config so every spoke context is reachable regardless of the
+    # ambient kubeconfig. Also refreshes .local/kind.kubeconfig with all six
+    # cluster contexts so local tooling can reach dev/staging/prod too.
+    "${ROOT_DIR}/z-demo-setup/scripts/provision-platform.sh" \
+        --kubeconfig "$MESH_KUBECONFIG" \
+        --refresh-local-kubeconfig
+}
+
 show_mesh_status() {
     log "ClusterMesh status: hub"
 
@@ -1350,6 +1363,8 @@ main() {
     generate_internal_kubeconfigs
     set_values_to_publish_spoke_kubeconfigs_to_openbao
     publish_spoke_kubeconfigs_to_openbao
+
+    provision_platform
 
     verify_cluster_config
     show_mesh_status
