@@ -148,6 +148,15 @@ check_prerequisites() {
     [[ -f "$SPOKE2_KIND_CONFIG" ]] ||
         die "Missing $SPOKE2_KIND_CONFIG"
 
+    [[ -f "$DEV_KIND_CONFIG" ]] ||
+        die "Missing $DEV_KIND_CONFIG"
+
+    [[ -f "$STAGING_KIND_CONFIG" ]] ||
+        die "Missing $STAGING_KIND_CONFIG"
+
+    [[ -f "$PROD_KIND_CONFIG" ]] ||
+        die "Missing $PROD_KIND_CONFIG"
+
     log "Cilium CLI"
 
     cilium version
@@ -298,12 +307,16 @@ create_kind_cluster() {
         return
     fi
 
-    log "Creating Kind cluster '${name}'"
+    log "Creating Kind cluster '${name}' with config: ${config}"
 
     KIND_EXPERIMENTAL_DOCKER_NETWORK="$MESH_DOCKER_NETWORK" \
     kind create cluster \
     --name "$name" \
     --config "$config"
+
+    if [ $? -ne 0 ]; then
+        die "Failed to create Kind cluster '${name}'"
+    fi
 }
 
 create_clusters() {
@@ -470,10 +483,11 @@ install_cilium() {
         --set "prometheus.enabled=true" \
         --set "hubble.metrics.enabled={dns,drop,tcp,flow,http,icmp}" \
         "${servicemonitor_args[@]}" \
-        --wait \
-        || {
-            echo "    Cilium install returned non-zero; Kubernetes readiness will be checked separately."
-        }
+        --wait
+
+    if [ $? -ne 0 ]; then
+        die "Failed to install Cilium on ${cluster_name}"
+    fi
 }
 
 install_all_cilium() {
@@ -851,10 +865,11 @@ enable_clustermesh() {
     cilium clustermesh enable \
         --kubeconfig "$MESH_KUBECONFIG" \
         --context "$context" \
-        --service-type NodePort \
-        || {
-            echo "    ClusterMesh enable returned non-zero; waiting for Kubernetes readiness..."
-        }
+        --service-type NodePort
+
+    if [ $? -ne 0 ]; then
+        die "Failed to enable ClusterMesh on ${context}"
+    fi
 
     wait_for_deployment_exists \
         "$context" \
@@ -872,10 +887,18 @@ enable_clustermesh() {
         --reuse-values \
         --set "clustermesh.apiserver.replicas=1"
 
+    if [ $? -ne 0 ]; then
+        die "Failed to upgrade Cilium Helm chart on ${context}"
+    fi
+
     wait_for_clustermesh \
         "$MESH_KUBECONFIG" \
         "$context" \
         180
+
+    if [ $? -ne 0 ]; then
+        die "ClusterMesh did not become ready on ${context}"
+    fi
 }
 
 enable_all_clustermesh() {
@@ -955,6 +978,10 @@ bootstrap_kubara_hub() {
         die "kubara is not installed"
 
     kubara bootstrap hub --local
+
+    if [ $? -ne 0 ]; then
+        die "Failed to bootstrap Kubara hub"
+    fi
 }
 
 generate_internal_kubeconfigs() {
