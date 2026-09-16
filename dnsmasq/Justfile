@@ -1,0 +1,161 @@
+# Self-contained wildcard DNS for the kubara hub-and-spoke demo.
+# Resolves <svc>.<cluster>.kubara.test -> that cluster's traefik LoadBalancer
+# and installs macOS /etc/resolver overrides for kubara.test and my.nexus.me.
+
+KUBECONFIG := parent_directory(justfile_directory()) + "/.local/kind.kubeconfig"
+CONF := justfile_directory() + "/config/dnsmasq.conf"
+RESOLVER_DIR := justfile_directory() + "/resolver"
+ETC_RESOLVER_DIR := "/etc/resolver"
+PID_FILE := justfile_directory() + "/.dnsmasq.pid"
+RESOLVER_DOMAINS := "kubara.test me"
+
+default:
+    @just --list
+
+# Install ./resolver/* into /etc/resolver/ and flush the DNS cache (sudo)
+setup-resolver:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Installing resolvers: {{ RESOLVER_DOMAINS }}"
+    sudo mkdir -p "{{ ETC_RESOLVER_DIR }}"
+    for domain in {{ RESOLVER_DOMAINS }}; do
+        [ -f "{{ RESOLVER_DIR }}/${domain}" ] || { echo "missing {{ RESOLVER_DIR }}/${domain}" >&2; exit 1; }
+        sudo cp "{{ RESOLVER_DIR }}/${domain}" "{{ ETC_RESOLVER_DIR }}/${domain}"
+        echo "Installed {{ ETC_RESOLVER_DIR }}/${domain}"
+    done
+    if [ -f "{{ ETC_RESOLVER_DIR }}/traefik.me" ]; then
+        sudo rm -f "{{ ETC_RESOLVER_DIR }}/traefik.me"
+        echo "Removed stale {{ ETC_RESOLVER_DIR }}/traefik.me"
+    fi
+    sudo dscacheutil -flushcache
+    sudo killall -HUP mDNSResponder
+    echo "DNS resolvers configured for *.kubara.test and my.nexus.me"
+
+# Start dnsmasq with config/dnsmasq.conf (sudo, from config/dnsmasq)
+start-dnsmasq: setup-resolver
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -f "{{ PID_FILE }}" ] && ps -p "$(cat "{{ PID_FILE }}")" -o pid= >/dev/null 2>&1; then
+        echo "dnsmasq already running (PID: $(cat "{{ PID_FILE }}"))"
+        exit 0
+    fi
+    RUNNING_PID=$(pgrep -x dnsmasq 2>/dev/null || true)
+    if [ -n "$RUNNING_PID" ]; then
+        echo "dnsmasq already running (PID: $RUNNING_PID) - skipping start"
+        exit 0
+    fi
+    [ -f "{{ CONF }}" ] || { echo "dnsmasq.conf not found at {{ CONF }}" >&2; exit 1; }
+    echo "Starting dnsmasq for *.kubara.test and my.nexus.me..."
+    sudo "$(command -v dnsmasq)" --conf-file="{{ CONF }}" --pid-file="{{ PID_FILE }}"
+    echo "dnsmasq started. *.kubara.test and my.nexus.me resolve via 127.0.0.1"
+
+# Stop dnsmasq (sudo)
+stop-dnsmasq:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    found=""
+    if [ -f "{{ PID_FILE }}" ]; then
+        PID=$(cat "{{ PID_FILE }}")
+        if ps -p "$PID" -o pid= >/dev/null 2>&1; then
+            echo "Stopping dnsmasq (PID: $PID)..."
+            sudo kill "$PID"
+            for _ in 1 2 3 4 5; do
+                ps -p "$PID" -o pid= >/dev/null 2>&1 || break
+                sleep 0.2
+            done
+            found="$PID"
+        else
+            echo "PID file present but process not running; removing stale PID file"
+        fi
+        sudo rm -f "{{ PID_FILE }}"
+    fi
+    RUNNING_PID=$(pgrep -x dnsmasq 2>/dev/null || true)
+    if [ -n "$RUNNING_PID" ]; then
+        echo "Stopping dnsmasq (PID: $RUNNING_PID)..."
+        sudo pkill -x dnsmasq
+        found="$found $RUNNING_PID"
+    fi
+    if [ -n "$found" ]; then echo "dnsmasq stopped"; else echo "dnsmasq not running"; fi
+
+# Show dnsmasq status
+status-dnsmasq:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -f "{{ PID_FILE }}" ] && ps -p "$(cat "{{ PID_FILE }}")" -o pid= >/dev/null 2>&1; then
+        echo "dnsmasq is running (PID: $(cat "{{ PID_FILE }}"))"
+        pgrep -lx dnsmasq
+    else
+        RUNNING_PID=$(pgrep -x dnsmasq 2>/dev/null || true)
+        if [ -n "$RUNNING_PID" ]; then
+            echo "dnsmasq is running without PID file (PID: $RUNNING_PID)"
+            pgrep -lx dnsmasq
+        else
+            echo "dnsmasq is not running"
+            exit 1
+        fi
+    fi
+
+# Rewrite the address=/<cluster>.kubara.test lines from the live traefik
+# LoadBalancer IPs and reload dnsmasq. Run after rebuilding/restarting clusters.
+refresh-lb-hosts:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    KCFG="{{ KUBECONFIG }}"
+    CONF="{{ CONF }}"
+    [ -f "$KCFG" ] || { echo "kubeconfig not found: $KCFG" >&2; exit 1; }
+
+    ip_of() {
+        kubectl --kubeconfig "$KCFG" --context "$1" get svc/traefik -n traefik \
+            -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true
+    }
+
+    ROWS=(
+        "hub.kubara.test kind-hub"
+        "spoke-1.kubara.test kind-kubara-spoke-1"
+        "spoke-2.kubara.test kind-kubara-spoke-2"
+        "dev.kubara.test kind-kubara-dev"
+        "staging.kubara.test kind-kubara-staging"
+        "prod.kubara.test kind-kubara-prod"
+    )
+
+    declare -A IP=()
+    for row in "${ROWS[@]}"; do
+        dom="${row%% *}"; ctx="${row#* }"
+        ip=$(ip_of "$ctx")
+        if [ -n "$ip" ]; then
+            IP[$dom]="$ip"
+            echo "$dom -> $ip"
+        else
+            echo "WARN: no traefik LB IP for $ctx; leaving $dom unchanged" >&2
+        fi
+    done
+
+    tmp=$(mktemp)
+    cp "$CONF" "$tmp"
+    for dom in "${!IP[@]}"; do
+        if grep -q "address=/$dom/" "$tmp"; then
+            sed -i.bak "s#^address=/$dom/.*#address=/$dom/${IP[$dom]}#" "$tmp"
+        else
+            printf 'address=/%s/%s\n' "$dom" "${IP[$dom]}" >> "$tmp"
+        fi
+    done
+    if [ -n "${IP[spoke-1.kubara.test]:-}" ]; then
+        if grep -q '^address=/my\.nexus\.me/' "$tmp"; then
+            sed -i.bak "s#^address=/my\.nexus\.me/.*#address=/my.nexus.me/${IP[spoke-1.kubara.test]}#" "$tmp"
+        else
+            printf 'address=/my.nexus.me/%s\n' "${IP[spoke-1.kubara.test]}" >> "$tmp"
+        fi
+    fi
+    rm -f "$tmp.bak"
+    mv "$tmp" "$CONF"
+    echo "Updated $CONF"
+
+    if pgrep -x dnsmasq >/dev/null 2>&1; then
+        sudo killall -HUP dnsmasq
+        echo "dnsmasq reloaded"
+    else
+        echo "dnsmasq not running - run 'just start-dnsmasq'"
+    fi
+    sudo dscacheutil -flushcache
+    sudo killall -HUP mDNSResponder
+    echo "DNS cache flushed"

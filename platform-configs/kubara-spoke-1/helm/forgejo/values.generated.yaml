@@ -21,7 +21,7 @@ ingress:
   annotations:
     cert-manager.io/cluster-issuer: kubara-local-ca-issuer
   hosts:
-    - host: forgejo.172.19.0.7.traefik.me
+    - host: forgejo.spoke-1.kubara.test
       paths:
         - path: /
           pathType: Prefix
@@ -29,7 +29,7 @@ ingress:
   tls:
     - secretName: forgejo-tls
       hosts:
-        - forgejo.172.19.0.7.traefik.me
+        - forgejo.spoke-1.kubara.test
 
 gitea:
   admin:
@@ -44,8 +44,8 @@ gitea:
           key: password
   config:
     server:
-      DOMAIN: forgejo.172.19.0.7.traefik.me
-      ROOT_URL: http://forgejo.172.19.0.7.traefik.me/
+      DOMAIN: forgejo.spoke-1.kubara.test
+      ROOT_URL: http://forgejo.spoke-1.kubara.test/
     database:
       DB_TYPE: postgres
       HOST: "postgresql.postgresql.svc.cluster.local"

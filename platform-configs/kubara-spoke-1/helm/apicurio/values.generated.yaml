@@ -34,7 +34,7 @@ registry:
   ingress:
     enabled: true
     ingressClassName: traefik
-    host: apicurio.172.19.0.7.traefik.me
+    host: apicurio.spoke-1.kubara.test
     path: /
     tls: true
     annotations:

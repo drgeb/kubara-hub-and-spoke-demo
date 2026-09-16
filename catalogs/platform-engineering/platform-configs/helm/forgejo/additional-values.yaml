@@ -7,6 +7,15 @@ service:
     type: LoadBalancer
     loadBalancerIP: 172.19.0.9
 gitea:
+  env:
+    # environment-to-ini only consumes FORGEJO__-prefixed envs; the generated
+    # GITEA__database__PASSWD never reaches app.ini, so gitea migrate connects
+    # with an empty password. Use the prefix the image actually reads.
+    - name: FORGEJO__DATABASE__PASSWD
+      valueFrom:
+        secretKeyRef:
+          name: forgejo-credentials
+          key: password
   config:
     server:
       SSH_DOMAIN: 172.19.0.9

@@ -58,7 +58,7 @@ podDisruptionBudget:
 # custom templates/ingress.yaml overlay.
 ingress:
   enabled: true
-  hostname: opa.172.19.0.7.traefik.me
+  hostname: opa.spoke-1.kubara.test
   ingressClassName: traefik
   annotations:
     {}

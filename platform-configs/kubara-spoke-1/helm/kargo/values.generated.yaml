@@ -12,7 +12,7 @@ image:
     - name: image-pull-secret
 
 api:
-  host: kargo.172.19.0.7.traefik.me
+  host: kargo.spoke-1.kubara.test
   basePath: ""
   secret:
     name: kargo-admin

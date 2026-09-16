@@ -357,7 +357,7 @@ argo-cd:
       server.basehref: /argocd
       server.insecure: true
   global:
-    domain: 172.19.0.2.traefik.me
+    domain: hub.kubara.test
     revisionHistoryLimit: 5
     imagePullSecrets:
       - name: image-pull-secret

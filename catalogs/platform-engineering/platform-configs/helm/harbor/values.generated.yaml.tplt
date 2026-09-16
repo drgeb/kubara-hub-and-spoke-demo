@@ -3,6 +3,7 @@
 # To customize values, you can add additional files named values-*.yaml to this directory.
 
 {{- $harbor := (index .cluster.services "harbor" "config") -}}
+{{- $host := $harbor.hostname | default (printf "harbor.%s" .cluster.dnsName) }}
 {{- $tls := $harbor.tls | default (dict "enabled" true "issuerRef" (dict "kind" "ClusterIssuer" "name" "kubara-local-ca-issuer")) -}}
 {{- $issuerRef := $tls.issuerRef | default (dict "kind" "ClusterIssuer" "name" "kubara-local-ca-issuer") -}}
 {{- $ingressAnnotations := merge (dict "cert-manager.io/cluster-issuer" $issuerRef.name) ($harbor.networking.annotations | default (dict)) }}
@@ -13,17 +14,17 @@ expose:
     enabled: {{ $tls.enabled | default true }}
     certSource: {{ $harbor.tlsCertSource | default "auto" }}
     auto:
-      commonName: "{{ $harbor.hostname }}"
+      commonName: "{{ $host }}"
     secret:
       secretName: ""
   ingress:
     className: "{{ .cluster.ingressClassName | default "traefik" }}"
     hosts:
-      core: "{{ $harbor.hostname }}"
+      core: "{{ $host }}"
     annotations:
 {{ toYaml $ingressAnnotations | indent 6 }}
 
-externalURL: "https://{{ $harbor.hostname }}"
+externalURL: "https://{{ $host }}"
 existingSecretAdminPassword: harbor-credentials
 jobservice:
   initContainers:

@@ -14,7 +14,7 @@ image:
 
 openproject:
   https: true
-  host: openproject.172.19.0.7.traefik.me
+  host: openproject.spoke-1.kubara.test
   hsts: true
 
   admin_user:
@@ -49,7 +49,7 @@ postgresql:
 ingress:
   enabled: true
   ingressClassName: traefik
-  host: openproject.172.19.0.7.traefik.me
+  host: openproject.spoke-1.kubara.test
   path: /
   pathType: Prefix
 

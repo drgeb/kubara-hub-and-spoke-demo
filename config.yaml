@@ -3,7 +3,7 @@ clusters:
   - name: hub
     stage: local
     type: hub
-    dnsName: 172.19.0.2.traefik.me
+    dnsName: hub.kubara.test
     ssoOrg: local
     ssoTeam: local
     ingressClassName: traefik
@@ -93,7 +93,7 @@ clusters:
   - name: kubara-spoke-1
     stage: platform-engineering
     type: spoke
-    dnsName: kubara-spoke-1-control-plane
+    dnsName: spoke-1.kubara.test
     ingressClassName: traefik
     argocd:
       selfManaged: disabled
@@ -111,7 +111,6 @@ clusters:
             name: apicurio
             port: 5432
             username: apicurio
-          hostname: apicurio.172.19.0.7.traefik.me
           image:
             tag: 2.5.9.Final
           sync:
@@ -137,7 +136,6 @@ clusters:
             host: postgresql.postgresql.svc.cluster.local
             name: forgejo
             user: app
-          host: forgejo.172.19.0.7.traefik.me
           tls:
             enabled: true
             issuerRef:
@@ -150,7 +148,7 @@ clusters:
             - my.harbor.me
           adminPassword: Harbor12345
           databasePassword: changeit
-          hostname: harbor.172.19.0.7.traefik.me
+          hostname: harbor.spoke-1.kubara.test
           networking:
             annotations: {}
           persistence:
@@ -169,7 +167,6 @@ clusters:
       kargo:
         status: enabled
         config:
-          host: kargo.172.19.0.7.traefik.me
           integrations:
             argocd: true
             rollouts: true
@@ -187,7 +184,6 @@ clusters:
             name: keycloak
             port: 5432
             username: keycloak
-          host: keycloak.172.19.0.7.traefik.me
           replicas: 1
       kube-prometheus-stack:
         status: disabled
@@ -208,7 +204,6 @@ clusters:
       nexus:
         status: enabled
         config:
-          hostname: nexus.172.19.0.7.traefik.me
           tls:
             enabled: true
             issuerRef:
@@ -221,7 +216,6 @@ clusters:
       opa:
         status: enabled
         config:
-          hostname: opa.172.19.0.7.traefik.me
           replicas: 1
       openproject:
         status: enabled
@@ -233,7 +227,6 @@ clusters:
             name: openproject
             port: 5432
             username: openproject
-          host: openproject.172.19.0.7.traefik.me
           replicas: 1
           storage:
             size: 20Gi
@@ -264,7 +257,7 @@ clusters:
   - name: kubara-spoke-2
     stage: poc
     type: spoke
-    dnsName: kubara-spoke-2-control-plane
+    dnsName: spoke-2.kubara.test
     ingressClassName: traefik
     argocd:
       selfManaged: disabled
@@ -314,7 +307,6 @@ clusters:
       ollama:
         status: enabled
         config:
-          host: ollama.172.19.0.8.traefik.me
           models:
             - llama3.2
           storageSize: 30Gi
@@ -358,7 +350,7 @@ clusters:
   - name: kubara-dev
     stage: dev
     type: spoke
-    dnsName: kubara-dev-control-plane
+    dnsName: dev.kubara.test
     ingressClassName: traefik
     argocd:
       selfManaged: disabled
@@ -427,7 +419,7 @@ clusters:
   - name: kubara-staging
     stage: staging
     type: spoke
-    dnsName: kubara-staging-control-plane
+    dnsName: staging.kubara.test
     ingressClassName: traefik
     argocd:
       selfManaged: disabled
@@ -496,7 +488,7 @@ clusters:
   - name: kubara-prod
     stage: prod
     type: spoke
-    dnsName: kubara-prod-control-plane
+    dnsName: prod.kubara.test
     ingressClassName: traefik
     argocd:
       selfManaged: disabled

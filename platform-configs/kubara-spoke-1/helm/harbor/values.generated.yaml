@@ -8,17 +8,17 @@ expose:
     enabled: true
     certSource: auto
     auto:
-      commonName: "harbor.172.19.0.7.traefik.me"
+      commonName: "harbor.spoke-1.kubara.test"
     secret:
       secretName: ""
   ingress:
     className: "traefik"
     hosts:
-      core: "harbor.172.19.0.7.traefik.me"
+      core: "harbor.spoke-1.kubara.test"
     annotations:
       cert-manager.io/cluster-issuer: kubara-local-ca-issuer
 
-externalURL: "https://harbor.172.19.0.7.traefik.me"
+externalURL: "https://harbor.spoke-1.kubara.test"
 existingSecretAdminPassword: harbor-credentials
 jobservice:
   initContainers:

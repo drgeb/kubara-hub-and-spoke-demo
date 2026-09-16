@@ -3,19 +3,51 @@
 # prometheus, alertmanager, openbao) live on the "hub" kind cluster; PLTFME
 # (platform engineering: forgejo, kargo, harbor, nexus, keycloak, ...) on
 # kubara-spoke-1; DEV apps on kubara-spoke-2.
-HUB_CLUSTER_NAME := "hub"
-PLTFME_CLUSTER_NAME := "kubara-spoke-1"
-DEV_CLUSTER_NAME := "kubara-spoke-2"
 
-KUBARA_KUBECONFIG := ".local/kind.kubeconfig"
-PLTFME_KUBE_CONTEXT := "kind-kubara-spoke-1"
+KUBARA_KUBECONFIG:=".local/kind.kubeconfig"
 
-HUB_LB_ADDR := `kubectl --kubeconfig .local/kind.kubeconfig --context kind-hub get svc/traefik -n traefik -o=jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true`
-PLTFME_LB_ADDR := `kubectl --kubeconfig .local/kind.kubeconfig --context kind-kubara-spoke-1 get svc/traefik -n traefik -o=jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true`
-DEV_LB_ADDR := `kubectl --kubeconfig .local/kind.kubeconfig --context kind-kubara-spoke-2 get svc/traefik -n traefik -o=jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true`
-HUB_DNS_NAME := HUB_LB_ADDR + ".traefik.me"
-PLTFME_DNS_NAME := PLTFME_LB_ADDR + ".traefik.me"
-DEV_DNS_NAME := DEV_LB_ADDR + ".traefik.me"
+MESH_DOCKER_NETWORK:="kubara-mesh"
+MESH_DOCKER_SUBNET:="172.19.0.0/16"
+MESH_DOCKER_GATEWAY:="172.19.0.1"
+MESH_DOCKER_IP_RANGE:="172.19.0.10/28"
+
+HUB_KIND:="hub"
+SPOKE1_KIND:="kubara-spoke-1"
+SPOKE2_KIND:="kubara-spoke-2"
+DEV_KIND:="kubara-dev"
+STAGING_KIND:="kubara-staging"
+PROD_KIND:="kubara-prod"
+
+HUB_CONTEXT:="kind-hub"
+SPOKE1_CONTEXT:="kind-kubara-spoke-1"
+SPOKE2_CONTEXT:="kind-kubara-spoke-2"
+DEV_CONTEXT:="kind-kubara-dev"
+STAGING_CONTEXT:="kind-kubara-staging"
+PROD_CONTEXT:="kind-kubara-prod"
+
+HUB_ID:="1"
+SPOKE1_ID:="2"
+SPOKE2_ID:="3"
+DEV_ID:="4"
+STAGING_ID:="5"
+PROD_ID:="6"
+
+HUB_NAME:="hub"
+SPOKE1_NAME:="kubara-spoke-1"
+SPOKE2_NAME:="kubara-spoke-2"
+DEV_NAME:="kubara-dev"
+STAGING_NAME:="kubara-staging"
+PROD_NAME:="kubara-prod"
+
+# Stable per-cluster DNS names. Resolved by the local dnsmasq wildcard setup
+# in ./dnsmasq: <any>.<cluster>.kubara.test -> that cluster's traefik LB IP.
+# Refresh the dnsmasq address= lines with `just -f dnsmasq/Justfile refresh-lb-hosts`.
+HUB_DNS_NAME := "hub.kubara.test"
+SPOKE1_DNS_NAME := "spoke-1.kubara.test"
+SPOKE2_DNS_NAME := "spoke-2.kubara.test"
+DEV_DNS_NAME := "dev.kubara.test"
+STAGING_DNS_NAME := "staging.kubara.test"
+PROD_DNS_NAME := "prod.kubara.test"
 
 # Apply CoreDNS patch (hosts entries pinned to service ClusterIPs, see refresh-coredns-hosts)
 apply-coredns-patch:
@@ -95,7 +127,6 @@ export-loadbalancer-ip:
     @echo "LoadBalancer service was assigned an EXTERNAL-IP by cloud-provider-kind"
     @kubectl get svc/traefik -n traefik -o=jsonpath='{.status.loadBalancer.ingress[0].ip}'
 
-    
 # Run kubara generate --helm and restore the charts kubara prunes from the
 # repo-root platform-components/helm tree (template-library, harbor).
 # Pass-through args are forwarded, e.g. just generate-helm --dry-run
@@ -117,15 +148,15 @@ verify-secrets:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "==> Kubernetes secrets (argocd) =="
-    kubectl --kubeconfig .local/kind.kubeconfig --context kind-hub \
+    kubectl --kubeconfig ${KUBARA_KUBECONFIG} --context ${HUB_CONTEXT} \
         get secrets -n argocd | grep -Ei 'spoke|dev|staging|prod' || echo "  (none found)"
     echo
     echo "==> ExternalSecrets status =="
-    kubectl --kubeconfig .local/kind.kubeconfig --context kind-hub \
+    kubectl --kubeconfig ${KUBARA_KUBECONFIG} --context ${HUB_CONTEXT} \
         get externalsecret -n argocd
     echo
     echo "==> hub-argocd application =="
-    kubectl --kubeconfig .local/kind.kubeconfig --context kind-hub \
+    kubectl --kubeconfig ${KUBARA_KUBECONFIG} --context ${HUB_CONTEXT} \
         get application hub-argocd -n argocd \
         -o custom-columns=NAME:.metadata.name,SYNC:.status.sync.status,HEALTH:.status.health.status
 
@@ -138,7 +169,7 @@ liquibase-bootstrap:
     helm upgrade --install liquibase-bootstrap z-demo-setup/liquibase/bootstrap/ \
         --namespace postgresql --create-namespace \
         --kubeconfig {{ KUBARA_KUBECONFIG }} \
-        --kube-context {{ PLTFME_KUBE_CONTEXT }} \
+        --kube-context {{ SPOKE2_CONTEXT }} \
         --set "services[0].name=openproject" \
         --set "services[0].database=openproject" \
         --set "services[0].password=${OPENPROJECT_DB_PASSWORD}" \
@@ -163,7 +194,7 @@ liquibase-install: liquibase-build-image liquibase-bootstrap
         helm upgrade --install "liquibase-$${svc}" "z-demo-setup/liquibase/$${svc}/" \
             --namespace "$${svc}" --create-namespace \
             --kubeconfig {{ KUBARA_KUBECONFIG }} \
-            --kube-context {{ PLTFME_KUBE_CONTEXT }} \
+            --kube-context {{ SPOKE2_CONTEXT }} \
             --wait --timeout 5m; \
     done
     @echo "All Liquibase charts installed."
@@ -174,7 +205,7 @@ liquibase-install: liquibase-build-image liquibase-bootstrap
 provision-platform:
     ./z-demo-setup/scripts/provision-platform.sh --refresh-local-kubeconfig
 
-# Re-merge all six kind cluster kubeconfigs into .local/kind.kubeconfig
+# Re-merge all six kind cluster kubeconfigs into ${KUBARA_KUBECONFIG}
 refresh-kind-kubeconfig:
     ./z-demo-setup/scripts/provision-platform.sh --refresh-only
 
@@ -189,11 +220,11 @@ verify-liquibase:
         exit 1
     fi
     declare -A SVC=(
-        [kind-kubara-spoke-1]="openproject keycloak apicurio"
-        [kind-kubara-spoke-2]="app"
-        [kind-kubara-dev]="app"
-        [kind-kubara-staging]="app"
-        [kind-kubara-prod]="app"
+        [${SPOKE1_CONTEXT}]="openproject keycloak apicurio"
+        [${SPOKE2_CONTEXT}]="app"
+        [${DEV_CONTEXT}]="app"
+        [${STAGING_CONTEXT}]="app"
+        [${PROD_CONTEXT}]="app"
     )
     for ctx in "${!SVC[@]}"; do
         for svc in ${SVC[$ctx]}; do
@@ -259,7 +290,7 @@ cilium-hubble-ui:
     #!/usr/bin/env bash
     set -euo pipefail
     port=12100
-    for cluster in {{HUB_CLUSTER_NAME}} {{PLTFME_CLUSTER_NAME}} {{DEV_CLUSTER_NAME}}; do
+    for cluster in {{HUB_KIND}} {{SPOKE1_NAME}} {{SPOKE2_NAME}}; do
         echo "Opening Hubble UI for kind-$cluster on :$port"
         cilium hubble ui --context "kind-$cluster" --port-forward "$port" &
         port=$((port + 1))
@@ -274,7 +305,7 @@ docker-prune-images:
 kind-stop:
     #!/usr/bin/env bash
     set -euo pipefail
-    for cluster in {{HUB_CLUSTER_NAME}} {{PLTFME_CLUSTER_NAME}} {{DEV_CLUSTER_NAME}}; do
+    for cluster in {{HUB_KIND}} {{SPOKE1_NAME}} {{SPOKE2_NAME}}; do
         docker stop $(docker ps -qa --filter "label=io.x-k8s.kind.cluster=$cluster") $(docker ps -qa --filter "label=io.x-k8s.cloud-provider-kind.cluster=$cluster")
     done
 
@@ -282,13 +313,13 @@ kind-stop:
 kind-restart:
     #!/usr/bin/env bash
     set -euo pipefail
-    for cluster in {{HUB_CLUSTER_NAME}} {{PLTFME_CLUSTER_NAME}} {{DEV_CLUSTER_NAME}}; do
+    for cluster in {{HUB_KIND}} {{SPOKE1_NAME}} {{SPOKE2_NAME}}; do
         docker start $(docker ps -aq --filter "label=io.x-k8s.kind.cluster=$cluster") $(docker ps -aq --filter "label=io.x-k8s.cloud-provider-kind.cluster=$cluster")
     done
 
 kargo-cli-login:
     @: "${KARGO_ADMIN_PASSWORD:?not set - run 'direnv allow' to load .env}"
-    @kargo login http://kargo.{{PLTFME_DNS_NAME}} --admin --password "$KARGO_ADMIN_PASSWORD"
+    @kargo login http://kargo.{{SPOKE1_DNS_NAME}} --admin --password "$KARGO_ADMIN_PASSWORD"
 
 # Seed the go-hello delivery pipeline (Forgejo repo/CI, Harbor robot, Argo CD + Kargo)
 # Safe to re-run; required again after `bring-up` recreates the cluster.
@@ -297,9 +328,9 @@ go-hello-setup:
 
 # Show go-hello pipeline status (Kargo freight/promotions + Argo CD app + deployment)
 go-hello-verify:
-    kubectl --kubeconfig .local/kind.kubeconfig -n go-hello get warehouses,stages,freight,promotions
-    kubectl --kubeconfig .local/kind.kubeconfig -n argocd get application go-hello -o wide
-    kubectl --kubeconfig .local/kind.kubeconfig -n go-hello get deploy,pods
+    kubectl --kubeconfig ${KUBARA_KUBECONFIG} -n go-hello get warehouses,stages,freight,promotions
+    kubectl --kubeconfig ${KUBARA_KUBECONFIG} -n argocd get application go-hello -o wide
+    kubectl --kubeconfig ${KUBARA_KUBECONFIG} -n go-hello get deploy,pods
 
 # Open the go-hello service
 open-go-hello:
@@ -316,9 +347,9 @@ ebank-setup:
 
 # Show ebank pipeline status (Kargo freight/promotions + Argo CD apps + deployment)
 ebank-verify:
-    kubectl --kubeconfig .local/kind.kubeconfig -n ebank get warehouses,stages,freight,promotions
-    kubectl --kubeconfig .local/kind.kubeconfig -n argocd get application ebank-kargo ebank-dev ebank-staging ebank-prod -o wide
-    kubectl --kubeconfig .local/kind.kubeconfig -n ebank-simple-dev get deploy,pods
+    kubectl --kubeconfig ${KUBARA_KUBECONFIG} -n ebank get warehouses,stages,freight,promotions
+    kubectl --kubeconfig ${KUBARA_KUBECONFIG} -n argocd get application ebank-kargo ebank-dev ebank-staging ebank-prod -o wide
+    kubectl --kubeconfig ${KUBARA_KUBECONFIG} -n ebank-simple-dev get deploy,pods
 
 # Open the ebank service (pass staging or prod, default: dev)
 open-ebank env="dev":
@@ -383,7 +414,7 @@ open-forgejo:
     @echo user: ${FORGEJO_ADMIN_USER}
     @echo passwd: ${FORGEJO_ADMIN_PASSWORD}
     @echo $FORGEJO_ADMIN_PASSWORD | pbcopy
-    @open https://forgejo.{{PLTFME_DNS_NAME}}/
+    @open https://forgejo.{{SPOKE1_DNS_NAME}}/
 
 # Create the Forgejo repo for forgejo-build-image if missing, then push it
 push-forgejo-build-image:
@@ -395,7 +426,7 @@ push-forgejo-build-image:
     REPO_DIR="forgejo-build-image"
     REPO_NAME="$(basename "$REPO_DIR")"
     OWNER="$FORGEJO_ADMIN_USER"
-    FORGEJO_URL="https://forgejo.{{PLTFME_DNS_NAME}}"
+    FORGEJO_URL="https://forgejo.{{SPOKE1_DNS_NAME}}"
 
     # "Push to create" is disabled for users on Forgejo, so create the repo first.
     status="$(curl -sk -o /dev/null -w '%{http_code}' \
@@ -423,7 +454,7 @@ set-forgejo-harbor-secrets:
 
     REPO_NAME="forgejo-build-image"
     OWNER="$FORGEJO_ADMIN_USER"
-    FORGEJO_URL="https://forgejo.{{PLTFME_DNS_NAME}}"
+    FORGEJO_URL="https://forgejo.{{SPOKE1_DNS_NAME}}"
     AUTH=(-u "$FORGEJO_ADMIN_USER:$FORGEJO_ADMIN_PASSWORD" -H "Content-Type: application/json")
 
     api() {
@@ -447,27 +478,27 @@ open-harbor:
     @echo user: ${HARBOR_ADMIN_USER}
     @echo passwd: ${HARBOR_ADMIN_PASSWORD} 
     @echo ${HARBOR_ADMIN_PASSWORD} | pbcopy
-    @open https://harbor.{{PLTFME_DNS_NAME}}/
+    @open https://harbor.{{SPOKE1_DNS_NAME}}/
 
 # Open Kargo
 open-kargo:
     @echo user: ${KARGO_ADMIN_USER}
     @echo passwd: ${KARGO_ADMIN_PASSWORD}
     @echo ${KARGO_ADMIN_PASSWORD} | pbcopy
-    @open https://kargo.{{PLTFME_DNS_NAME}}/
+    @open https://kargo.{{SPOKE1_DNS_NAME}}/
 
 # Open Nexus
 open-nexus:
     @echo user: ${NEXUS_ADMIN_USER}
     @echo passwd: ${NEXUS_ADMIN_PASSWORD}
     @echo ${NEXUS_ADMIN_PASSWORD} | pbcopy
-    @open https://nexus.{{PLTFME_DNS_NAME}}/
+    @open https://nexus.{{SPOKE1_DNS_NAME}}/
 
 open-keycloak:
     @echo user: ${KEYCLOAK_ADMIN_USER}
     @echo passwd: ${KEYCLOAK_ADMIN_PASSWORD}
     @echo ${KEYCLOAK_ADMIN_PASSWORD} | pbcopy
-    @open https://keycloak.{{PLTFME_DNS_NAME}}/
+    @open https://keycloak.{{SPOKE1_DNS_NAME}}/
 
 # Exec into the running postgres pod and open a psql shell
 open-postgres-shell:
@@ -482,8 +513,8 @@ open-postgres19-shell:
 inspect-what-certificate-Traefik-is-serving:
     @echo "Traefik is serving the following certificate:"
     echo | openssl s_client \
-        -connect forgejo.{{PLTFME_DNS_NAME}}:443 \
-        -servername forgejo.{{PLTFME_DNS_NAME}} \
+        -connect forgejo.{{SPOKE1_DNS_NAME}}:443 \
+        -servername forgejo.{{SPOKE1_DNS_NAME}} \
         2>/dev/null | openssl x509 -noout -subject -issuer -dates -ext subjectAltName
 
 get-harbor-credentials:
