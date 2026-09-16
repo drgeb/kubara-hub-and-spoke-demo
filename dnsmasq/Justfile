@@ -77,6 +77,10 @@ stop-dnsmasq:
     fi
     if [ -n "$found" ]; then echo "dnsmasq stopped"; else echo "dnsmasq not running"; fi
 
+    # Flush macOS DNS cache
+    echo "Flushing macOS DNS cache..."
+    sudo dscacheutil -flushcache || true
+    sudo killall -HUP mDNSResponder || true
 # Show dnsmasq status
 status-dnsmasq:
     #!/usr/bin/env bash

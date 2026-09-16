@@ -36,7 +36,7 @@ replicaCount: 1
 ingress:
   enabled: true
   ingressClassName: traefik
-  hostname: keycloak.172.19.0.2.traefik.me
+  hostname: keycloak.172.19.0.8.traefik.me
   pathType: Prefix
   annotations:
     cert-manager.io/cluster-issuer: kubara-local-ca-issuer
