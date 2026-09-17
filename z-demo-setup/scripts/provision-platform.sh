@@ -191,15 +191,18 @@ wait_for_postgres() {
     fi
     log "Waiting for postgresql StatefulSet on ${context}"
     local i=0
+    # Increased max retries to 300 (15 minutes total wait for creation)
     while ! kubectl --kubeconfig "$KUBECONFIG" --context "$context" \
         get statefulset postgresql -n postgresql >/dev/null 2>&1; do
-        if (( ++i >= 120 )); then
+        if (( ++i >= 300 )); then
             die "postgresql StatefulSet never appeared on ${context}"
         fi
         sleep 3
     done
+
+    # Increased rollout status timeout from 300s to 900s (15 minutes)
     kubectl --kubeconfig "$KUBECONFIG" --context "$context" \
-        rollout status statefulset/postgresql -n postgresql --timeout 300s
+        rollout status statefulset/postgresql -n postgresql --timeout 900s
 }
 
 wait_for_postgres_all() {

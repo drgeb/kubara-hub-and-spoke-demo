@@ -12,8 +12,10 @@ metadata:
     "helm.sh/hook-weight": {{ .Values.bootstrap.hookWeight | quote }}
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
-  backoffLimit: 0
-  activeDeadlineSeconds: 300
+  # Increase deadline from 300s (5m) to 900s (15m)
+  activeDeadlineSeconds: 900
+  # Allow 2 retries instead of failing instantly on the first delay
+  backoffLimit: 2
   template:
     metadata:
       labels:
