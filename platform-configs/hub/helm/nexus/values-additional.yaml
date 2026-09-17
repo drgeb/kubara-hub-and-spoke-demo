@@ -6,5 +6,5 @@ ingress:
   tls:
     - secretName: nexus-tls
       hosts:
-        - nexus.172.19.0.8.traefik.me
+        - nexus.hub.kubara.test
         - my.nexus.me
