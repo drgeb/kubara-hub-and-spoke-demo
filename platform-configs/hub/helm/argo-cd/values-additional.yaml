@@ -43,9 +43,9 @@ argo-cd:
   controller:
     resources:
       requests:
-        memory: 1000Mi
+        memory: 2048Mi
       limits:
-        memory: 1000Mi
+        memory: 2048Mi
   server:
     resources:
       requests:
@@ -64,8 +64,6 @@ argo-cd:
         cert-manager.io/cluster-issuer: ""
       tls: false
   configs:
-    cm:
-      url: http://172.19.0.8.traefik.me/argocd
     rbac:
       policy.default: role:admin
       policy.csv: ""

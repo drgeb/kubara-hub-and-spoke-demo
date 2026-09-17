@@ -10,23 +10,19 @@ traefik:
       - name: image-pull-secret
   api:
     dashboard: true
-    {{- if $oauth2ProxyEnabled }}
     basePath: /traefik
-    {{- end }}
   ingressRoute:
     dashboard:
-      {{- if $oauth2ProxyEnabled }}
       enabled: true
       entryPoints:
         - websecure
       matchRule: Host(`{{ .cluster.dnsName }}`) && PathPrefix(`/traefik`)
+      {{- if $oauth2ProxyEnabled }}
       middlewares:
         - name: oauth-auth
           namespace: traefik
-      tls: {}
-      {{- else }}
-      enabled: false
       {{- end }}
+      tls: {}
   {{- if or $oauth2ProxyEnabled $tCloudPublicCCE }}
   extraObjects:
     {{- if $oauth2ProxyEnabled }}

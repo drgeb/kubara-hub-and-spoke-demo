@@ -7,9 +7,14 @@ traefik:
       - name: image-pull-secret
   api:
     dashboard: true
+    basePath: /traefik
   ingressRoute:
     dashboard:
-      enabled: false
+      enabled: true
+      entryPoints:
+        - websecure
+      matchRule: Host(`hub.kubara.test`) && PathPrefix(`/traefik`)
+      tls: {}
   metrics:
     prometheus:
       serviceMonitor:
