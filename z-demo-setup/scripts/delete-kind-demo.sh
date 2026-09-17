@@ -75,6 +75,33 @@ demo_delete_cluster() {
   demo_delete_cloud_provider_kind_lbs "$cluster_name"
 }
 
+stop_cloud_provider_kind() {
+    # Resolve relative to repo root or SCRIPT_DIR if applicable
+    local pid_file="${SCRIPT_DIR}/.cloud-provider-kind"
+
+    if [ -f "$pid_file" ] && kill -0 "$(cat "$pid_file")" 2>/dev/null; then
+        local pid
+        pid="$(cat "$pid_file")"
+        if sudo kill "$pid" && rm -f "$pid_file"; then
+            echo "stopped cloud-provider-kind (pid $pid)"
+        else
+            echo "failed to stop cloud-provider-kind"
+            return 1
+        fi
+    elif pgrep -f cloud-provider-kind >/dev/null; then
+        local pids
+        pids="$(pgrep -f cloud-provider-kind | tr '\n' ' ')"
+        if sudo kill $pids; then
+            rm -f "$pid_file" .cloud-provider-kind
+            echo "stopped cloud-provider-kind (pids $pids)"
+        else
+            echo "failed to stop cloud-provider-kind"
+            return 1
+        fi
+    else
+        echo "cloud-provider-kind is not running"
+    fi
+}
 cluster_count=0
 
 while IFS='|' read -r cluster_name _kind_config; do
@@ -89,4 +116,7 @@ done < <(demo_parse_clusters)
 printf 'Deleting hub cluster: %s\n' "$DEMO_HUB_CLUSTER_NAME"
 demo_delete_cluster "$DEMO_HUB_CLUSTER_NAME"
 
+stop_cloud_provider_kind
+
 demo_cleanup_demo_networks
+
