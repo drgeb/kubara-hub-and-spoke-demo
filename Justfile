@@ -240,6 +240,12 @@ verify-liquibase:
 kubara-test-connection:
     kubara --test-connection
 
+# Bootstrap the hub with kubara (--local), then re-pin the demo's *.kubara.test
+# DNS names that kubara overwrites with <lb-ip>.traefik.me during bootstrap.
+# Use `bootstrap-kubara-hub -- --skip-bootstrap` to only re-pin an existing setup.
+bootstrap-kubara-hub:
+    ./z-demo-setup/scripts/bootstrap-kubara-hub.sh
+
 # Start the cloud-provider-kind (LBs are placed on the kubara-mesh network)
 start-cloud-provider-kind:
     @if [ -f .cloud-provider-kind ] && kill -0 "$(cat .cloud-provider-kind)" 2>/dev/null; then \

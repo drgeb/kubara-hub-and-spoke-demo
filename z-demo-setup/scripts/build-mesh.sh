@@ -1006,14 +1006,7 @@ connect_cluster() {
 bootstrap_kubara_hub() {
     log "Bootstrapping Kubara hub"
 
-    command -v kubara >/dev/null 2>&1 ||
-        die "kubara is not installed"
-
-    kubara bootstrap hub --local
-
-    if [ $? -ne 0 ]; then
-        die "Failed to bootstrap Kubara hub"
-    fi
+    "${ROOT_DIR}/z-demo-setup/scripts/bootstrap-kubara-hub.sh"
 }
 
 generate_internal_kubeconfigs() {
@@ -1415,7 +1408,7 @@ main() {
 
     wait_for_mesh_connections 300
     
-    bootstrap_kubara_hub
+    # bootstrap_kubara_hub
     generate_internal_kubeconfigs
     set_values_to_publish_spoke_kubeconfigs_to_openbao
     publish_spoke_kubeconfigs_to_openbao
@@ -1475,7 +1468,11 @@ test-cluster was not modified.
 The hub was rebuilt with Cilium, so Kubara itself must now be
 bootstrapped again:
 
-  kubara bootstrap hub --local
+  z-demo-setup/scripts/bootstrap-kubara-hub.sh
+
+(equivalent to 'kubara bootstrap hub --local' followed by the demo
+DNS re-pin back to *.kubara.test, since kubara --local hardcodes the
+<traefik-LB-IP>.traefik.me magic DNS)
 
 ========================================================================
 EOF

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
-just dnsmasq/stop-dnsmasq
+just -f dnsmasq/Justfile stop-dnsmasq
 sudo -v
-just dnsmasq/refresh-lb-hosts
-just dnsmasq/start-dnsmasq
+just -f dnsmasq/Justfile refresh-lb-hosts
+just -f dnsmasq/Justfile start-dnsmasq
 just stop-cloud-provider-kind
 just start-cloud-provider-kind
 
