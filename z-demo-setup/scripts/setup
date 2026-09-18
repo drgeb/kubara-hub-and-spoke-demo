@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+just dnsmasq/stop-dnsmasq
+sudo -v
+just dnsmasq/refresh-lb-hosts
+just dnsmasq/start-dnsmasq
+just stop-cloud-provider-kind
+just start-cloud-provider-kind
+
+dig +short hub.kubara.test; echo "---"; dig @1.1.1.1 +short hub.kubara.test;echo "---"; grep -n hub.kubara.test /etc/hosts || echo "no /etc/hosts entry" 
+
+kubectl get applications.argoproj.io -n argocd \
+  -o custom-columns='APP:.metadata.name,SYNC:.status.sync.status,HEALTH:.status.health.status' \
+  && kubectl get applications.argoproj.io -n argocd \
+  -o custom-columns='APP:.metadata.name,SYNC:.status.sync.status,HEALTH:.status.health.status' \
+  | tail -n +2 \
+  | grep -qvE 'Synced[[:space:]]+Healthy' \
+  && echo "WARNING: Apps need attention" \
+  || echo "ALL apps Synced+Healthy"

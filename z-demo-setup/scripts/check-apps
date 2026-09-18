@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+if ! apps=$(kubectl get applications.argoproj.io -n argocd \
+    -o custom-columns='APP:.metadata.name,SYNC:.status.sync.status,HEALTH:.status.health.status'); then
+    echo "ERROR: Unable to query Argo CD applications"
+    exit 1
+fi
+
+echo "$apps"
+
+if echo "$apps" | tail -n +2 | grep -qvE 'Synced[[:space:]]+Healthy'; then
+    echo "WARNING: Some apps are not Synced+Healthy"
+    exit 1
+else
+    echo "ALL apps Synced+Healthy"
+fi
