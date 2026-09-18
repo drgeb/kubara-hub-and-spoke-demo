@@ -11,6 +11,12 @@ DEMO_MESH_DOCKER_NETWORK="kubara-mesh"
 DEMO_KIND_NETWORK="kind"
 DEMO_HUB_CLUSTER_NAME="hub"
 
+# Docker network teardown after kind/cluster deletion is asynchronous, so the
+# cleanup waits for the network to empty instead of giving up on the first
+# "still in use" check. Tune via environment if the defaults are too tight.
+DEMO_NETWORK_CLEANUP_RETRIES="${DEMO_NETWORK_CLEANUP_RETRIES:-30}"
+DEMO_NETWORK_CLEANUP_RETRY_DELAY="${DEMO_NETWORK_CLEANUP_RETRY_DELAY:-2}"
+
 demo_die() {
   printf 'ERROR: %s\n' "$*" >&2
   exit 1
@@ -402,10 +408,15 @@ demo_docker_network_has_containers() {
 }
 
 demo_delete_cloud_provider_kind_lbs() {
+  # shellcheck disable=SC2034
   local cluster="$1"
   local lb_containers
 
-  lb_containers="$(docker ps -aq --filter label=io.x-k8s.cloud-provider-kind.cluster="$cluster" 2>/dev/null || true)"
+  # Broad sweep: remove ANY cloud-provider-kind LB/gateway container, not just
+  # the ones labeled for this cluster. Leftover gateways for clusters that no
+  # longer exist (or were created outside this demo's config) otherwise keep the
+  # shared kubara-mesh network attached and block its deletion.
+  lb_containers="$(docker ps -aq --filter label=io.x-k8s.cloud-provider-kind.cluster 2>/dev/null || true)"
 
   if [ -n "$lb_containers" ]; then
     # shellcheck disable=SC2086
@@ -413,20 +424,78 @@ demo_delete_cloud_provider_kind_lbs() {
   fi
 }
 
+demo_docker_network_attached_containers() {
+  docker network inspect "$1" \
+    --format '{{range $id, $c := .Containers}}{{$c.Name}} {{$c.IPv4Address}}{{"\n"}}{{end}}' \
+    2>/dev/null
+}
+
+demo_force_detach_docker_network() {
+  local network="$1"
+  local id
+  local found=false
+
+  # Docker refuses to delete a network while endpoints of exited/dead/created
+  # containers linger on it. Force-disconnect those so the retry loop can
+  # proceed. Running containers genuinely in use are left alone for inspection.
+  while IFS= read -r id; do
+    [ -n "$id" ] || continue
+    docker kill "$id" 2>/dev/null || true
+    docker rm "$id" 2>/dev/null || true
+    found=true
+  done < <(docker ps -aq --filter "network=$network" \
+      --filter "status=created" \
+      --filter "status=exited" \
+      --filter "status=paused" \
+      --filter "status=dead" 2>/dev/null || true)
+
+  [ "$found" = "true" ]
+}
+
 demo_cleanup_demo_networks() {
   local network
   local in_use=false
+  local attempt
+  local detached=false
 
   for network in "$DEMO_MESH_DOCKER_NETWORK" "$DEMO_KIND_NETWORK"; do
     if ! demo_docker_network_exists "$network"; then
       continue
     fi
 
-    if demo_docker_network_has_containers "$network"; then
-      printf 'Docker network still in use, skipping: %s\n' "$network"
-      in_use=true
-      continue
-    fi
+    attempt=0
+    while demo_docker_network_has_containers "$network"; do
+      attempt=$((attempt + 1))
+
+      if [ "$network" = "$DEMO_KIND_NETWORK" ]; then
+        # The 'kind' default network is shared and not created by this demo; it
+        # may host other live kind clusters (e.g. test-cluster). Never wait or
+        # force-detach it - just report and move on.
+        printf 'Docker network still in use, skipping: %s\n' "$network"
+        in_use=true
+        break
+      fi
+
+      if [ "$attempt" -ge "$DEMO_NETWORK_CLEANUP_RETRIES" ]; then
+        if [ "$detached" = "false" ]; then
+          printf 'Docker network still in use; force-detaching stopped containers and retrying: %s\n' "$network"
+          demo_force_detach_docker_network "$network" || true
+          detached=true
+          attempt=0
+          continue
+        fi
+
+        printf 'Docker network still in use after %d tries, skipping: %s\n' "$attempt" "$network"
+        printf '  Container(-s) still attached:\n'
+        demo_docker_network_attached_containers "$network" | sed 's/^/    /'
+        docker ps -a --filter "network=$network" --format '    {{.Names}}  ({{.Status}})' 2>/dev/null || true
+        in_use=true
+        break
+      fi
+      sleep "$DEMO_NETWORK_CLEANUP_RETRY_DELAY"
+    done
+
+    [ "$in_use" = "true" ] && continue
 
     printf 'Deleting unused Docker network: %s\n' "$network"
     demo_run docker network rm "$network"

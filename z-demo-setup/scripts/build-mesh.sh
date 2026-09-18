@@ -352,16 +352,26 @@ generate_kubeconfigs() {
         "$PROD_KUBECONFIG" \
         "$MESH_KUBECONFIG"
 
-    # Added to locally update the kind.kubeconfig file in .local directory for convenience
-    mkdir -p .local/tmp
-    for c in $(kind get clusters); do
-    kind get kubeconfig --name "$c" > ".local/tmp/$c.yaml"
+    # Merge only the six demo clusters into the shared .local/kind.kubeconfig.
+    # Wildcarding `kind get clusters` leaks unrelated/stray clusters (e.g. the
+    # preserved 'test-cluster') into the kubeconfig that local tooling relies on.
+    local tmp_dir
+    tmp_dir="$(mktemp -d)"
+    local -a parts=()
+    local cluster part
+    for cluster in "$HUB_KIND" "$SPOKE1_KIND" "$SPOKE2_KIND" "$DEV_KIND" "$STAGING_KIND" "$PROD_KIND"; do
+        part="${tmp_dir}/${cluster}.yaml"
+        if kind get kubeconfig --name "$cluster" > "$part" 2>/dev/null; then
+            parts+=("$part")
+        else
+            echo "    WARN: kind cluster '${cluster}' not found; excluding" >&2
+        fi
     done
-
-    KUBECONFIG=$(echo .local/tmp/*.yaml | tr ' ' ':') \
-    kubectl config view --flatten > .local/kind.kubeconfig
-
-    rm -rf .local/tmp
+    mkdir -p "$LOCAL_DIR"
+    KUBECONFIG="$(IFS=:; echo "${parts[*]}")" \
+        kubectl config view --flatten > "${LOCAL_DIR}/kind.kubeconfig"
+    chmod 600 "${LOCAL_DIR}/kind.kubeconfig"
+    rm -rf "$tmp_dir"
 }
 
 wait_for_api_cluster() {

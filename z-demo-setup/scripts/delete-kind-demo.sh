@@ -102,6 +102,22 @@ stop_cloud_provider_kind() {
         echo "cloud-provider-kind is not running"
     fi
 }
+cleanup_local_artifacts() {
+  local local_dir="${DEMO_REPO_ROOT}/.local"
+
+  if [ -d "${local_dir}/kind-demo" ]; then
+    printf 'Removing stale internal kubeconfigs: %s\n' "${local_dir}/kind-demo"
+    demo_run rm -rf "${local_dir}/kind-demo"
+  fi
+
+  for file in kind.kubeconfig kind.kubeconfig.bak; do
+    if [ -f "${local_dir}/${file}" ]; then
+      printf 'Removing stale kubeconfig: %s\n' "${local_dir}/${file}"
+      demo_run rm -f "${local_dir}/${file}"
+    fi
+  done
+}
+
 cluster_count=0
 
 while IFS='|' read -r cluster_name _kind_config; do
@@ -119,4 +135,6 @@ demo_delete_cluster "$DEMO_HUB_CLUSTER_NAME"
 stop_cloud_provider_kind
 
 demo_cleanup_demo_networks
+
+cleanup_local_artifacts
 
