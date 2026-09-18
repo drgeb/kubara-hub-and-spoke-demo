@@ -36,12 +36,6 @@ gitea:
     username: "gitea_admin"
     existingSecret: forgejo-admin
     email: "admin@local"
-  env:
-    - name: GITEA__database__PASSWD
-      valueFrom:
-        secretKeyRef:
-          name: forgejo-credentials
-          key: password
   config:
     server:
       DOMAIN: forgejo.spoke-1.kubara.test
@@ -52,3 +46,10 @@ gitea:
       NAME: "forgejo"
       USER: "app"
       SSL_MODE: disable
+deployment:
+  env:
+    - name: FORGEJO__DATABASE__PASSWD
+      valueFrom:
+        secretKeyRef:
+          name: forgejo-credentials
+          key: password

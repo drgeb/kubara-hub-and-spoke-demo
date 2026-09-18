@@ -39,12 +39,6 @@ gitea:
     username: {{ $cfg.admin.username | default "gitea_admin" | quote }}
     existingSecret: forgejo-admin
     email: {{ $cfg.admin.email | default "admin@local" | quote }}
-  env:
-    - name: GITEA__database__PASSWD
-      valueFrom:
-        secretKeyRef:
-          name: forgejo-credentials
-          key: password
   config:
     server:
       DOMAIN: {{ $host }}
@@ -55,3 +49,10 @@ gitea:
       NAME: {{ $cfg.database.name | default "forgejo" | quote }}
       USER: {{ $cfg.database.user | default "app" | quote }}
       SSL_MODE: disable
+deployment:
+  env:
+    - name: FORGEJO__DATABASE__PASSWD
+      valueFrom:
+        secretKeyRef:
+          name: forgejo-credentials
+          key: password
