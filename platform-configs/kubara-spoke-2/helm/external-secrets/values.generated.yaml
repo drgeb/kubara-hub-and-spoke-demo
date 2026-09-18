@@ -16,6 +16,7 @@ external-secrets:
   imagePullSecrets:
     - name: image-pull-secret
   serviceMonitor:
+    enabled: false
     additionalLabels:
       monitoring.instance: "kubara-spoke-2-poc"
   bitwarden-sdk-server:

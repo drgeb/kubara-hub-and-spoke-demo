@@ -36,9 +36,7 @@ external-secrets:
   imagePullSecrets:
     - name: image-pull-secret
   serviceMonitor:
-    {{- if (eq (index .cluster.services "kube-prometheus-stack" "status") "enabled") }}
-    enabled: true
-    {{- end }}
+    enabled: {{ eq (index .cluster.services "kube-prometheus-stack" "status") "enabled" }}
     additionalLabels:
       monitoring.instance: "{{ .cluster.name }}-{{ .cluster.stage }}"
   bitwarden-sdk-server:

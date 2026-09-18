@@ -16,6 +16,7 @@ external-secrets:
   imagePullSecrets:
     - name: image-pull-secret
   serviceMonitor:
+    enabled: false
     additionalLabels:
       monitoring.instance: "kubara-prod-prod"
   bitwarden-sdk-server:

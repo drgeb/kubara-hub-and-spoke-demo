@@ -15,6 +15,7 @@ cert-manager:
       - name: image-pull-secret
   prometheus:
     servicemonitor:
+      enabled: false
       labels:
         monitoring.instance: kubara-staging-staging
 

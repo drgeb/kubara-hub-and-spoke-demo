@@ -101,7 +101,7 @@ clusters:
     catalogs:
       - ./catalogs/platform-engineering
       - ./catalogs/backing-services
-      - oci://ghcr.io/kubara-io/catalogs/general:2.0.0
+      - ./catalogs/general
     services:
       apicurio:
         status: enabled
@@ -264,7 +264,7 @@ clusters:
       repo: {}
     catalogs:
       - ./catalogs/backing-services
-      - oci://ghcr.io/kubara-io/catalogs/general:2.0.0
+      - ./catalogs/general
     services:
       cert-manager:
         status: disabled
@@ -357,7 +357,7 @@ clusters:
       repo: {}
     catalogs:
       - ./catalogs/backing-services
-      - oci://ghcr.io/kubara-io/catalogs/general:2.0.0
+      - ./catalogs/general
     services:
       cert-manager:
         status: enabled
@@ -426,7 +426,7 @@ clusters:
       repo: {}
     catalogs:
       - ./catalogs/backing-services
-      - oci://ghcr.io/kubara-io/catalogs/general:2.0.0
+      - ./catalogs/general
     services:
       cert-manager:
         status: enabled
@@ -495,7 +495,7 @@ clusters:
       repo: {}
     catalogs:
       - ./catalogs/backing-services
-      - oci://ghcr.io/kubara-io/catalogs/general:2.0.0
+      - ./catalogs/general
     services:
       cert-manager:
         status: enabled

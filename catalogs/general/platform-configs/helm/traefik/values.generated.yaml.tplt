@@ -71,9 +71,7 @@ traefik:
   metrics:
     prometheus:
       serviceMonitor:
-        {{- if (eq (index .cluster.services "kube-prometheus-stack" "status") "enabled") }}
-        enabled: true
-        {{- end }}
+        enabled: {{ eq (index .cluster.services "kube-prometheus-stack" "status") "enabled" }}
         additionalLabels:
           monitoring.instance: "{{ .cluster.name }}-{{ .cluster.stage }}"
 

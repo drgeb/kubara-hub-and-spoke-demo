@@ -15,11 +15,9 @@ cert-manager:
       - name: image-pull-secret
   prometheus:
     servicemonitor:
-      {{- if (eq (index .cluster.services "kube-prometheus-stack" "status") "enabled") }}
-      enabled: true
-      {{- end }}
+      enabled: {{ eq (index .cluster.services "kube-prometheus-stack" "status") "enabled" }}
       labels:
-        monitoring.instance: {{ .cluster.name}}-{{ .cluster.stage}}
+        monitoring.instance: {{ .cluster.name }}-{{ .cluster.stage }}
 
 namespace:
   labels:
