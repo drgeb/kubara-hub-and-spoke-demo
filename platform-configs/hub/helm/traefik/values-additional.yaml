@@ -1,0 +1,10 @@
+traefik:
+  api:
+    basePath: /traefik
+  ingressRoute:
+    dashboard:
+      enabled: true
+      entryPoints:
+        - websecure
+      matchRule: Host(`hub.kubara.test`) && PathPrefix(`/traefik`)
+      tls: {}

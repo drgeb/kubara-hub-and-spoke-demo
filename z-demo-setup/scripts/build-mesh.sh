@@ -1110,6 +1110,35 @@ set_values_to_publish_spoke_kubeconfigs_to_openbao() {
         die "Stage not found for ${PROD_NAME}"
 }
 
+wait_for_openbao() {
+    log "Waiting for OpenBao to become ready on the hub"
+
+    local deadline=$((SECONDS + 300))
+    local host=""
+
+    while [[ $SECONDS -lt $deadline ]]; do
+        host="$(
+            kubectl \
+                --kubeconfig "$PERSISTENT_HUB_KUBECONFIG" \
+                --context "$HUB_CONTEXT" \
+                -n "$OPENBAO_NAMESPACE" \
+                get ingress openbao \
+                -o jsonpath='{.spec.rules[0].host}' \
+                2>/dev/null || true
+        )"
+
+        if [[ -n "$host" ]] &&
+                 curl -sf "http://${host}/v1/sys/health" >/dev/null 2>&1; then
+            log "OpenBao is ready at http://${host}"
+            return 0
+        fi
+
+        sleep 5
+    done
+
+    die "OpenBao did not become ready within 300s (last host: ${host})"
+}
+
 publish_spoke_kubeconfigs_to_openbao() {
     log "Publishing spoke kubeconfigs to OpenBao"
 
@@ -1408,9 +1437,10 @@ main() {
 
     wait_for_mesh_connections 300
     
-    # bootstrap_kubara_hub
+    bootstrap_kubara_hub
     generate_internal_kubeconfigs
     set_values_to_publish_spoke_kubeconfigs_to_openbao
+    wait_for_openbao
     publish_spoke_kubeconfigs_to_openbao
 
     provision_platform
