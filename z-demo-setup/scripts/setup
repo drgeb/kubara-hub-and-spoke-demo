@@ -7,9 +7,9 @@ just -f dnsmasq/Justfile start-dnsmasq
 just stop-cloud-provider-kind
 just start-cloud-provider-kind
 
-dig +short hub.kubara.test; echo "---"; dig @1.1.1.1 +short hub.kubara.test;echo "---"; grep -n hub.kubara.test /etc/hosts || echo "no /etc/hosts entry" 
+# dig +short hub.kubara.test; echo "---"; dig @1.1.1.1 +short hub.kubara.test;echo "---"; grep -n hub.kubara.test /etc/hosts || echo "no /etc/hosts entry" 
 
-kubectl get applications.argoproj.io -n argocd \
+# kubectl get applications.argoproj.io -n argocd \
   -o custom-columns='APP:.metadata.name,SYNC:.status.sync.status,HEALTH:.status.health.status' \
   && kubectl get applications.argoproj.io -n argocd \
   -o custom-columns='APP:.metadata.name,SYNC:.status.sync.status,HEALTH:.status.health.status' \

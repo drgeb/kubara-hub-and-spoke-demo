@@ -411,6 +411,7 @@ demo_delete_cloud_provider_kind_lbs() {
   # shellcheck disable=SC2034
   local cluster="$1"
   local lb_containers
+  local cid
 
   # Broad sweep: remove ANY cloud-provider-kind LB/gateway container, not just
   # the ones labeled for this cluster. Leftover gateways for clusters that no
@@ -419,8 +420,12 @@ demo_delete_cloud_provider_kind_lbs() {
   lb_containers="$(docker ps -aq --filter label=io.x-k8s.cloud-provider-kind.cluster 2>/dev/null || true)"
 
   if [ -n "$lb_containers" ]; then
-    # shellcheck disable=SC2086
-    demo_run docker rm -f $lb_containers
+    for cid in $lb_containers; do
+      printf 'Removing LB container: %s\n' "$cid"
+      # shellcheck disable=SC2086
+      demo_run docker rm -f "$cid" || \
+        printf 'WARN: could not remove LB container %s\n' "$cid"
+    done
   fi
 }
 
@@ -457,6 +462,15 @@ demo_cleanup_demo_networks() {
   local in_use=false
   local attempt
   local detached=false
+
+  if [ "${DRY_RUN:-false}" = "true" ]; then
+    for network in "$DEMO_MESH_DOCKER_NETWORK" "$DEMO_KIND_NETWORK"; do
+      if demo_docker_network_exists "$network"; then
+        demo_run docker network rm "$network"
+      fi
+    done
+    return 0
+  fi
 
   for network in "$DEMO_MESH_DOCKER_NETWORK" "$DEMO_KIND_NETWORK"; do
     if ! demo_docker_network_exists "$network"; then

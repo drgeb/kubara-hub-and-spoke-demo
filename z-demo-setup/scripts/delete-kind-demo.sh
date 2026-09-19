@@ -76,31 +76,48 @@ demo_delete_cluster() {
 }
 
 stop_cloud_provider_kind() {
-    # Resolve relative to repo root or SCRIPT_DIR if applicable
-    local pid_file="${SCRIPT_DIR}/.cloud-provider-kind"
+    # The Justfile start-cloud-provider-kind recipe writes the PID file to the
+    # repo root; tolerate the legacy SCRIPT_DIR location as well.
+    local root_pid_file="${DEMO_REPO_ROOT}/.cloud-provider-kind"
+    local script_pid_file="${SCRIPT_DIR}/.cloud-provider-kind"
+    local pid=""
+    local pids=""
 
-    if [ -f "$pid_file" ] && kill -0 "$(cat "$pid_file")" 2>/dev/null; then
-        local pid
-        pid="$(cat "$pid_file")"
-        if sudo kill "$pid" && rm -f "$pid_file"; then
-            echo "stopped cloud-provider-kind (pid $pid)"
-        else
-            echo "failed to stop cloud-provider-kind"
-            return 1
-        fi
-    elif pgrep -f cloud-provider-kind >/dev/null; then
-        local pids
-        pids="$(pgrep -f cloud-provider-kind | tr '\n' ' ')"
-        if sudo kill $pids; then
-            rm -f "$pid_file" .cloud-provider-kind
-            echo "stopped cloud-provider-kind (pids $pids)"
-        else
-            echo "failed to stop cloud-provider-kind"
-            return 1
-        fi
-    else
-        echo "cloud-provider-kind is not running"
+    if [ "$DRY_RUN" = "true" ]; then
+        printf '+\tstop cloud-provider-kind (pidfile or pgrep + sudo kill)\n'
+        return 0
     fi
+
+    if [ -f "$root_pid_file" ]; then
+        pid="$(cat "$root_pid_file")"
+    elif [ -f "$script_pid_file" ]; then
+        pid="$(cat "$script_pid_file")"
+    fi
+
+    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+        if sudo kill "$pid" 2>/dev/null; then
+            rm -f "$root_pid_file" "$script_pid_file"
+            echo "stopped cloud-provider-kind (pid $pid)"
+            return 0
+        fi
+        echo "failed to stop cloud-provider-kind (pid $pid)" >&2
+        return 1
+    fi
+
+    pids="$(pgrep -f cloud-provider-kind 2>/dev/null || true)"
+    if [ -n "$pids" ]; then
+        # shellcheck disable=SC2086
+        if sudo kill $pids 2>/dev/null; then
+            rm -f "$root_pid_file" "$script_pid_file"
+            echo "stopped cloud-provider-kind (pids $pids)"
+            return 0
+        fi
+        echo "failed to stop cloud-provider-kind (pids $pids)" >&2
+        return 1
+    fi
+
+    rm -f "$root_pid_file" "$script_pid_file"
+    echo "cloud-provider-kind is not running"
 }
 cleanup_local_artifacts() {
   local local_dir="${DEMO_REPO_ROOT}/.local"
@@ -119,22 +136,34 @@ cleanup_local_artifacts() {
 }
 
 cluster_count=0
+failures=0
+
+printf '\n=== Deleting demo clusters ===\n'
 
 while IFS='|' read -r cluster_name _kind_config; do
   [ -n "$cluster_name" ] || continue
 
   cluster_count=$((cluster_count + 1))
-  demo_delete_cluster "$cluster_name"
+  demo_delete_cluster "$cluster_name" || failures=$((failures + 1))
 done < <(demo_parse_clusters)
 
 [ "$cluster_count" -gt 0 ] || demo_die "No clusters found in config: $DEMO_CONFIG_FILE"
 
-printf 'Deleting hub cluster: %s\n' "$DEMO_HUB_CLUSTER_NAME"
-demo_delete_cluster "$DEMO_HUB_CLUSTER_NAME"
+printf '\n=== Deleting hub cluster ===\n'
+demo_delete_cluster "$DEMO_HUB_CLUSTER_NAME" || failures=$((failures + 1))
 
-stop_cloud_provider_kind
+printf '\n=== Stopping cloud-provider-kind ===\n'
+stop_cloud_provider_kind || failures=$((failures + 1))
 
-demo_cleanup_demo_networks
+printf '\n=== Cleaning up Docker networks ===\n'
+demo_cleanup_demo_networks || failures=$((failures + 1))
 
-cleanup_local_artifacts
+printf '\n=== Cleaning up local artifacts ===\n'
+cleanup_local_artifacts || failures=$((failures + 1))
+
+if [ "$failures" -gt 0 ]; then
+  demo_die "${failures} step(s) reported errors; see messages above"
+fi
+
+printf '\nCleanup complete.\n'
 

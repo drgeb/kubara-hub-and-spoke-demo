@@ -26,8 +26,13 @@ for arg in "$@"; do
   PASSTHROUGH_ARGS+=("${arg}")
 done
 
-echo "==> kubara generate --helm ${PASSTHROUGH_ARGS[*]}"
-kubara generate --helm "${PASSTHROUGH_ARGS[@]}"
+if (( ${#PASSTHROUGH_ARGS[@]} > 0 )); then
+  echo "==> kubara generate --helm ${PASSTHROUGH_ARGS[*]}"
+  kubara generate --helm "${PASSTHROUGH_ARGS[@]}"
+else
+  echo "==> kubara generate --helm"
+  kubara generate --helm
+fi
 
 if [[ "${DRY_RUN}" == true ]]; then
   echo "==> dry-run: skipping template-library/harbor restore"
