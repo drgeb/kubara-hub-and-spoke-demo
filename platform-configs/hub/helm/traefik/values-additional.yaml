@@ -8,3 +8,6 @@ traefik:
         - websecure
       matchRule: Host(`hub.kubara.test`) && PathPrefix(`/traefik`)
       tls: {}
+  service:
+    spec:
+      loadBalancerIP: 172.19.0.2
