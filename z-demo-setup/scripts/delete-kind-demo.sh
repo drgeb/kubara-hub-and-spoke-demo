@@ -142,6 +142,9 @@ printf '\n=== Deleting demo clusters ===\n'
 
 while IFS='|' read -r cluster_name _kind_config; do
   [ -n "$cluster_name" ] || continue
+  if [ "$cluster_name" = "$DEMO_HUB_CLUSTER_NAME" ]; then
+    continue
+  fi
 
   cluster_count=$((cluster_count + 1))
   demo_delete_cluster "$cluster_name" || failures=$((failures + 1))

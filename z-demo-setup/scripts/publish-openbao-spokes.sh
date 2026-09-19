@@ -134,6 +134,9 @@ printf 'OpenBao: %s\n' "$openbao_addr"
 
 while IFS='|' read -r cluster_name _kind_config; do
   [ -n "$cluster_name" ] || continue
+  if [ "$cluster_name" = "$DEMO_HUB_CLUSTER_NAME" ]; then
+    continue
+  fi
   demo_validate_cluster_name "$cluster_name"
 
   spoke_stage="$(parse_kubara_clusters | awk -F '|' -v cluster="$cluster_name" '$1 == cluster && $3 == "spoke" { print $2; exit }')"

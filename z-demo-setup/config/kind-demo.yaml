@@ -1,18 +1,28 @@
-# Local kind spokes for the kubara demo. The hub is managed separately.
+# Local kind clusters for the kubara demo. The hub fronts the mesh and must be
+# listed first (Cilium cluster ID 1); the remaining entries are spokes.
 clusters:
+  - name: hub
+    stage: local
+    kind_config: kind-hub-cilium.yaml
+    cilium_id: 1
   - name: kubara-spoke-1
     stage: platform-engineering
-    kind_config: kind/spoke-1.yaml
+    kind_config: kind-spoke1-overlay.yaml
+    cilium_id: 2
   - name: kubara-spoke-2
     stage: poc
-    kind_config: kind/spoke-2.yaml
+    kind_config: kind-spoke2-overlay.yaml
+    cilium_id: 3
   - name: kubara-dev
     stage: dev
-    kind_config: kind/dev.yaml
+    kind_config: kind-dev-overlay.yaml
+    cilium_id: 4
   - name: kubara-staging
     stage: staging
-    kind_config: kind/staging.yaml
+    kind_config: kind-staging-overlay.yaml
+    cilium_id: 5
   - name: kubara-prod
     stage: prod
-    kind_config: kind/prod.yaml
-  
+    kind_config: kind-prod-overlay.yaml
+    cilium_id: 6
+

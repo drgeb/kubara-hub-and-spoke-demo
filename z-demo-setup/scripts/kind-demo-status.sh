@@ -20,6 +20,9 @@ ARTIFACT_DIR="${DEMO_REPO_ROOT}/.local/kind-demo"
 
 while IFS='|' read -r cluster_name _kind_config; do
   [ -n "$cluster_name" ] || continue
+  if [ "$cluster_name" = "$DEMO_HUB_CLUSTER_NAME" ]; then
+    continue
+  fi
   printf '\n[%s]\n' "$cluster_name"
   if demo_cluster_exists "$cluster_name"; then
     kubeconfig="${ARTIFACT_DIR}/${cluster_name}.kubeconfig"

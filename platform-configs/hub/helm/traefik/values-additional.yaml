@@ -10,4 +10,4 @@ traefik:
       tls: {}
   service:
     spec:
-      loadBalancerIP: 172.19.0.2
+      loadBalancerIP: 172.19.0.20

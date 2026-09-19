@@ -2,7 +2,10 @@
 set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_DIR="${ROOT_DIR}/z-demo-setup/config"
+
+source "${SCRIPT_DIR}/lib/kind-demo-common.sh"
 
 CILIUM_VERSION="${CILIUM_VERSION:-1.19.5}"
 
@@ -15,49 +18,9 @@ MESH_DOCKER_SUBNET="172.19.0.0/16"
 MESH_DOCKER_GATEWAY="172.19.0.1"
 MESH_DOCKER_IP_RANGE="172.19.0.10/28"
 
-HUB_KIND="hub"
-SPOKE1_KIND="kubara-spoke-1"
-SPOKE2_KIND="kubara-spoke-2"
-DEV_KIND="kubara-dev"
-STAGING_KIND="kubara-staging"
-PROD_KIND="kubara-prod"
-
-HUB_CONTEXT="kind-hub"
-SPOKE1_CONTEXT="kind-kubara-spoke-1"
-SPOKE2_CONTEXT="kind-kubara-spoke-2"
-DEV_CONTEXT="kind-kubara-dev"
-STAGING_CONTEXT="kind-kubara-staging"
-PROD_CONTEXT="kind-kubara-prod"
-
-HUB_ID="1"
-SPOKE1_ID="2"
-SPOKE2_ID="3"
-DEV_ID="4"
-STAGING_ID="5"
-PROD_ID="6"
-
-HUB_NAME="hub"
-SPOKE1_NAME="kubara-spoke-1"
-SPOKE2_NAME="kubara-spoke-2"
-DEV_NAME="kubara-dev"
-STAGING_NAME="kubara-staging"
-PROD_NAME="kubara-prod"
-
-HUB_KIND_CONFIG="${CONFIG_DIR}/kind-hub-cilium.yaml"
-SPOKE1_KIND_CONFIG="${CONFIG_DIR}/kind-spoke1-overlay.yaml"
-SPOKE2_KIND_CONFIG="${CONFIG_DIR}/kind-spoke2-overlay.yaml"
-DEV_KIND_CONFIG="${CONFIG_DIR}/kind-dev-overlay.yaml"
-STAGING_KIND_CONFIG="${CONFIG_DIR}/kind-staging-overlay.yaml"
-PROD_KIND_CONFIG="${CONFIG_DIR}/kind-prod-overlay.yaml"
+DEMO_CLUSTER_CONFIG="${CONFIG_DIR}/kind-demo.yaml"
 
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/kubara-cilium.XXXXXX")"
-
-HUB_KUBECONFIG="${TMP_DIR}/hub.kubeconfig"
-SPOKE1_KUBECONFIG="${TMP_DIR}/spoke1.kubeconfig"
-SPOKE2_KUBECONFIG="${TMP_DIR}/spoke2.kubeconfig"
-DEV_KUBECONFIG="${TMP_DIR}/dev.kubeconfig"
-STAGING_KUBECONFIG="${TMP_DIR}/staging.kubeconfig"
-PROD_KUBECONFIG="${TMP_DIR}/prod.kubeconfig"
 MESH_KUBECONFIG="${TMP_DIR}/mesh.kubeconfig"
 
 LOCAL_DIR="${ROOT_DIR}/.local"
@@ -67,12 +30,6 @@ OPENBAO_NAMESPACE="openbao"
 OPENBAO_MOUNT="kv"
 PLATFORM_CONFIG="${ROOT_DIR}/config.yaml"
 PERSISTENT_HUB_KUBECONFIG="${LOCAL_DIR}/kind.kubeconfig"
-
-SPOKE1_INTERNAL_KUBECONFIG="${KIND_DEMO_DIR}/${SPOKE1_KIND}.internal.kubeconfig"
-SPOKE2_INTERNAL_KUBECONFIG="${KIND_DEMO_DIR}/${SPOKE2_KIND}.internal.kubeconfig"
-DEV_INTERNAL_KUBECONFIG="${KIND_DEMO_DIR}/${DEV_KIND}.internal.kubeconfig"
-STAGING_INTERNAL_KUBECONFIG="${KIND_DEMO_DIR}/${STAGING_KIND}.internal.kubeconfig"
-PROD_INTERNAL_KUBECONFIG="${KIND_DEMO_DIR}/${PROD_KIND}.internal.kubeconfig"
 
 REBUILD=false
 
@@ -97,8 +54,11 @@ Usage:
   $(basename "$0") [OPTIONS]
 
 Options:
-  --rebuild    Delete and recreate hub and both spokes
-  -h, --help   Show this help
+  --rebuild          Delete and recreate all kind clusters
+  -c, --config <file>
+                     Demo cluster inventory YAML
+                     (default: ${DEMO_CLUSTER_CONFIG})
+  -h, --help         Show this help
 
 Environment:
   CILIUM_VERSION=1.19.5
@@ -109,6 +69,16 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --rebuild)
             REBUILD=true
+            shift
+            ;;
+        -c|--config)
+            [[ -n "${2:-}" ]] || die "Missing value for $1"
+            DEMO_CLUSTER_CONFIG="$2"
+            shift 2
+            ;;
+        --config=*)
+            DEMO_CLUSTER_CONFIG="${1#*=}"
+            shift
             ;;
         -h|--help)
             usage
@@ -118,8 +88,64 @@ while [[ $# -gt 0 ]]; do
             die "Unknown argument: $1"
             ;;
     esac
-    shift
 done
+
+demo_load_config "$DEMO_CLUSTER_CONFIG"
+log "Cluster inventory: ${DEMO_CONFIG_FILE}"
+
+# ---------------------------------------------------------------------------
+# Cluster inventory (order-defined): entry 0 must be the hub, the rest spokes.
+# Bash 3.2 has no mapfile and no associative arrays, so populate parallel
+# indexed arrays from the pipe-delimited parser output.
+# ---------------------------------------------------------------------------
+CLUSTER_NAMES=()
+CLUSTER_CONFIGS=()
+CLUSTER_IDS=()
+
+while IFS='|' read -r _name _kind_config _cilium_id; do
+    [ -n "$_name" ] || continue
+
+    demo_validate_cluster_name "$_name"
+    [ -n "$_kind_config" ] || die "kind_config missing for cluster '${_name}'"
+    [ -n "$_cilium_id" ] || die "cilium_id missing for cluster '${_name}'"
+
+    CLUSTER_NAMES+=("$_name")
+    CLUSTER_CONFIGS+=("$(demo_resolve_kind_config_path "$_kind_config")")
+    CLUSTER_IDS+=("$_cilium_id")
+done < <(demo_parse_clusters)
+
+(( ${#CLUSTER_NAMES[@]} > 0 )) || die "No clusters found in inventory: ${DEMO_CONFIG_FILE}"
+
+CLUSTER_COUNT="${#CLUSTER_NAMES[@]}"
+
+[[ "${CLUSTER_NAMES[0]}" == "$DEMO_HUB_CLUSTER_NAME" ]] ||
+    die "First cluster in ${DEMO_CONFIG_FILE} must be the hub (${DEMO_HUB_CLUSTER_NAME})"
+
+[[ "${CLUSTER_IDS[0]}" == "1" ]] ||
+    die "Hub Cilium cluster ID must be 1"
+
+for ((i = 0; i < CLUSTER_COUNT; i++)); do
+    for ((j = i + 1; j < CLUSTER_COUNT; j++)); do
+        if [[ "${CLUSTER_IDS[i]}" == "${CLUSTER_IDS[j]}" ]]; then
+            die "Duplicate Cilium cluster ID ${CLUSTER_IDS[i]}: ${CLUSTER_NAMES[i]} and ${CLUSTER_NAMES[j]}"
+        fi
+    done
+done
+
+CONTEXTS=()
+TMP_KUBECONFIGS=()
+INTERNAL_KUBECONFIGS=()
+
+for ((i = 0; i < CLUSTER_COUNT; i++)); do
+    CONTEXTS+=("kind-${CLUSTER_NAMES[i]}")
+    TMP_KUBECONFIGS+=("${TMP_DIR}/${CLUSTER_NAMES[i]}.kubeconfig")
+    INTERNAL_KUBECONFIGS+=("${KIND_DEMO_DIR}/${CLUSTER_NAMES[i]}.internal.kubeconfig")
+done
+
+HUB_ID="${CLUSTER_IDS[0]}"
+HUB_NAME="${CLUSTER_NAMES[0]}"
+HUB_CONTEXT="${CONTEXTS[0]}"
+HUB_STAGE=""
 
 check_prerequisites() {
     log "Checking prerequisites"
@@ -139,23 +165,15 @@ check_prerequisites() {
     docker info >/dev/null 2>&1 ||
         die "Docker is not running"
 
-    [[ -f "$HUB_KIND_CONFIG" ]] ||
-        die "Missing $HUB_KIND_CONFIG"
+    local i
+    local config
 
-    [[ -f "$SPOKE1_KIND_CONFIG" ]] ||
-        die "Missing $SPOKE1_KIND_CONFIG"
+    for ((i = 0; i < CLUSTER_COUNT; i++)); do
+        config="${CLUSTER_CONFIGS[i]}"
 
-    [[ -f "$SPOKE2_KIND_CONFIG" ]] ||
-        die "Missing $SPOKE2_KIND_CONFIG"
-
-    [[ -f "$DEV_KIND_CONFIG" ]] ||
-        die "Missing $DEV_KIND_CONFIG"
-
-    [[ -f "$STAGING_KIND_CONFIG" ]] ||
-        die "Missing $STAGING_KIND_CONFIG"
-
-    [[ -f "$PROD_KIND_CONFIG" ]] ||
-        die "Missing $PROD_KIND_CONFIG"
+        [[ -f "$config" ]] ||
+            die "Missing $config"
+    done
 
     log "Cilium CLI"
 
@@ -275,32 +293,20 @@ delete_cluster() {
 rebuild_clusters() {
     log "Rebuild requested"
 
-    cat <<EOF
+    printf '\nWARNING:\n\n  This will DELETE these Kind clusters:\n\n'
 
-WARNING:
+    for name in "${CLUSTER_NAMES[@]}"; do
+        printf '    %s\n' "$name"
+    done
 
-  This will DELETE these Kind clusters:
-
-    ${HUB_KIND}
-    ${SPOKE1_KIND}
-    ${SPOKE2_KIND}
-    ${DEV_KIND}
-    ${STAGING_KIND}
-    ${PROD_KIND}
-
-  The '${HUB_KIND}' cluster currently contains your Kubara hub.
-
-  'test-cluster' will NOT be touched.
-
-EOF
+    printf "\n  The '${HUB_NAME}' cluster currently contains your Kubara hub.\n\n"
+    printf "  'test-cluster' will NOT be touched.\n\n"
 
     log "Deleting existing lab clusters"
-    delete_cluster "$DEV_KIND"
-    delete_cluster "$STAGING_KIND"
-    delete_cluster "$PROD_KIND"
-    delete_cluster "$SPOKE2_KIND"
-    delete_cluster "$SPOKE1_KIND"
-    delete_cluster "$HUB_KIND"
+
+    for ((i = CLUSTER_COUNT - 1; i >= 0; i--)); do
+        delete_cluster "${CLUSTER_NAMES[i]}"
+    done
 }
 
 create_kind_cluster() {
@@ -327,44 +333,37 @@ create_kind_cluster() {
 create_clusters() {
     log "Creating Kind clusters"
 
-    create_kind_cluster "$HUB_KIND" "$HUB_KIND_CONFIG"
-    create_kind_cluster "$SPOKE1_KIND" "$SPOKE1_KIND_CONFIG"
-    create_kind_cluster "$SPOKE2_KIND" "$SPOKE2_KIND_CONFIG"
-    create_kind_cluster "$DEV_KIND" "$DEV_KIND_CONFIG"
-    create_kind_cluster "$STAGING_KIND" "$STAGING_KIND_CONFIG"
-    create_kind_cluster "$PROD_KIND" "$PROD_KIND_CONFIG"
+    for ((i = 0; i < CLUSTER_COUNT; i++)); do
+        create_kind_cluster "${CLUSTER_NAMES[i]}" "${CLUSTER_CONFIGS[i]}"
+    done
 }
 
 generate_kubeconfigs() {
     log "Generating isolated Kind kubeconfigs"
 
-    kind get kubeconfig --name "$HUB_KIND" > "$HUB_KUBECONFIG"
-    kind get kubeconfig --name "$SPOKE1_KIND" > "$SPOKE1_KUBECONFIG"
-    kind get kubeconfig --name "$SPOKE2_KIND" > "$SPOKE2_KUBECONFIG"
-    kind get kubeconfig --name "$DEV_KIND" > "$DEV_KUBECONFIG"
-    kind get kubeconfig --name "$STAGING_KIND" > "$STAGING_KUBECONFIG"
-    kind get kubeconfig --name "$PROD_KIND" > "$PROD_KUBECONFIG"
-    
-    KUBECONFIG="${HUB_KUBECONFIG}:${SPOKE1_KUBECONFIG}:${SPOKE2_KUBECONFIG}:${DEV_KUBECONFIG}:${STAGING_KUBECONFIG}:${PROD_KUBECONFIG}" \
+    local -a tmp_files=()
+    local i
+
+    for ((i = 0; i < CLUSTER_COUNT; i++)); do
+        kind get kubeconfig --name "${CLUSTER_NAMES[i]}" > "${TMP_KUBECONFIGS[i]}"
+        chmod 600 "${TMP_KUBECONFIGS[i]}"
+        tmp_files+=("${TMP_KUBECONFIGS[i]}")
+    done
+
+    KUBECONFIG="$(IFS=:; echo "${tmp_files[*]}")" \
         kubectl config view --flatten > "$MESH_KUBECONFIG"
 
-    chmod 600 \
-        "$HUB_KUBECONFIG" \
-        "$SPOKE1_KUBECONFIG" \
-        "$SPOKE2_KUBECONFIG" \
-        "$DEV_KUBECONFIG" \
-        "$STAGING_KUBECONFIG" \
-        "$PROD_KUBECONFIG" \
-        "$MESH_KUBECONFIG"
+    chmod 600 "$MESH_KUBECONFIG"
 
-    # Merge only the six demo clusters into the shared .local/kind.kubeconfig.
+    # Merge the demo clusters into the shared .local/kind.kubeconfig.
     # Wildcarding `kind get clusters` leaks unrelated/stray clusters (e.g. the
     # preserved 'test-cluster') into the kubeconfig that local tooling relies on.
     local tmp_dir
     tmp_dir="$(mktemp -d)"
     local -a parts=()
     local cluster part
-    for cluster in "$HUB_KIND" "$SPOKE1_KIND" "$SPOKE2_KIND" "$DEV_KIND" "$STAGING_KIND" "$PROD_KIND"; do
+
+    for cluster in "${CLUSTER_NAMES[@]}"; do
         part="${tmp_dir}/${cluster}.yaml"
         if kind get kubeconfig --name "$cluster" > "$part" 2>/dev/null; then
             parts+=("$part")
@@ -413,27 +412,15 @@ wait_for_api_cluster() {
 wait_for_api() {
     log "Waiting for Kubernetes APIs"
 
-    wait_for_api_cluster "$HUB_CONTEXT"
-    wait_for_api_cluster "$SPOKE1_CONTEXT"
-    wait_for_api_cluster "$SPOKE2_CONTEXT"
-    wait_for_api_cluster "$DEV_CONTEXT"
-    wait_for_api_cluster "$STAGING_CONTEXT"
-    wait_for_api_cluster "$PROD_CONTEXT"
+    for context in "${CONTEXTS[@]}"; do
+        wait_for_api_cluster "$context"
+    done
 }
 
 wait_for_nodes() {
     log "Waiting for Kubernetes nodes"
 
-    local contexts=(
-        "$HUB_CONTEXT"
-        "$SPOKE1_CONTEXT"
-        "$SPOKE2_CONTEXT"
-        "$DEV_CONTEXT"
-        "$STAGING_CONTEXT"
-        "$PROD_CONTEXT"
-    )
-
-    for context in "${contexts[@]}"; do
+    for context in "${CONTEXTS[@]}"; do
         printf '    Waiting for node readiness on %s...\n' "$context"
 
         kubectl \
@@ -533,12 +520,9 @@ install_cilium() {
 }
 
 install_all_cilium() {
-    install_cilium "$HUB_CONTEXT" "$HUB_NAME" "$HUB_ID"
-    install_cilium "$SPOKE1_CONTEXT" "$SPOKE1_NAME" "$SPOKE1_ID"
-    install_cilium "$SPOKE2_CONTEXT" "$SPOKE2_NAME" "$SPOKE2_ID"
-    install_cilium "$DEV_CONTEXT" "$DEV_NAME" "$DEV_ID"
-    install_cilium "$STAGING_CONTEXT" "$STAGING_NAME" "$STAGING_ID"
-    install_cilium "$PROD_CONTEXT" "$PROD_NAME" "$PROD_ID"
+    for ((i = 0; i < CLUSTER_COUNT; i++)); do
+        install_cilium "${CONTEXTS[i]}" "${CLUSTER_NAMES[i]}" "${CLUSTER_IDS[i]}"
+    done
 }
 
 wait_for_cilium_cluster() {
@@ -575,12 +559,9 @@ wait_for_cilium_cluster() {
 wait_for_cilium() {
     log "Waiting for Cilium"
 
-    wait_for_cilium_cluster "$HUB_CONTEXT"
-    wait_for_cilium_cluster "$SPOKE1_CONTEXT"
-    wait_for_cilium_cluster "$SPOKE2_CONTEXT"
-    wait_for_cilium_cluster "$DEV_CONTEXT"
-    wait_for_cilium_cluster "$STAGING_CONTEXT"
-    wait_for_cilium_cluster "$PROD_CONTEXT"
+    for context in "${CONTEXTS[@]}"; do
+        wait_for_cilium_cluster "$context"
+    done
 }
 
 wait_for_deployment_exists() {
@@ -761,126 +742,47 @@ wait_for_mesh_connections() {
             continue
         fi
 
-        local spoke1_connected=false
-        local spoke2_connected=false
-        local dev_connected=false
-        local staging_connected=false
-        local prod_connected=false
+        local -a not_ready_parts=()
+        local pattern
+        local line
+        local i
+        local name
 
-        if grep -Eq \
-            'kubara-spoke-1: [0-9]+/[0-9]+ configured, [0-9]+/[0-9]+ connected - KVStoreMesh: [0-9]+/[0-9]+ configured, [0-9]+/[0-9]+ connected' \
-            <<< "$hub_status"; then
+        for ((i = 1; i < CLUSTER_COUNT; i++)); do
+            name="${CLUSTER_NAMES[i]}"
+            pattern="${name}: [0-9]+/[0-9]+ configured, [0-9]+/[0-9]+ connected - KVStoreMesh: [0-9]+/[0-9]+ configured, [0-9]+/[0-9]+ connected"
 
-            local spoke1_line
-            spoke1_line="$(
-                grep 'kubara-spoke-1:' <<< "$hub_status" || true
-            )"
+            if grep -Eq "$pattern" <<< "$hub_status"; then
+                line="$(grep "${name}:" <<< "$hub_status" || true)"
 
-            if [[ "$spoke1_line" =~ configured,\ 1/1\ connected ]] &&
-               [[ "$spoke1_line" =~ KVStoreMesh:\ 1/1\ configured,\ 1/1\ connected ]]; then
-                spoke1_connected=true
+                if [[ "$line" =~ configured,\ 1/1\ connected ]] &&
+                   [[ "$line" =~ KVStoreMesh:\ 1/1\ configured,\ 1/1\ connected ]]; then
+                    continue
+                fi
             fi
-        fi
 
-        if grep -Eq \
-            'kubara-spoke-2: [0-9]+/[0-9]+ configured, [0-9]+/[0-9]+ connected - KVStoreMesh: [0-9]+/[0-9]+ configured, [0-9]+/[0-9]+ connected' \
-            <<< "$hub_status"; then
+            not_ready_parts+=("${name}")
+        done
 
-            local spoke2_line
-            spoke2_line="$(
-                grep 'kubara-spoke-2:' <<< "$hub_status" || true
-            )"
-
-            if [[ "$spoke2_line" =~ configured,\ 1/1\ connected ]] &&
-               [[ "$spoke2_line" =~ KVStoreMesh:\ 1/1\ configured,\ 1/1\ connected ]]; then
-                spoke2_connected=true
-            fi
-        fi
-
-        if grep -Eq \
-            'kubara-dev: [0-9]+/[0-9]+ configured, [0-9]+/[0-9]+ connected - KVStoreMesh: [0-9]+/[0-9]+ configured, [0-9]+/[0-9]+ connected' \
-            <<< "$hub_status"; then
-
-            local dev_line
-            dev_line="$(
-                grep 'kubara-dev:' <<< "$hub_status" || true
-            )"
-
-            if [[ "$dev_line" =~ configured,\ 1/1\ connected ]] &&
-               [[ "$dev_line" =~ KVStoreMesh:\ 1/1\ configured,\ 1/1\ connected ]]; then
-                dev_connected=true
-            fi
-        fi
-
-        if grep -Eq \
-            'kubara-staging: [0-9]+/[0-9]+ configured, [0-9]+/[0-9]+ connected - KVStoreMesh: [0-9]+/[0-9]+ configured, [0-9]+/[0-9]+ connected' \
-            <<< "$hub_status"; then
-
-            local staging_line
-            staging_line="$(
-                grep 'kubara-staging:' <<< "$hub_status" || true
-            )"
-
-            if [[ "$staging_line" =~ configured,\ 1/1\ connected ]] &&
-               [[ "$staging_line" =~ KVStoreMesh:\ 1/1\ configured,\ 1/1\ connected ]]; then
-                staging_connected=true
-            fi
-        fi
-
-        if grep -Eq \
-            'kubara-prod: [0-9]+/[0-9]+ configured, [0-9]+/[0-9]+ connected - KVStoreMesh: [0-9]+/[0-9]+ configured, [0-9]+/[0-9]+ connected' \
-            <<< "$hub_status"; then
-
-            local prod_line
-            prod_line="$(
-                grep 'kubara-prod:' <<< "$hub_status" || true
-            )"
-
-            if [[ "$prod_line" =~ configured,\ 1/1\ connected ]] &&
-               [[ "$prod_line" =~ KVStoreMesh:\ 1/1\ configured,\ 1/1\ connected ]]; then
-                prod_connected=true
-            fi
-        fi
-
-        if [[ "$spoke1_connected" == true &&
-              "$spoke2_connected" == true &&
-              "$dev_connected" == true &&
-              "$staging_connected" == true &&
-              "$prod_connected" == true ]]; then
-
+        if (( ${#not_ready_parts[@]} == 0 )); then
             echo "    ClusterMesh connections are established"
-            echo "      hub -> kubara-spoke-1: connected"
-            echo "      hub -> kubara-spoke-2: connected"
-            echo "      hub -> kubara-dev: connected"
-            echo "      hub -> kubara-staging: connected"
-            echo "      hub -> kubara-prod: connected"
-            echo "      KVStoreMesh -> kubara-spoke-1: connected"
-            echo "      KVStoreMesh -> kubara-spoke-2: connected"
-            echo "      KVStoreMesh -> kubara-dev: connected"
-            echo "      KVStoreMesh -> kubara-staging: connected"
-            echo "      KVStoreMesh -> kubara-prod: connected"
+
+            for ((i = 1; i < CLUSTER_COUNT; i++)); do
+                echo "      hub -> ${CLUSTER_NAMES[i]}: connected"
+            done
+
+            for ((i = 1; i < CLUSTER_COUNT; i++)); do
+                echo "      KVStoreMesh -> ${CLUSTER_NAMES[i]}: connected"
+            done
 
             return 0
         fi
 
-        local spoke1_line
-        local spoke2_line
-        local dev_line
-        local staging_line
-        local prod_line
-
-        spoke1_line="$(grep 'kubara-spoke-1:' <<< "$hub_status" || echo 'not ready')"
-        spoke2_line="$(grep 'kubara-spoke-2:' <<< "$hub_status" || echo 'not ready')"
-        dev_line="$(grep 'kubara-dev:' <<< "$hub_status" || echo 'not ready')"
-        staging_line="$(grep 'kubara-staging:' <<< "$hub_status" || echo 'not ready')"
-        prod_line="$(grep 'kubara-prod:' <<< "$hub_status" || echo 'not ready')"
-
         echo "    waiting..."
-        echo "      ${spoke1_line}"
-        echo "      ${spoke2_line}"
-        echo "      ${dev_line}"
-        echo "      ${staging_line}"
-        echo "      ${prod_line}"
+        for name in "${CLUSTER_NAMES[@]:1}"; do
+            line="$(grep "${name}:" <<< "$hub_status" || echo 'not ready')"
+            echo "      ${line}"
+        done
         sleep 5
     done
 
@@ -944,12 +846,9 @@ enable_clustermesh() {
 }
 
 enable_all_clustermesh() {
-    enable_clustermesh "$HUB_CONTEXT"
-    enable_clustermesh "$SPOKE1_CONTEXT"
-    enable_clustermesh "$SPOKE2_CONTEXT"
-    enable_clustermesh "$DEV_CONTEXT"
-    enable_clustermesh "$STAGING_CONTEXT"
-    enable_clustermesh "$PROD_CONTEXT"
+    for context in "${CONTEXTS[@]}"; do
+        enable_clustermesh "$context"
+    done
 }
 
 enforce_clustermesh_replicas() {
@@ -1013,6 +912,12 @@ connect_cluster() {
         180
 }
 
+connect_clusters() {
+    for ((i = 1; i < CLUSTER_COUNT; i++)); do
+        connect_cluster "${CONTEXTS[0]}" "${CONTEXTS[i]}"
+    done
+}
+
 bootstrap_kubara_hub() {
     log "Bootstrapping Kubara hub"
 
@@ -1024,43 +929,18 @@ generate_internal_kubeconfigs() {
 
     mkdir -p "$KIND_DEMO_DIR"
 
-    kind get kubeconfig \
-        --name "$SPOKE1_KIND" \
-        --internal \
-        > "$SPOKE1_INTERNAL_KUBECONFIG"
+    # Only spokes are published to OpenBao; the hub uses the merged
+    # .local/kind.kubeconfig for local tooling.
+    for ((i = 1; i < CLUSTER_COUNT; i++)); do
+        kind get kubeconfig \
+            --name "${CLUSTER_NAMES[i]}" \
+            --internal \
+            > "${INTERNAL_KUBECONFIGS[i]}"
 
-    kind get kubeconfig \
-        --name "$SPOKE2_KIND" \
-        --internal \
-        > "$SPOKE2_INTERNAL_KUBECONFIG"
+        chmod 600 "${INTERNAL_KUBECONFIGS[i]}"
 
-    kind get kubeconfig \
-        --name "$DEV_KIND" \
-        --internal \
-        > "$DEV_INTERNAL_KUBECONFIG"
-
-    kind get kubeconfig \
-        --name "$STAGING_KIND" \
-        --internal \
-        > "$STAGING_INTERNAL_KUBECONFIG"
-
-    kind get kubeconfig \
-        --name "$PROD_KIND" \
-        --internal \
-        > "$PROD_INTERNAL_KUBECONFIG"
-
-    chmod 600 \
-        "$SPOKE1_INTERNAL_KUBECONFIG" \
-        "$SPOKE2_INTERNAL_KUBECONFIG" \
-        "$DEV_INTERNAL_KUBECONFIG" \
-        "$STAGING_INTERNAL_KUBECONFIG" \
-        "$PROD_INTERNAL_KUBECONFIG"
-
-    echo "    ${SPOKE1_INTERNAL_KUBECONFIG}"
-    echo "    ${SPOKE2_INTERNAL_KUBECONFIG}"
-    echo "    ${DEV_INTERNAL_KUBECONFIG}"
-    echo "    ${STAGING_INTERNAL_KUBECONFIG}"
-    echo "    ${PROD_INTERNAL_KUBECONFIG}"
+        echo "    ${INTERNAL_KUBECONFIGS[i]}"
+    done
 }
 
 publish_spoke_kubeconfig() {
@@ -1094,30 +974,20 @@ publish_spoke_kubeconfig() {
 }
 
 set_values_to_publish_spoke_kubeconfigs_to_openbao() {
-    HUB_STAGE="$(get_cluster_stage "$HUB_NAME")"
-    SPOKE1_STAGE="$(get_cluster_stage "$SPOKE1_NAME")"
-    SPOKE2_STAGE="$(get_cluster_stage "$SPOKE2_NAME")"
-    DEV_STAGE="$(get_cluster_stage "$DEV_NAME")"
-    STAGING_STAGE="$(get_cluster_stage "$STAGING_NAME")"
-    PROD_STAGE="$(get_cluster_stage "$PROD_NAME")"
+    CLUSTER_STAGES=()
+    local stage
+    local i
 
-    [[ -n "$HUB_STAGE" ]] ||
-        die "Stage not found for ${HUB_NAME}"
+    for ((i = 0; i < CLUSTER_COUNT; i++)); do
+        stage="$(get_cluster_stage "${CLUSTER_NAMES[i]}")"
 
-    [[ -n "$SPOKE1_STAGE" ]] ||
-        die "Stage not found for ${SPOKE1_NAME}"
+        [[ -n "$stage" ]] ||
+            die "Stage not found for ${CLUSTER_NAMES[i]}"
 
-    [[ -n "$SPOKE2_STAGE" ]] ||
-        die "Stage not found for ${SPOKE2_NAME}"
+        CLUSTER_STAGES+=("$stage")
+    done
 
-    [[ -n "$DEV_STAGE" ]] ||
-        die "Stage not found for ${DEV_NAME}"
-
-    [[ -n "$STAGING_STAGE" ]] ||
-        die "Stage not found for ${STAGING_NAME}"
-
-    [[ -n "$PROD_STAGE" ]] ||
-        die "Stage not found for ${PROD_NAME}"
+    HUB_STAGE="${CLUSTER_STAGES[0]}"
 }
 
 wait_for_openbao() {
@@ -1190,53 +1060,18 @@ publish_spoke_kubeconfigs_to_openbao() {
 
     local openbao_addr="http://${ingress_host}"
 
-
     echo "    OpenBao: ${openbao_addr}"
 
-    publish_spoke_kubeconfig \
-        "$SPOKE1_KIND" \
-        "$SPOKE1_STAGE" \
-        "$SPOKE1_INTERNAL_KUBECONFIG" \
-        "$openbao_addr" \
-        "$root_token"
-
-    publish_spoke_kubeconfig \
-        "$SPOKE2_KIND" \
-        "$SPOKE2_STAGE" \
-        "$SPOKE2_INTERNAL_KUBECONFIG" \
-        "$openbao_addr" \
-        "$root_token"
-
-    publish_spoke_kubeconfig \
-        "$DEV_KIND" \
-        "$DEV_STAGE" \
-        "$DEV_INTERNAL_KUBECONFIG" \
-        "$openbao_addr" \
-        "$root_token"
-
-    publish_spoke_kubeconfig \
-        "$STAGING_KIND" \
-        "$STAGING_STAGE" \
-        "$STAGING_INTERNAL_KUBECONFIG" \
-        "$openbao_addr" \
-        "$root_token"
-
-    publish_spoke_kubeconfig \
-        "$PROD_KIND" \
-        "$PROD_STAGE" \
-        "$PROD_INTERNAL_KUBECONFIG" \
-        "$openbao_addr" \
-        "$root_token"
+    for ((i = 1; i < CLUSTER_COUNT; i++)); do
+        publish_spoke_kubeconfig \
+            "${CLUSTER_NAMES[i]}" \
+            "${CLUSTER_STAGES[i]}" \
+            "${INTERNAL_KUBECONFIGS[i]}" \
+            "$openbao_addr" \
+            "$root_token"
+    done
 
     unset root_token
-}
-
-connect_clusters() {
-    connect_cluster "$HUB_CONTEXT" "$SPOKE1_CONTEXT"
-    connect_cluster "$HUB_CONTEXT" "$SPOKE2_CONTEXT"
-    connect_cluster "$HUB_CONTEXT" "$DEV_CONTEXT"
-    connect_cluster "$HUB_CONTEXT" "$STAGING_CONTEXT"
-    connect_cluster "$HUB_CONTEXT" "$PROD_CONTEXT"
 }
 
 show_cluster_config() {
@@ -1251,12 +1086,9 @@ show_cluster_config() {
 }
 
 verify_cluster_config() {
-    show_cluster_config "$HUB_CONTEXT"
-    show_cluster_config "$SPOKE1_CONTEXT"
-    show_cluster_config "$SPOKE2_CONTEXT"
-    show_cluster_config "$DEV_CONTEXT"
-    show_cluster_config "$STAGING_CONTEXT"
-    show_cluster_config "$PROD_CONTEXT"
+    for context in "${CONTEXTS[@]}"; do
+        show_cluster_config "$context"
+    done
 }
 
 provision_platform() {
@@ -1273,146 +1105,47 @@ provision_platform() {
 }
 
 show_mesh_status() {
-    log "ClusterMesh status: hub"
+    for ((i = 0; i < CLUSTER_COUNT; i++)); do
+        log "ClusterMesh status: ${CLUSTER_NAMES[i]}"
 
-    cilium clustermesh status \
-        --kubeconfig "$MESH_KUBECONFIG" \
-        --context "$HUB_CONTEXT"
-
-    log "ClusterMesh status: spoke-1"
-
-    cilium clustermesh status \
-        --kubeconfig "$MESH_KUBECONFIG" \
-        --context "$SPOKE1_CONTEXT"
-
-    log "ClusterMesh status: spoke-2"
-
-    cilium clustermesh status \
-        --kubeconfig "$MESH_KUBECONFIG" \
-        --context "$SPOKE2_CONTEXT"
-
-    log "ClusterMesh status: dev"
-
-    cilium clustermesh status \
-        --kubeconfig "$MESH_KUBECONFIG" \
-        --context "$DEV_CONTEXT"
-
-    log "ClusterMesh status: staging"
-
-    cilium clustermesh status \
-        --kubeconfig "$MESH_KUBECONFIG" \
-        --context "$STAGING_CONTEXT"
-
-    log "ClusterMesh status: prod"
-
-    cilium clustermesh status \
-        --kubeconfig "$MESH_KUBECONFIG" \
-        --context "$PROD_CONTEXT"
+        cilium clustermesh status \
+            --kubeconfig "$MESH_KUBECONFIG" \
+            --context "${CONTEXTS[i]}"
+    done
 }
 
 show_nodes() {
     log "Kubernetes nodes"
 
-    kubectl \
-        --kubeconfig "$MESH_KUBECONFIG" \
-        --context "$HUB_CONTEXT" \
-        get nodes -o wide
-
-    kubectl \
-        --kubeconfig "$MESH_KUBECONFIG" \
-        --context "$SPOKE1_CONTEXT" \
-        get nodes -o wide
-
-    kubectl \
-        --kubeconfig "$MESH_KUBECONFIG" \
-        --context "$SPOKE2_CONTEXT" \
-        get nodes -o wide
-    
-    kubectl \
-        --kubeconfig "$MESH_KUBECONFIG" \
-        --context "$DEV_CONTEXT" \
-        get nodes -o wide
-
-    kubectl \
-        --kubeconfig "$MESH_KUBECONFIG" \
-        --context "$STAGING_CONTEXT" \
-        get nodes -o wide
-    
-    kubectl \
-        --kubeconfig "$MESH_KUBECONFIG" \
-        --context "$PROD_CONTEXT" \
-        get nodes -o wide
+    for context in "${CONTEXTS[@]}"; do
+        kubectl \
+            --kubeconfig "$MESH_KUBECONFIG" \
+            --context "$context" \
+            get nodes -o wide
+    done
 }
 
 show_clustermesh_services() {
     log "ClusterMesh services"
 
-    kubectl \
-        --kubeconfig "$MESH_KUBECONFIG" \
-        --context "$HUB_CONTEXT" \
-        -n kube-system \
-        get svc clustermesh-apiserver -o wide
-
-    kubectl \
-        --kubeconfig "$MESH_KUBECONFIG" \
-        --context "$SPOKE1_CONTEXT" \
-        -n kube-system \
-        get svc clustermesh-apiserver -o wide
-
-    kubectl \
-        --kubeconfig "$MESH_KUBECONFIG" \
-        --context "$SPOKE2_CONTEXT" \
-        -n kube-system \
-        get svc clustermesh-apiserver -o wide
-
-    kubectl \
-        --kubeconfig "$MESH_KUBECONFIG" \
-        --context "$DEV_CONTEXT" \
-        -n kube-system \
-        get svc clustermesh-apiserver -o wide
-
-    kubectl \
-        --kubeconfig "$MESH_KUBECONFIG" \
-        --context "$STAGING_CONTEXT" \
-        -n kube-system \
-        get svc clustermesh-apiserver -o wide
-
-    kubectl \
-        --kubeconfig "$MESH_KUBECONFIG" \
-        --context "$PROD_CONTEXT" \
-        -n kube-system \
-        get svc clustermesh-apiserver -o wide
+    for context in "${CONTEXTS[@]}"; do
+        kubectl \
+            --kubeconfig "$MESH_KUBECONFIG" \
+            --context "$context" \
+            -n kube-system \
+            get svc clustermesh-apiserver -o wide
+    done
 }
 
 test_connectivity() {
-    log "Testing hub -> spoke-1 multi-cluster connectivity"
+    for ((i = 1; i < CLUSTER_COUNT; i++)); do
+        log "Testing hub -> ${CLUSTER_NAMES[i]} multi-cluster connectivity"
 
-    cilium connectivity test \
-        --kubeconfig "$MESH_KUBECONFIG" \
-        --context "$HUB_CONTEXT" \
-        --multi-cluster "$SPOKE1_CONTEXT"
-
-    log "Testing hub -> spoke-2 multi-cluster connectivity"
-
-    cilium connectivity test \
-        --kubeconfig "$MESH_KUBECONFIG" \
-        --context "$HUB_CONTEXT" \
-        --multi-cluster "$SPOKE2_CONTEXT"
-    
-    cilium connectivity test \
-        --kubeconfig "$MESH_KUBECONFIG" \
-        --context "$HUB_CONTEXT" \
-        --multi-cluster "$DEV_CONTEXT"  
-
-    cilium connectivity test \
-        --kubeconfig "$MESH_KUBECONFIG" \
-        --context "$HUB_CONTEXT" \
-        --multi-cluster "$STAGING_CONTEXT"
-
-    cilium connectivity test \
-        --kubeconfig "$MESH_KUBECONFIG" \
-        --context "$HUB_CONTEXT" \
-        --multi-cluster "$PROD_CONTEXT"
+        cilium connectivity test \
+            --kubeconfig "$MESH_KUBECONFIG" \
+            --context "$HUB_CONTEXT" \
+            --multi-cluster "${CONTEXTS[i]}"
+    done
 }
 
 main() {
@@ -1438,15 +1171,12 @@ main() {
     enable_all_clustermesh
     connect_clusters
 
-    enforce_clustermesh_replicas "$HUB_CONTEXT"
-    enforce_clustermesh_replicas "$SPOKE1_CONTEXT"
-    enforce_clustermesh_replicas "$SPOKE2_CONTEXT"
-    enforce_clustermesh_replicas "$DEV_CONTEXT"
-    enforce_clustermesh_replicas "$STAGING_CONTEXT"
-    enforce_clustermesh_replicas "$PROD_CONTEXT"
+    for context in "${CONTEXTS[@]}"; do
+        enforce_clustermesh_replicas "$context"
+    done
 
     wait_for_mesh_connections 300
-    
+
     bootstrap_kubara_hub
     generate_internal_kubeconfigs
     set_values_to_publish_spoke_kubeconfigs_to_openbao
@@ -1466,35 +1196,20 @@ main() {
 
     cat <<EOF
 
-========================================================================
+=======================================================================
 Cilium ClusterMesh complete
-========================================================================
+=======================================================================
+EOF
 
-Clusters:
+    printf '\nClusters:\n'
 
-  hub
-    Cilium cluster ID:   ${HUB_ID}
-    Cilium cluster name: ${HUB_NAME}
+    for ((i = 0; i < CLUSTER_COUNT; i++)); do
+        printf '\n  %s\n' "${CLUSTER_NAMES[i]}"
+        printf '    Cilium cluster ID:   %s\n' "${CLUSTER_IDS[i]}"
+        printf '    Cilium cluster name: %s\n' "${CLUSTER_NAMES[i]}"
+    done
 
-  kubara-spoke-1
-    Cilium cluster ID:   ${SPOKE1_ID}
-    Cilium cluster name: ${SPOKE1_NAME}
-
-  kubara-spoke-2
-    Cilium cluster ID:   ${SPOKE2_ID}
-    Cilium cluster name: ${SPOKE2_NAME}
-
-  kubara-dev
-    Cilium cluster ID:   ${DEV_ID}
-    Cilium cluster name: ${DEV_NAME}
-
-  kubara-staging
-    Cilium cluster ID:   ${STAGING_ID}
-    Cilium cluster name: ${STAGING_NAME}
-
-  kubara-prod
-    Cilium cluster ID:   ${PROD_ID}
-    Cilium cluster name: ${PROD_NAME}
+    cat <<EOF
 
 Topology:
 
@@ -1514,7 +1229,7 @@ bootstrapped again:
 DNS re-pin back to *.kubara.test, since kubara --local hardcodes the
 <traefik-LB-IP>.traefik.me magic DNS)
 
-========================================================================
+=======================================================================
 EOF
 }
 

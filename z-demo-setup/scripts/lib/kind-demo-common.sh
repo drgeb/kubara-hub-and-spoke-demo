@@ -54,13 +54,14 @@ demo_parse_clusters() {
 
     /^[ \t]*-[ \t]*name:[ \t]*/ {
       if (name != "") {
-        print name "|" kind_config
+        print name "|" kind_config "|" cilium_id
       }
 
       line = $0
       sub(/^[ \t]*-[ \t]*name:[ \t]*/, "", line)
       name = clean(line)
       kind_config = ""
+      cilium_id = ""
       next
     }
 
@@ -71,9 +72,16 @@ demo_parse_clusters() {
       next
     }
 
+    /^[ \t]*cilium_id:[ \t]*/ {
+      line = $0
+      sub(/^[ \t]*cilium_id:[ \t]*/, "", line)
+      cilium_id = clean(line)
+      next
+    }
+
     END {
       if (name != "") {
-        print name "|" kind_config
+        print name "|" kind_config "|" cilium_id
       }
     }
   ' "$DEMO_CONFIG_FILE"

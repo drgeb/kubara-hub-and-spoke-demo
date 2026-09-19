@@ -1,4 +1,4 @@
 traefik:
   service:
     spec:
-      loadBalancerIP: 172.19.0.4
+      loadBalancerIP: 172.19.0.22
