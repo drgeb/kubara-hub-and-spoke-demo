@@ -100,7 +100,8 @@ status-dnsmasq:
     fi
 
 # Rewrite the address=/<cluster>.kubara.test lines from the live traefik
-# LoadBalancer IPs and reload dnsmasq. Run after rebuilding/restarting clusters.
+# LoadBalancer IPs (plus the forgejo SSH LB on spoke-1) and reload dnsmasq.
+# Run after rebuilding/restarting clusters.
 refresh-lb-hosts:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -159,6 +160,20 @@ refresh-lb-hosts:
         else
             printf 'address=/my.nexus.me/%s\n' "$spoke1_ip" >> "$tmp"
         fi
+    fi
+
+    FORGEJO_SSH_HOST="ssh.spoke-1.kubara.test"
+    forgejo_ip=$(kubectl --kubeconfig "$KCFG" --context kind-kubara-spoke-1 \
+        -n forgejo get svc forgejo-ssh -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+    if [ -n "$forgejo_ip" ]; then
+        if grep -q "^address=/$FORGEJO_SSH_HOST/" "$tmp"; then
+            sed -i.bak "s#^address=/$FORGEJO_SSH_HOST/.*#address=/$FORGEJO_SSH_HOST/$forgejo_ip#" "$tmp"
+        else
+            printf 'address=/%s/%s\n' "$FORGEJO_SSH_HOST" "$forgejo_ip" >> "$tmp"
+        fi
+        echo "$FORGEJO_SSH_HOST -> $forgejo_ip"
+    else
+        echo "WARN: no forgejo-ssh LB IP; leaving $FORGEJO_SSH_HOST unchanged" >&2
     fi
     rm -f "$tmp.bak"
     mv "$tmp" "$CONF"

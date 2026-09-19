@@ -1,18 +1,17 @@
 # Expose Forgejo SSH externally via a LoadBalancer handled by cloud-provider-kind.
-# The loadBalancerIP / SSH_DOMAIN values are rendered at runtime by
-# scripts/render-runtime-config.sh (FORGEJO_SSH_IP); they are requested before
-# the Service exists, so they are a deliberate static pin, not a discovery.
+# No loadBalancerIP pin: the LB IP is dynamic, and the ssh hostname below is
+# resolved by dnsmasq/config/dnsmasq.conf (regenerated from the live IP by
+# `just -f dnsmasq/Justfile refresh-lb-hosts`). See AGENTS.md.
 service:
   ssh:
     type: LoadBalancer
-    loadBalancerIP: 172.19.0.9
 gitea:
   # NOTE: DB password env lives under deployment.env in
   # values.generated.yaml.tplt (chart renders deployment.env, not gitea.env);
   # only chart-consumed overrides belong here.
   config:
     server:
-      SSH_DOMAIN: 172.19.0.9
+      SSH_DOMAIN: ssh.spoke-1.kubara.test
     actions:
       ENABLED: "true"
       DEFAULT_ACTIONS_URL: github

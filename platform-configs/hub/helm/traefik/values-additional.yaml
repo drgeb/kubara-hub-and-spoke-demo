@@ -8,6 +8,5 @@ traefik:
         - websecure
       matchRule: Host(`hub.kubara.test`) && PathPrefix(`/traefik`)
       tls: {}
-  service:
-    spec:
-      loadBalancerIP: 172.19.0.20
+  # NOTE: no service.spec.loadBalancerIP. LB IPs are dynamic (cloud-provider-kind);
+  # the only IP map in the repo is dnsmasq/config/dnsmasq.conf (see AGENTS.md).
