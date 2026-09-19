@@ -162,7 +162,7 @@ refresh-lb-hosts:
         fi
     fi
 
-    FORGEJO_SSH_HOST="ssh.spoke-1.kubara.test"
+    FORGEJO_SSH_HOST="forgejo-ssh.me"
     forgejo_ip=$(kubectl --kubeconfig "$KCFG" --context kind-kubara-spoke-1 \
         -n forgejo get svc forgejo-ssh -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
     if [ -n "$forgejo_ip" ]; then

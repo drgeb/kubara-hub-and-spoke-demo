@@ -11,7 +11,7 @@ gitea:
   # only chart-consumed overrides belong here.
   config:
     server:
-      SSH_DOMAIN: ssh.spoke-1.kubara.test
+      SSH_DOMAIN: forgejo-ssh.me
     actions:
       ENABLED: "true"
       DEFAULT_ACTIONS_URL: github
