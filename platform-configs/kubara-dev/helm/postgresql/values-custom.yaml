@@ -1,0 +1,21 @@
+# Local overrides for the shared backing postgres on kubara-dev.
+#
+# Credentials are NEVER stored in this repository; the postgres superuser
+# password (POSTGRES_PASSWORD) and the application user password (APP) live in
+# the repo .env file and are written to the Kubernetes Secret `postgresql`
+# (namespace: postgresql) by z-demo-setup/scripts/create-platform-secrets.sh.
+#
+# The bitnami postgresql 18 chart default primary.resourcesPreset is "nano"
+# (request 128Mi / limit 192Mi), which OOM-kills the shared postgres on this
+# 64Gi node during liquibase / app startup. Give it a real budget; pin the
+# preset to "none" (docs: ignored when resources is set) so it cannot silently
+# reset.
+primary:
+  resourcesPreset: "none"
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 1Gi

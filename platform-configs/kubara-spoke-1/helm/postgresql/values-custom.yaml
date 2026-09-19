@@ -24,3 +24,15 @@ auth:
 primary:
   fips:
     openssl: "off"
+  # The chart default primary.resourcesPreset is "nano" (request 128Mi / limit
+  # 192Mi), which OOM-kills the shared postgres on this 64Gi node during
+  # liquibase / app startup. Give it a real budget; pin the preset to "none"
+  # (docs: ignored when resources is set) so it cannot silently reset.
+  resourcesPreset: "none"
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 1Gi
