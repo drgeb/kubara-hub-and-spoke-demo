@@ -426,13 +426,13 @@ login-argo-cd:
     @echo user: ${ARGOCD_ADMIN_USER}
     @echo passwd: $ARGOCD_WIZARD_ACCOUNT_PASSWORD
     @echo $ARGOCD_WIZARD_ACCOUNT_PASSWORD | pbcopy
-    argocd login {{HUB_DNS_NAME}} --grpc-web --grpc-web-root-path argocd --insecure
+    argocd login argocd.{{HUB_DNS_NAME}} --insecure
 
 open-argo-cd:
     @echo user: ${ARGOCD_ADMIN_USER}
     @echo passwd: $ARGOCD_WIZARD_ACCOUNT_PASSWORD
     @echo $ARGOCD_WIZARD_ACCOUNT_PASSWORD | pbcopy
-    @open https://{{HUB_DNS_NAME}}/argocd
+    @open https://argocd.{{HUB_DNS_NAME}}
 
 # Open Homer dashboard
 open-homer-dashboard:
