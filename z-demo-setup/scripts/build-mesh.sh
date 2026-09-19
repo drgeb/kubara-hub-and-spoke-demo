@@ -247,8 +247,13 @@ ensure_mesh_docker_network() {
 check_kind_network() {
     log "Checking Kind Docker network"
 
-    docker network inspect kind >/dev/null 2>&1 ||
-        die "Docker network 'kind' does not exist"
+    if docker network inspect kind >/dev/null 2>&1; then
+        return
+    fi
+
+    # kind auto-creates its default 'kind' network on the first cluster, but
+    # the demo deletes it during teardown, so create it up-front when missing.
+    docker network create --driver bridge kind
 }
 
 cluster_exists() {

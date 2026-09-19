@@ -11,8 +11,8 @@ usage() {
   cat <<USAGE
 Usage: $0 [options]
 
-Delete the kind clusters defined in z-demo-setup/config/kind-demo.yaml plus
-the hub cluster (${DEMO_HUB_CLUSTER_NAME}), along with any cloud-provider-kind
+Delete the kind clusters defined by the hub cluster 
+(${DEMO_HUB_CLUSTER_NAME}), along with any cloud-provider-kind
 load balancers and leftover Docker networks (kubara-mesh, empty 'kind' default).
 
 Options:

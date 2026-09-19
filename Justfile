@@ -248,40 +248,90 @@ bootstrap-kubara-hub:
 
 # Start the cloud-provider-kind (LBs are placed on the kubara-mesh network)
 start-cloud-provider-kind:
-    @if [ -f .cloud-provider-kind ] && kill -0 "$(cat .cloud-provider-kind)" 2>/dev/null; then \
-      echo "cloud-provider-kind already running (pid $(cat .cloud-provider-kind))"; \
-    elif pgrep -f cloud-provider-kind >/dev/null; then \
-      echo "cloud-provider-kind already running (pid $(pgrep -f cloud-provider-kind | head -1))"; \
-    else \
-      echo "removing stale load balancers so they are recreated on the kubara-mesh network"; \
-      docker rm -f $(docker ps -aq --filter label=io.x-k8s.cloud-provider-kind.cluster=hub) 2>/dev/null || true; \
-      sudo -n env KIND_EXPERIMENTAL_DOCKER_NETWORK=kubara-mesh \
-        nohup cloud-provider-kind > .cloud-provider-kind.log 2>&1 & \
-      echo $! > .cloud-provider-kind; \
-      echo "started cloud-provider-kind (pid $(cat .cloud-provider-kind)), logs in .cloud-provider-kind.log"; \
+    #!/usr/bin/env bash
+    set -euo pipefail
+    PID_FILE="$PWD/.cloud-provider-kind"
+
+    is_running() {
+        { [ -f "$PID_FILE" ] && ps -p "$(cat "$PID_FILE")" >/dev/null 2>&1; } || \
+            pgrep -x cloud-provider-kind >/dev/null 2>&1
+    }
+
+    if is_running; then
+        echo "cloud-provider-kind already running (pid $(cat "$PID_FILE" 2>/dev/null || pgrep -x cloud-provider-kind | head -1))"
+        exit 0
     fi
+
+    if pgrep -x cloud-provider-kind >/dev/null 2>&1; then
+        echo "waiting for cloud-provider-kind to exit (pid $(pgrep -x cloud-provider-kind | head -1))"
+        for _ in 1 2 3 4 5 6 7 8 9 10; do
+            pgrep -x cloud-provider-kind >/dev/null 2>&1 || break
+            sleep 1
+        done
+        if pgrep -x cloud-provider-kind >/dev/null 2>&1; then
+            echo "cloud-provider-kind still running; refusing to double-start" >&2
+            exit 1
+        fi
+        echo "cloud-provider-kind exited"
+    fi
+
+    echo "removing stale load balancers so they are recreated on the kubara-mesh network"
+    docker rm -f $(docker ps -aq --filter label=io.x-k8s.cloud-provider-kind.cluster=hub) 2>/dev/null || true
+    sudo -n env KIND_EXPERIMENTAL_DOCKER_NETWORK=kubara-mesh \
+        nohup cloud-provider-kind > .cloud-provider-kind.log 2>&1 &
+    pid=$!
+    echo "$pid" > "$PID_FILE"
+    sleep 1
+    if ! ps -p "$pid" >/dev/null 2>&1; then
+        rm -f "$PID_FILE"
+        echo "cloud-provider-kind failed to start (see .cloud-provider-kind.log; 'sudo -n' needs cached credentials)" >&2
+        exit 1
+    fi
+    echo "started cloud-provider-kind (pid $pid), logs in .cloud-provider-kind.log"
 
 # Stop cloud-provider-kind
 stop-cloud-provider-kind:
-    @if [ -f .cloud-provider-kind ] && kill -0 "$(cat .cloud-provider-kind)" 2>/dev/null; then \
-      pid="$(cat .cloud-provider-kind)"; \
-      if sudo kill "$pid" && rm -f .cloud-provider-kind; then \
-        echo "stopped cloud-provider-kind (pid $pid)"; \
-      else \
-        echo "failed to stop cloud-provider-kind"; \
-        exit 1; \
-      fi; \
-    elif pgrep -f cloud-provider-kind >/dev/null; then \
-      pids="$(pgrep -f cloud-provider-kind | tr '\n' ' ')"; \
-      if sudo kill $pids; then \
-        rm -f .cloud-provider-kind; \
-        echo "stopped cloud-provider-kind (pids $pids)"; \
-      else \
-        echo "failed to stop cloud-provider-kind"; \
-        exit 1; \
-      fi; \
-    else \
-      echo "cloud-provider-kind is not running"; \
+    #!/usr/bin/env bash
+    set -euo pipefail
+    PID_FILE="$PWD/.cloud-provider-kind"
+    stopped=false
+
+    if { [ -f "$PID_FILE" ] && ps -p "$(cat "$PID_FILE")" >/dev/null 2>&1; }; then
+        pid="$(cat "$PID_FILE")"
+        echo "Stopping cloud-provider-kind (pid $pid)..."
+        sudo kill "$pid" 2>/dev/null || true
+        for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do
+            ps -p "$pid" >/dev/null 2>&1 || break
+            sleep 1
+        done
+        if ps -p "$pid" >/dev/null 2>&1; then
+            echo "failed to stop cloud-provider-kind (pid $pid)" >&2
+            exit 1
+        fi
+        rm -f "$PID_FILE"
+        echo "stopped cloud-provider-kind (pid $pid)"
+        stopped=true
+    fi
+
+    if pgrep -x cloud-provider-kind >/dev/null 2>&1; then
+        pids="$(pgrep -x cloud-provider-kind | tr '\n' ' ')"
+        echo "Stopping cloud-provider-kind (pids $pids)..."
+        sudo kill $pids 2>/dev/null || true
+        for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do
+            pgrep -x cloud-provider-kind >/dev/null 2>&1 || break
+            sleep 1
+        done
+        if pgrep -x cloud-provider-kind >/dev/null 2>&1; then
+            echo "failed to stop cloud-provider-kind (pids $pids)" >&2
+            exit 1
+        fi
+        rm -f "$PID_FILE"
+        echo "stopped cloud-provider-kind (pids $pids)"
+        stopped=true
+    fi
+
+    if ! "$stopped"; then
+        echo "cloud-provider-kind is not running"
     fi
 
 # Verify Argo CD is deployed and running after bootstrap

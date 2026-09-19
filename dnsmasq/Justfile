@@ -122,12 +122,13 @@ refresh-lb-hosts:
         "prod.kubara.test kind-kubara-prod"
     )
 
-    declare -A IP=()
+    DIMS=()
+    IPS=()
     for row in "${ROWS[@]}"; do
         dom="${row%% *}"; ctx="${row#* }"
         ip=$(ip_of "$ctx")
         if [ -n "$ip" ]; then
-            IP[$dom]="$ip"
+            DIMS+=("$dom"); IPS+=("$ip")
             echo "$dom -> $ip"
         else
             echo "WARN: no traefik LB IP for $ctx; leaving $dom unchanged" >&2
@@ -136,18 +137,27 @@ refresh-lb-hosts:
 
     tmp=$(mktemp)
     cp "$CONF" "$tmp"
-    for dom in "${!IP[@]}"; do
+    for i in "${!DIMS[@]}"; do
+        dom="${DIMS[$i]}"; ip="${IPS[$i]}"
         if grep -q "address=/$dom/" "$tmp"; then
-            sed -i.bak "s#^address=/$dom/.*#address=/$dom/${IP[$dom]}#" "$tmp"
+            sed -i.bak "s#^address=/$dom/.*#address=/$dom/$ip#" "$tmp"
         else
-            printf 'address=/%s/%s\n' "$dom" "${IP[$dom]}" >> "$tmp"
+            printf 'address=/%s/%s\n' "$dom" "$ip" >> "$tmp"
         fi
     done
-    if [ -n "${IP[spoke-1.kubara.test]:-}" ]; then
+
+    spoke1_ip=""
+    for i in "${!DIMS[@]}"; do
+        if [ "${DIMS[$i]}" = "spoke-1.kubara.test" ]; then
+            spoke1_ip="${IPS[$i]}"
+            break
+        fi
+    done
+    if [ -n "$spoke1_ip" ]; then
         if grep -q '^address=/my\.nexus\.me/' "$tmp"; then
-            sed -i.bak "s#^address=/my\.nexus\.me/.*#address=/my.nexus.me/${IP[spoke-1.kubara.test]}#" "$tmp"
+            sed -i.bak "s#^address=/my\.nexus\.me/.*#address=/my.nexus.me/$spoke1_ip#" "$tmp"
         else
-            printf 'address=/my.nexus.me/%s\n' "${IP[spoke-1.kubara.test]}" >> "$tmp"
+            printf 'address=/my.nexus.me/%s\n' "$spoke1_ip" >> "$tmp"
         fi
     fi
     rm -f "$tmp.bak"
