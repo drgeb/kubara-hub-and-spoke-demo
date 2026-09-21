@@ -107,6 +107,27 @@ restore_tracked_platform_configs() {
   done < <(git -C "${ROOT_DIR}" grep -l '\.traefik\.me' -- platform-configs/ 2>/dev/null || true)
 }
 
+restore_demo_overrides() {
+  # kubara generate --helm treats platform-components/helm as its render
+  # output and prunes anything it does not generate, and the bootstrap rewrites
+  # the per-cluster platform-configs values-additional.yaml files it manages.
+  # That drops our durable tracked additions (argo-cd root redirect, cert-manager
+  # local CA, homer subdomain, kube-prometheus-stack subdomain routing) on every
+  # run. Git main is the source of truth for these paths, so restore them after
+  # generate to keep bootstrap idempotent.
+  local file
+  for file in \
+      "platform-components/helm/argo-cd/templates/redirect.yaml" \
+      "platform-components/helm/argo-cd/values.yaml" \
+      "platform-configs/hub/helm/cert-manager/values-additional.yaml" \
+      "platform-configs/hub/helm/homer-dashboard/values-additional.yaml" \
+      "platform-configs/hub/helm/kube-prometheus-stack/values-additional.yaml"; do
+    [ -f "${ROOT_DIR}/${file}" ] || continue
+    git -C "${ROOT_DIR}" checkout -- "${file}"
+    echo "==> restored ${file} from git"
+  done
+}
+
 repoint_host_in_file() {
   local file="$1"
   local host="$2"
@@ -171,6 +192,7 @@ fi
 restore_hub_dns_name
 "${SCRIPT_DIR}/generate-helm.sh"
 restore_tracked_platform_configs
+restore_demo_overrides
 repoint_openbao
 repoint_argocd_ingress
 repoint_host_in_file "${TRAEFIK_OVERLAY}" "${HUB_DNS_NAME}"
