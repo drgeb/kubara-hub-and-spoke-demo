@@ -449,7 +449,7 @@ You should get an error message like this:
 ```bash
 $ git clone git@k8s-demo.internal:admin/test.git
 Cloning into 'test'...
-Connection reset by 192.168.179.217 port 22
+Connection reset by <forgejo-host> port 22
 fatal: Could not read from remote repository.
 
 Please make sure you have the correct access rights

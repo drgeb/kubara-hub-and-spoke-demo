@@ -16,7 +16,7 @@ global:
   imagePullSecrets: []
   storageClass: ''
   hostAliases: []
-  # - ip: 192.168.137.2
+  # - ip: <host-ip>
   #   hostnames:
   #   - example.com
 

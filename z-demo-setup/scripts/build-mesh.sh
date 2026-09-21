@@ -949,6 +949,7 @@ publish_spoke_kubeconfig() {
     local kubeconfig="$3"
     local openbao_addr="$4"
     local root_token="$5"
+    local openbao_host="$6"
 
     local secret_path="${HUB_NAME}/${HUB_STAGE}/argocd/${cluster_name}-${spoke_stage}"
     local api_url="${openbao_addr}/v1/${OPENBAO_MOUNT}/data/${secret_path}"
@@ -960,12 +961,14 @@ publish_spoke_kubeconfig() {
         curl -fsS \
             --header "X-Vault-Token: ${root_token}" \
             --header 'Content-Type: application/json' \
+            --header "Host: ${openbao_host}" \
             --request POST \
             --data-binary @- \
             "$api_url" >/dev/null
 
     curl -fsS \
         --header "X-Vault-Token: ${root_token}" \
+        --header "Host: ${openbao_host}" \
         "$api_url" |
         jq -e '.data.data.kubeconfig | type == "string" and length > 0' \
         >/dev/null
@@ -990,25 +993,44 @@ set_values_to_publish_spoke_kubeconfigs_to_openbao() {
     HUB_STAGE="${CLUSTER_STAGES[0]}"
 }
 
+get_openbao_ingress_host() {
+    kubectl \
+        --kubeconfig "$PERSISTENT_HUB_KUBECONFIG" \
+        --context "$HUB_CONTEXT" \
+        -n "$OPENBAO_NAMESPACE" \
+        get ingress openbao \
+        -o jsonpath='{.spec.rules[0].host}' \
+        2>/dev/null || true
+}
+
+get_openbao_lb_ip() {
+    kubectl \
+        --kubeconfig "$PERSISTENT_HUB_KUBECONFIG" \
+        --context "$HUB_CONTEXT" \
+        -n "$OPENBAO_NAMESPACE" \
+        get ingress openbao \
+        -o jsonpath='{.status.loadBalancer.ingress[0].ip}' \
+        2>/dev/null || true
+}
+
 wait_for_openbao() {
     log "Waiting for OpenBao to become ready on the hub"
 
     local deadline=$((SECONDS + 300))
     local host=""
+    local lb_ip=""
 
     while [[ $SECONDS -lt $deadline ]]; do
-        host="$(
-            kubectl \
-                --kubeconfig "$PERSISTENT_HUB_KUBECONFIG" \
-                --context "$HUB_CONTEXT" \
-                -n "$OPENBAO_NAMESPACE" \
-                get ingress openbao \
-                -o jsonpath='{.spec.rules[0].host}' \
-                2>/dev/null || true
-        )"
+        host="$(get_openbao_ingress_host)"
+        lb_ip="$(get_openbao_lb_ip)"
 
         if [[ -n "$host" ]] &&
-                 curl -sf "http://${host}/v1/sys/health" >/dev/null 2>&1; then
+           [[ -n "$lb_ip" ]] &&
+             curl -fsS \
+                 --max-time 5 \
+                 --connect-timeout 3 \
+                 -H "Host: ${host}" \
+                 "http://${lb_ip}/v1/sys/health" >/dev/null 2>&1; then
             log "OpenBao is ready at http://${host}"
             return 0
         fi
@@ -1016,7 +1038,7 @@ wait_for_openbao() {
         sleep 5
     done
 
-    die "OpenBao did not become ready within 300s (last host: ${host})"
+    die "OpenBao did not become ready within 300s (last host: ${host}, last LB IP: ${lb_ip})"
 }
 
 publish_spoke_kubeconfigs_to_openbao() {
@@ -1029,18 +1051,16 @@ publish_spoke_kubeconfigs_to_openbao() {
         die "jq is not installed"
 
     local ingress_host
+    local lb_ip
 
-    ingress_host="$(
-        kubectl \
-            --kubeconfig "$PERSISTENT_HUB_KUBECONFIG" \
-            --context "$HUB_CONTEXT" \
-            -n "$OPENBAO_NAMESPACE" \
-            get ingress openbao \
-            -o jsonpath='{.spec.rules[0].host}'
-    )"
+    ingress_host="$(get_openbao_ingress_host)"
+    lb_ip="$(get_openbao_lb_ip)"
 
     [[ -n "$ingress_host" ]] ||
         die "OpenBao ingress host not found"
+
+    [[ -n "$lb_ip" ]] ||
+        die "OpenBao LoadBalancer IP not found"
 
     local root_token
 
@@ -1058,9 +1078,9 @@ publish_spoke_kubeconfigs_to_openbao() {
     [[ -n "$root_token" ]] ||
         die "Could not read OpenBao root token"
 
-    local openbao_addr="http://${ingress_host}"
+    local openbao_addr="http://${lb_ip}"
 
-    echo "    OpenBao: ${openbao_addr}"
+    echo "    OpenBao: http://${ingress_host} (LB ${lb_ip})"
 
     for ((i = 1; i < CLUSTER_COUNT; i++)); do
         publish_spoke_kubeconfig \
@@ -1068,7 +1088,8 @@ publish_spoke_kubeconfigs_to_openbao() {
             "${CLUSTER_STAGES[i]}" \
             "${INTERNAL_KUBECONFIGS[i]}" \
             "$openbao_addr" \
-            "$root_token"
+            "$root_token" \
+            "$ingress_host"
     done
 
     unset root_token
@@ -1137,7 +1158,30 @@ show_clustermesh_services() {
     done
 }
 
+cleanup_stale_connectivity_resources() {
+    # A previous `cilium connectivity test` run that aborts (or errors) can
+    # leave its test namespaces and CiliumNetworkPolicies behind. The stale
+    # client-egress-only-dns policy enforces egress default-deny on the client
+    # pods, which makes the next run's WaitForPodDNS (client -> echo pod DNS
+    # server) time out. Reset the namespaces on every cluster before testing.
+    log "Cleaning up stale connectivity test namespaces"
+
+    for context in "${CONTEXTS[@]}"; do
+        kubectl \
+            --kubeconfig "$MESH_KUBECONFIG" \
+            --context "$context" \
+            delete namespace \
+            --ignore-not-found \
+            --wait=true \
+            cilium-test-1 \
+            cilium-test-ccnp1 \
+            cilium-test-ccnp2 >/dev/null
+    done
+}
+
 test_connectivity() {
+    cleanup_stale_connectivity_resources
+
     for ((i = 1; i < CLUSTER_COUNT; i++)); do
         log "Testing hub -> ${CLUSTER_NAMES[i]} multi-cluster connectivity"
 

@@ -1103,7 +1103,7 @@ database:
       #    memory: 128Mi
       #    cpu: 100m
   external:
-    host: "192.168.0.1"
+    host: "harbor-postgresql"
     port: "5432"
     username: "user"
     password: "password"
@@ -1187,7 +1187,7 @@ redis:
     # support redis, redis+sentinel
     # addr for redis: <host_redis>:<port_redis>
     # addr for redis+sentinel: <host_sentinel1>:<port_sentinel1>,<host_sentinel2>:<port_sentinel2>,<host_sentinel3>:<port_sentinel3>
-    addr: "192.168.0.2:6379"
+    addr: "harbor-redis:6379"
     # The name of the set of Redis instances to monitor, it must be set to support redis+sentinel
     sentinelMasterSet: ""
     # TLS configuration for redis connection

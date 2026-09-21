@@ -342,7 +342,7 @@ primary:
   ## pgHbaConfiguration: |-
   ##   local all all trust
   ##   host all all localhost trust
-  ##   host mydatabase mysuser 192.168.0.0/24 md5
+  ##   host mydatabase mysuser <client-cidr> md5
   ##
   pgHbaConfiguration: ""
   ## @param primary.existingConfigmap Name of an existing ConfigMap with PostgreSQL Primary configuration
@@ -794,7 +794,7 @@ primary:
     ## https://kubernetes.io/docs/tasks/access-application-cluster/configure-cloud-provider-firewall/#restrict-access-for-loadbalancer-service
     ##
     ## loadBalancerSourceRanges:
-    ## - 10.10.10.0/24
+    ## - <trusted-cidr>
     ##
     loadBalancerSourceRanges: []
     ## @param primary.service.extraPorts Extra ports to expose in the PostgreSQL primary service
@@ -1259,7 +1259,7 @@ readReplicas:
     ## https://kubernetes.io/docs/tasks/access-application-cluster/configure-cloud-provider-firewall/#restrict-access-for-loadbalancer-service
     ##
     ## loadBalancerSourceRanges:
-    ## - 10.10.10.0/24
+    ## - <trusted-cidr>
     ##
     loadBalancerSourceRanges: []
     ## @param readReplicas.service.extraPorts Extra ports to expose in the PostgreSQL read only service
