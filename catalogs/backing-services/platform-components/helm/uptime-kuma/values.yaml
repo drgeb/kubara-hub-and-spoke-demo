@@ -4,7 +4,7 @@ ingress:
   path: /
   annotations: {}
 image:
-  tag: "1"
+  tag: "2"
   repository: louislam/uptime-kuma
   pullPolicy: IfNotPresent
 container:
