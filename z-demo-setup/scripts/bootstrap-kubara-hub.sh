@@ -40,7 +40,7 @@ kubara overwrites with <traefik-LB-IP>.traefik.me:
      tracked platform-configs files that still contain .traefik.me
   3. re-point the deployed OpenBao ingress/apiAddr to ${OPENBAO_DNS_NAME}
   4. re-pin the gitignored traefik dashboard / openbao values hostnames
-  5. re-point the deployed argocd-server ingress to ${ARGOCD_DNS_NAME}
+  5. verify the argocd-server ingress is ${ARGOCD_DNS_NAME} (git-driven via values-additional.yaml)
 
 Options:
       --skip-bootstrap  Only re-pin (bootstrap already ran successfully)
@@ -140,10 +140,10 @@ repoint_openbao() {
 
 repoint_argocd_ingress() {
   [ -f "${HUB_KUBECONFIG}" ] ||
-      { echo "==> skip argocd re-pin: hub kubeconfig missing: ${HUB_KUBECONFIG}"; return 0; }
+      { echo "==> skip argocd verification: hub kubeconfig missing: ${HUB_KUBECONFIG}"; return 0; }
   kubectl --kubeconfig "${HUB_KUBECONFIG}" -n "${ARGOCD_NAMESPACE}" \
       get ingress "${ARGOCD_INGRESS}" >/dev/null 2>&1 ||
-      { echo "==> skip argocd re-pin: argocd-server ingress not deployed yet"; return 0; }
+      { echo "==> skip argocd verification: argocd-server ingress not deployed yet"; return 0; }
   local current_host current_path
   current_host="$(kubectl --kubeconfig "${HUB_KUBECONFIG}" -n "${ARGOCD_NAMESPACE}" \
       get ingress "${ARGOCD_INGRESS}" \
@@ -152,13 +152,11 @@ repoint_argocd_ingress() {
       get ingress "${ARGOCD_INGRESS}" \
       -o jsonpath='{.spec.rules[0].http.paths[0].path}' 2>/dev/null || true)"
   if [ "${current_host}" = "${ARGOCD_DNS_NAME}" ] && [ "${current_path}" = "/argocd" ]; then
-    echo "==> argocd ingress already re-pinned: ${ARGOCD_DNS_NAME}/argocd"
-    return 0
+    echo "==> argocd ingress already git-driven: ${ARGOCD_DNS_NAME}/argocd"
+  else
+    echo "==> WARNING: argocd ingress is '${current_host}${current_path}' (expected ${ARGOCD_DNS_NAME}/argocd)." >&2
+    echo "==> WARNING: host is set by platform-configs/hub/helm/argo-cd/values-additional.yaml; push main and let Argo sync." >&2
   fi
-  kubectl --kubeconfig "${HUB_KUBECONFIG}" -n "${ARGOCD_NAMESPACE}" \
-      patch ingress "${ARGOCD_INGRESS}" --type='json' -p \
-      '[{"op":"replace","path":"/spec/rules","value":[{"host":"'${ARGOCD_DNS_NAME}'","http":{"paths":[{"path":"/argocd","pathType":"Prefix","backend":{"service":{"name":"argocd-server","port":{"number":80}}}}]}}]}]'
-  echo "==> argocd ingress host re-pinned to ${ARGOCD_DNS_NAME}/argocd"
 }
 
 if ! "${SKIP_BOOTSTRAP}"; then
