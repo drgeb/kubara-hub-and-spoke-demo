@@ -396,6 +396,10 @@ open-go-hello:
 go-hello-test:
     @curl http://go-hello.{{DEV_DNS_NAME}}/
 
+# Test every app entry point (mirrors the open-* recipes; exit 1 on any failure)
+test-open-apps:
+    ./z-demo-setup/scripts/test-open-apps.sh
+
 # Seed the ebank delivery pipeline (Argo CD repo creds + AppProject/Applications)
 # Safe to re-run; required again after `bring-up` recreates the cluster.
 ebank-setup:
@@ -438,32 +442,32 @@ open-argo-cd:
 open-homer-dashboard:
     @echo user: 
     @echo passwd: 
-    @open https://{{HUB_DNS_NAME}}/
+    @open https://homer.{{HUB_DNS_NAME}}/
 
 # Open Grafana
 open-grafana:
     @echo user: 
     @echo passwd: 
-    @open https://{{HUB_DNS_NAME}}/grafana
+    @open https://grafana.{{HUB_DNS_NAME}}/
 
 # Open Prometheus
 open-prometheus:
     @echo user: ${ARGOCD_ADMIN_USER}
     @echo passwd: ${ARGOCD_WIZARD_ACCOUNT_PASSWORD}
     @echo $ARGOCD_WIZARD_ACCOUNT_PASSWORD | pbcopy
-    @open https://{{HUB_DNS_NAME}}/prometheus
+    @open https://prometheus.{{HUB_DNS_NAME}}/
 
 # Open Alertmanager
 open-alertmanager:
     @echo user: 
     @echo passwd: 
-    @open https://{{HUB_DNS_NAME}}/alertmanager
+    @open https://alertmanager.{{HUB_DNS_NAME}}/
 
 # Open Uptime Kuma
 open-uptime-kuma:
     @echo user: 
     @echo passwd: 
-    @open https://uptime-kuma.{{DEV_DNS_NAME}}/
+    @open https://uptime-kuma.{{SPOKE2_DNS_NAME}}/
 
 # Open Forgejo
 open-forgejo:
