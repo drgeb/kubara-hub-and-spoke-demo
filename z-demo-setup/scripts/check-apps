@@ -1,6 +1,19 @@
 #!/usr/bin/env bash
 
-if ! apps=$(kubectl get applications.argoproj.io -n argocd \
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+LOCAL_KUBECONFIG="${ROOT_DIR}/.local/kind.kubeconfig"
+
+# Argo CD lives on the hub; pin to it when the demo kubeconfig/context exist,
+# otherwise fall back to the ambient kubeconfig.
+KUBECTL_ARGS=()
+if [[ -f "${LOCAL_KUBECONFIG}" ]] \
+    && kubectl --kubeconfig "${LOCAL_KUBECONFIG}" \
+         config get-contexts -o name 2>/dev/null | grep -Fxq "kind-hub"; then
+    KUBECTL_ARGS+=(--kubeconfig "${LOCAL_KUBECONFIG}" --context kind-hub)
+fi
+
+if ! apps=$(kubectl "${KUBECTL_ARGS[@]}" get applications.argoproj.io -n argocd \
     -o custom-columns='APP:.metadata.name,SYNC:.status.sync.status,HEALTH:.status.health.status'); then
     echo "ERROR: Unable to query Argo CD applications"
     exit 1
