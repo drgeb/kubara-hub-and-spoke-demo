@@ -1,4 +1,6 @@
 ---
+metaRedirect:
+  argocdRootEnabled: false
 namespace: {}
 externalSecrets: {}
 dexRestarter:

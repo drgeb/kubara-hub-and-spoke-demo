@@ -1,0 +1,30 @@
+{{- if .Values.metaRedirect.argocdRootEnabled }}
+{{- $domain := index .Values "argo-cd" "global" "domain" }}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: argocd-root-redirect
+  namespace: {{ .Release.Namespace }}
+spec:
+  redirectRegex:
+    regex: '^https://{{ $domain }}/$'
+    replacement: 'https://{{ $domain }}/argocd/'
+    permanent: true
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: argocd-root-redirect
+  namespace: {{ .Release.Namespace }}
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`{{ $domain }}`) && PathPrefix(`/`)
+      middlewares:
+        - name: argocd-root-redirect
+      services:
+        - name: argocd-server
+          port: 80
+{{- end }}
