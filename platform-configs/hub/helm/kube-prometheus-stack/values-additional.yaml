@@ -20,9 +20,21 @@ kube-prometheus-stack:
   prometheus:
     ingress:
       enabled: true
-      annotations: {}
-      tls: []
+      ingressClassName: traefik
+      annotations:
+        cert-manager.io/cluster-issuer: kubara-local-ca-issuer
+      paths:
+        - /
+      pathType: ImplementationSpecific
+      hosts:
+        - prometheus.hub.kubara.test
+      tls:
+        - secretName: tls-prometheus
+          hosts:
+            - prometheus.hub.kubara.test
     prometheusSpec:
+      externalUrl: https://prometheus.hub.kubara.test
+      routePrefix: /
       resources:
         requests:
           memory: 384Mi
@@ -31,9 +43,21 @@ kube-prometheus-stack:
   alertmanager:
     ingress:
       enabled: true
-      annotations: {}
-      tls: []
+      ingressClassName: traefik
+      annotations:
+        cert-manager.io/cluster-issuer: kubara-local-ca-issuer
+      paths:
+        - /
+      pathType: ImplementationSpecific
+      hosts:
+        - alertmanager.hub.kubara.test
+      tls:
+        - secretName: tls-alertmanager
+          hosts:
+            - alertmanager.hub.kubara.test
     alertmanagerSpec:
+      externalUrl: https://alertmanager.hub.kubara.test
+      routePrefix: /
       resources:
         requests:
           memory: 128Mi
@@ -42,8 +66,21 @@ kube-prometheus-stack:
   grafana:
     ingress:
       enabled: true
-      annotations: {}
-      tls: []
+      ingressClassName: traefik
+      annotations:
+        cert-manager.io/cluster-issuer: kubara-local-ca-issuer
+      path: /
+      pathType: ImplementationSpecific
+      hosts:
+        - grafana.hub.kubara.test
+      tls:
+        - secretName: tls-grafana
+          hosts:
+            - grafana.hub.kubara.test
+    grafana.ini:
+      server:
+        root_url: https://grafana.hub.kubara.test/
+        serve_from_sub_path: false
     resources:
       requests:
         memory: 256Mi
