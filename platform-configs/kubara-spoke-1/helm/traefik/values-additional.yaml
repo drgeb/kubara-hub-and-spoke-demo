@@ -1,2 +1,13 @@
 # NOTE: no service.spec.loadBalancerIP. LB IPs are dynamic (cloud-provider-kind);
 # the only IP map in the repo is dnsmasq/config/dnsmasq.conf (see AGENTS.md).
+
+traefik:
+  api:
+    basePath: /
+  ingressRoute:
+    dashboard:
+      enabled: true
+      entryPoints:
+        - websecure
+      matchRule: Host(`traefik.spoke-1.kubara.test`)
+      tls: {}
