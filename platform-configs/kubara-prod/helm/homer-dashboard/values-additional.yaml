@@ -1,0 +1,12 @@
+ingress:
+  enabled: true
+  host: homer.prod.kubara.test
+
+dashboardConfig:
+  services:
+    - name: "Clusters"
+      items:
+        - name: "Kubara Hub Portal"
+          url: "https://homer.hub.kubara.test/"
+          subtitle: "Hub Developer Portal"
+          target: "_blank"

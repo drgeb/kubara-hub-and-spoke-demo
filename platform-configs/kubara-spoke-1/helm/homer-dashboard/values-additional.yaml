@@ -1,0 +1,33 @@
+ingress:
+  enabled: true
+  host: homer.spoke-1.kubara.test
+  annotations:
+    cert-manager.io/cluster-issuer: kubara-local-ca-issuer
+
+dashboardConfig:
+  services:
+    - name: "Tools"
+      items:
+        - name: "traefik"
+          logo: "/assets/tools/traefik.png"
+          url: "https://traefik.spoke-1.kubara.test/traefik/"
+          subtitle: "Traefik Dashboard"
+          target: "_blank"
+    - name: "DevOps Links"
+      items:
+        - name: "forgejo"
+          url: "https://forgejo.spoke-1.kubara.test/"
+          subtitle: "Source Control"
+          target: "_blank"
+        - name: "nexus"
+          url: "https://nexus.spoke-1.kubara.test/"
+          subtitle: "Artifact Repository"
+          target: "_blank"
+        - name: "keycloak"
+          url: "https://keycloak.spoke-1.kubara.test/"
+          subtitle: "Identity & Access Management"
+          target: "_blank"
+        - name: "harbor"
+          url: "https://harbor.spoke-1.kubara.test/"
+          subtitle: "Container Registry"
+          target: "_blank"

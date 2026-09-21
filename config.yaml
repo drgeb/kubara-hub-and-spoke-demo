@@ -162,6 +162,8 @@ clusters:
               kind: ClusterIssuer
               name: kubara-local-ca-issuer
           tlsCertSource: auto
+      homer-dashboard:
+        status: enabled
       kafka:
         status: disabled
       kargo:
@@ -277,6 +279,8 @@ clusters:
         status: disabled
       external-secrets:
         status: enabled
+      homer-dashboard:
+        status: enabled
       kafka:
         status: enabled
         config:
@@ -370,6 +374,8 @@ clusters:
         status: disabled
       external-secrets:
         status: enabled
+      homer-dashboard:
+        status: enabled
       kafka:
         status: disabled
       kube-prometheus-stack:
@@ -439,6 +445,8 @@ clusters:
         status: disabled
       external-secrets:
         status: enabled
+      homer-dashboard:
+        status: enabled
       kafka:
         status: disabled
       kube-prometheus-stack:
@@ -507,6 +515,8 @@ clusters:
       external-dns:
         status: disabled
       external-secrets:
+        status: enabled
+      homer-dashboard:
         status: enabled
       kafka:
         status: disabled

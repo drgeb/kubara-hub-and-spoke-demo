@@ -8,4 +8,4 @@ metadata:
 spec:
   chartPath: homer-dashboard
   status: enabled
-  clusterTypes: [hub]
+  clusterTypes: [hub, spoke]
