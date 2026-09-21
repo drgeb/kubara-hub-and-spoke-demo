@@ -1,12 +1,12 @@
 traefik:
   api:
-    basePath: /traefik
+    basePath: /
   ingressRoute:
     dashboard:
       enabled: true
       entryPoints:
         - websecure
-      matchRule: Host(`hub.kubara.test`) && PathPrefix(`/traefik`)
+      matchRule: Host(`traefik.hub.kubara.test`)
       tls: {}
   # NOTE: no service.spec.loadBalancerIP. LB IPs are dynamic (cloud-provider-kind);
   # the only IP map in the repo is dnsmasq/config/dnsmasq.conf (see AGENTS.md).
