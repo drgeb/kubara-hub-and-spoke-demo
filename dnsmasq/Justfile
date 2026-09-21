@@ -179,12 +179,22 @@ refresh-lb-hosts:
     mv "$tmp" "$CONF"
     echo "Updated $CONF"
 
-    if pgrep -x dnsmasq >/dev/null 2>&1; then
-        sudo killall -HUP dnsmasq
-        echo "dnsmasq reloaded"
+    PID_FILE="{{ PID_FILE }}"
+    if [ -f "$PID_FILE" ] && ps -p "$(cat "$PID_FILE")" -o pid= >/dev/null 2>&1; then
+        echo "Restarting dnsmasq (PID: $(cat "$PID_FILE"))..."
+        sudo kill "$(cat "$PID_FILE")"
+        sleep 0.5
     else
-        echo "dnsmasq not running - run 'just start-dnsmasq'"
+        RUNNING_PID=$(pgrep -x dnsmasq 2>/dev/null || true)
+        if [ -n "$RUNNING_PID" ]; then
+            echo "Restarting dnsmasq (PID: $RUNNING_PID)..."
+            sudo kill "$RUNNING_PID"
+            sleep 0.5
+        else
+            echo "dnsmasq not running - it will be started"
+        fi
     fi
+    sudo "$(command -v dnsmasq)" --conf-file="$CONF" --pid-file="$PID_FILE"
     sudo dscacheutil -flushcache
     sudo killall -HUP mDNSResponder
     echo "DNS cache flushed"
