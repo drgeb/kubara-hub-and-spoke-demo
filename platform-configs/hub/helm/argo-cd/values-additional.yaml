@@ -1,3 +1,5 @@
+metaRedirect:
+  argocdRootEnabled: true
 bootstrapValues:
   projects:
     hub-local:
