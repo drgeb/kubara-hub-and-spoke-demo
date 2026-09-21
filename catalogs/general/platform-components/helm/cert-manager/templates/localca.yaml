@@ -1,0 +1,28 @@
+{{- if .Values.clusterIssuer.localCA.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.clusterIssuer.localCA.secretName }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  isCA: true
+  commonName: {{ .Values.clusterIssuer.localCA.secretName }}
+  secretName: {{ .Values.clusterIssuer.localCA.secretName }}
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  duration: {{ .Values.clusterIssuer.localCA.duration }}
+  renewBefore: {{ .Values.clusterIssuer.localCA.renewBefore }}
+  issuerRef:
+    name: {{ .Values.clusterIssuer.localCA.bootstrapIssuerName }}
+    kind: ClusterIssuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ .Values.clusterIssuer.localCA.issuerName }}
+spec:
+  ca:
+    secretName: {{ .Values.clusterIssuer.localCA.secretName }}
+{{- end }}
