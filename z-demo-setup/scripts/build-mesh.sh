@@ -33,6 +33,8 @@ PERSISTENT_HUB_KUBECONFIG="${LOCAL_DIR}/kind.kubeconfig"
 
 REBUILD=false
 
+RUN_TEST=false
+
 log() {
     printf '\n==> %s\n' "$*"
 }
@@ -58,6 +60,8 @@ Options:
   -c, --config <file>
                      Demo cluster inventory YAML
                      (default: ${DEMO_CLUSTER_CONFIG})
+  -t, --test          Run the Cilium multi-cluster connectivity test at the end
+                      (off by default)
   -h, --help         Show this help
 
 Environment:
@@ -78,6 +82,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --config=*)
             DEMO_CLUSTER_CONFIG="${1#*=}"
+            shift
+            ;;
+        -t|--test)
+            RUN_TEST=true
             shift
             ;;
         -h|--help)
@@ -1286,9 +1294,10 @@ main() {
     show_nodes
     show_clustermesh_services
 
-    test_connectivity
-
-    cleanup_connectivity_test_namespaces
+    if "$RUN_TEST"; then
+        test_connectivity
+        cleanup_connectivity_test_namespaces
+    fi
 
     log "Cilium hub-and-spoke mesh successfully built"
 
