@@ -6,6 +6,13 @@ clusterIssuer:
   server: ''
   ingressClassName: ''
   customDefinition: {}
+  localCA:
+    enabled: false
+    secretName: kubara-local-ca
+    issuerName: kubara-local-ca-issuer
+    bootstrapIssuerName: selfsigned-root-issuer
+    duration: 87600h
+    renewBefore: 360h
 cert-manager:
   resources:
     requests:
