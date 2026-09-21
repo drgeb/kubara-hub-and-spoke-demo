@@ -1158,25 +1158,40 @@ show_clustermesh_services() {
     done
 }
 
-cleanup_stale_connectivity_resources() {
-    # A previous `cilium connectivity test` run that aborts (or errors) can
-    # leave its test namespaces and CiliumNetworkPolicies behind. The stale
+cleanup_connectivity_test_namespaces() {
+    # A `cilium connectivity test` run that aborts (or errors) can leave its
+    # test namespaces and CiliumNetworkPolicies behind. A stale
     # client-egress-only-dns policy enforces egress default-deny on the client
     # pods, which makes the next run's WaitForPodDNS (client -> echo pod DNS
-    # server) time out. Reset the namespaces on every cluster before testing.
-    log "Cleaning up stale connectivity test namespaces"
+    # server) time out. Remove every cilium-test-* namespace from every cluster;
+    # the cascade delete removes all resources defined inside the namespace.
+    log "Cleaning up cilium connectivity test namespaces"
 
     for context in "${CONTEXTS[@]}"; do
+        local names
+        names="$(kubectl \
+            --kubeconfig "$MESH_KUBECONFIG" \
+            --context "$context" \
+            get namespaces -o name \
+            | sed -n 's#^namespace/\(cilium-test-[^ ]*\)$#\1#p' || true)"
+
+        if [[ -z "$names" ]]; then
+            continue
+        fi
+
+        # Expand the list as multiple CLI args; intentionally unquoted.
         kubectl \
             --kubeconfig "$MESH_KUBECONFIG" \
             --context "$context" \
             delete namespace \
             --ignore-not-found \
             --wait=true \
-            cilium-test-1 \
-            cilium-test-ccnp1 \
-            cilium-test-ccnp2 >/dev/null
+            $names >/dev/null
     done
+}
+
+cleanup_stale_connectivity_resources() {
+    cleanup_connectivity_test_namespaces
 }
 
 test_connectivity() {
@@ -1235,6 +1250,8 @@ main() {
     show_clustermesh_services
 
     test_connectivity
+
+    cleanup_connectivity_test_namespaces
 
     log "Cilium hub-and-spoke mesh successfully built"
 
