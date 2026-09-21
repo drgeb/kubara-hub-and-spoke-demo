@@ -7,3 +7,5 @@ clusterIssuer:
       name: selfsigned-root-issuer
     spec:
       selfSigned: {}
+  localCA:
+    enabled: true
