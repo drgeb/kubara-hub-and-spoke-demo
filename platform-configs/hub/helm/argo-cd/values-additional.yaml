@@ -55,14 +55,16 @@ argo-cd:
     ingressGrpc:
       enabled: false
       annotations:
-        cert-manager.io/cluster-issuer: ""
-      tls: false
+        cert-manager.io/cluster-issuer: kubara-local-ca-issuer
+      tls: true
     ingress:
       enabled: true
       ingressClassName: traefik
       annotations:
-        cert-manager.io/cluster-issuer: ""
-      tls: false
+        cert-manager.io/cluster-issuer: kubara-local-ca-issuer
+      tls: true
+  global:
+    domain: argocd.hub.kubara.test
   configs:
     rbac:
       policy.default: role:admin
