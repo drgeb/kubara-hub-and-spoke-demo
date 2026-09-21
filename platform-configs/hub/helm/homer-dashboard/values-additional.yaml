@@ -1,3 +1,42 @@
 ingress:
   enabled: true
-  annotations: {}
+  host: homer.hub.kubara.test
+  path: /
+  ingressClassName: traefik
+  annotations:
+    cert-manager.io/cluster-issuer: kubara-local-ca-issuer
+
+dashboardConfig:
+  services:
+    - name: "Tools"
+      items:
+        - name: "argocd"
+          logo: "/assets/tools/argocd.png"
+          url: "https://argocd.hub.kubara.test/"
+          subtitle: "GitOps Deployment Dashboard"
+          target: "_blank"
+        - name: "grafana"
+          logo: "/assets/tools/grafana.png"
+          url: "https://grafana.hub.kubara.test/"
+          subtitle: "Monitoring Dashboards"
+          target: "_blank"
+        - name: "prometheus"
+          logo: "/assets/tools/prometheus.png"
+          url: "https://prometheus.hub.kubara.test/"
+          subtitle: "Prometheus Dashboard"
+          target: "_blank"
+        - name: "alertmanager"
+          logo: "/assets/tools/alertmanager.png"
+          url: "https://alertmanager.hub.kubara.test/"
+          subtitle: "Alertmanager Dashboard"
+          target: "_blank"
+        - name: "traefik"
+          logo: "/assets/tools/traefik.png"
+          url: "https://traefik.hub.kubara.test/"
+          subtitle: "Traefik Dashboard"
+          target: "_blank"
+    - name: "DevOps Links"
+      items:
+        - name: "Secretsmanager"
+          logo: "/assets/tools/secretsmanager.png"
+          url: "https://replace-me-with-your-url"
