@@ -1194,8 +1194,45 @@ cleanup_stale_connectivity_resources() {
     cleanup_connectivity_test_namespaces
 }
 
+restart_cilium_clear_startup_logs() {
+    log "Restarting Cilium agent and operator to clear startup-time log noise"
+
+    local context
+
+    for context in "${CONTEXTS[@]}"; do
+        printf '    Restarting Cilium on %s...\n' "$context"
+
+        kubectl \
+            --kubeconfig "$MESH_KUBECONFIG" \
+            --context "$context" \
+            -n kube-system \
+            rollout restart ds/cilium >/dev/null
+
+        kubectl \
+            --kubeconfig "$MESH_KUBECONFIG" \
+            --context "$context" \
+            -n kube-system \
+            rollout status ds/cilium --timeout=300s >/dev/null
+
+        kubectl \
+            --kubeconfig "$MESH_KUBECONFIG" \
+            --context "$context" \
+            -n kube-system \
+            rollout restart deployment/cilium-operator >/dev/null
+
+        kubectl \
+            --kubeconfig "$MESH_KUBECONFIG" \
+            --context "$context" \
+            -n kube-system \
+            rollout status deployment/cilium-operator --timeout=180s >/dev/null
+    done
+
+    wait_for_mesh_connections 300
+}
+
 test_connectivity() {
     cleanup_stale_connectivity_resources
+    restart_cilium_clear_startup_logs
 
     for ((i = 1; i < CLUSTER_COUNT; i++)); do
         log "Testing hub -> ${CLUSTER_NAMES[i]} multi-cluster connectivity"
