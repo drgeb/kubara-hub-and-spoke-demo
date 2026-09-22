@@ -438,11 +438,15 @@ open-argo-cd:
     @echo $ARGOCD_WIZARD_ACCOUNT_PASSWORD | pbcopy
     @open https://argocd.{{HUB_DNS_NAME}}
 
-# Open Homer dashboard
-open-homer-dashboard:
-    @echo user: 
-    @echo passwd: 
-    @open https://homer.{{HUB_DNS_NAME}}/
+# Open the Homer dashboard. Accepts a cluster: the DNS slug (hub|dev|staging|
+# prod|spoke-1|spoke-2) or the kind cluster name (kubara-hub|kubara-dev|...).
+# Default: hub.
+open-homer-dashboard cluster="hub":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    c="{{cluster}}"
+    c="${c#kubara-}"
+    open "https://homer.${c}.kubara.test/"
 
 # Open Grafana
 open-grafana:
