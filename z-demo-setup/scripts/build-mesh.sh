@@ -932,6 +932,39 @@ bootstrap_kubara_hub() {
     "${ROOT_DIR}/z-demo-setup/scripts/bootstrap-kubara-hub.sh"
 }
 
+# cloud-provider-kind must be running before the hub bootstrap so the first
+# LoadBalancer services (OpenBao, Traefik, Argo CD) get IPs; build-mesh.sh
+# itself never starts it. No-op when already running, otherwise best-effort
+# auto-start and a clear error pointing at the exact commands to run.
+check_cloud_provider_kind() {
+    local pidfile="${ROOT_DIR}/.cloud-provider-kind"
+    local running=""
+    local pid=""
+
+    if { [ -f "$pidfile" ] && pid="$(cat "$pidfile")" && ps -p "$pid" >/dev/null 2>&1; }; then
+        running="$pid"
+    elif pgrep -x cloud-provider-kind >/dev/null 2>&1; then
+        running="$(pgrep -x cloud-provider-kind | head -1)"
+    fi
+
+    if [ -n "$running" ]; then
+        log "cloud-provider-kind already running (pid ${running})"
+        return 0
+    fi
+
+    log "cloud-provider-kind is not running; starting it for LoadBalancer IP assignment"
+
+    if command -v just >/dev/null 2>&1 &&
+        sudo -v &&
+        (cd "$ROOT_DIR" && just start-cloud-provider-kind); then
+        return 0
+    fi
+
+    die "cloud-provider-kind is required before bootstrap (LoadBalancer IPs). Run:
+  sudo -v && just start-cloud-provider-kind
+then re-run this script (cluster creation is idempotent)."
+}
+
 generate_internal_kubeconfigs() {
     log "Generating Docker-internal kubeconfigs"
 
@@ -1280,6 +1313,8 @@ main() {
     done
 
     wait_for_mesh_connections 300
+
+    check_cloud_provider_kind
 
     bootstrap_kubara_hub
     generate_internal_kubeconfigs
