@@ -123,18 +123,71 @@ refresh-lb-hosts:
         "prod.kubara.test kind-kubara-prod"
     )
 
+    # LB IPs appear ~30-90s after cluster nodes start; wait for each one so the
+    # map is complete before we rewrite it. Any required IP that stays missing
+    # aborts the refresh instead of leaving a stale partial map in place.
+    RESOLVE_ATTEMPTS=25
+
+    ip_of_or_wait() {
+        local ctx="$1" ip=""
+        for _ in $(seq 1 "$RESOLVE_ATTEMPTS"); do
+            ip=$(ip_of "$ctx")
+            [ -n "$ip" ] && break
+            sleep 4
+        done
+        printf '%s' "$ip"
+    }
+
     DIMS=()
     IPS=()
+    MISSING=()
     for row in "${ROWS[@]}"; do
         dom="${row%% *}"; ctx="${row#* }"
-        ip=$(ip_of "$ctx")
+        ip=$(ip_of_or_wait "$ctx")
         if [ -n "$ip" ]; then
             DIMS+=("$dom"); IPS+=("$ip")
-            echo "$dom -> $ip"
         else
-            echo "WARN: no traefik LB IP for $ctx; leaving $dom unchanged" >&2
+            MISSING+=("$dom ($ctx)")
         fi
     done
+
+    spoke1_ip=""
+    for i in "${!DIMS[@]}"; do
+        if [ "${DIMS[$i]}" = "spoke-1.kubara.test" ]; then
+            spoke1_ip="${IPS[$i]}"
+            break
+        fi
+    done
+
+    FORGEJO_SSH_HOST="forgejo-ssh.me"
+    forgejo_ip=$(kubectl --kubeconfig "$KCFG" --context kind-kubara-spoke-1 \
+        -n forgejo get svc forgejo-ssh -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+    if [ -z "$forgejo_ip" ]; then
+        for _ in $(seq 1 "$RESOLVE_ATTEMPTS"); do
+            forgejo_ip=$(kubectl --kubeconfig "$KCFG" --context kind-kubara-spoke-1 \
+                -n forgejo get svc forgejo-ssh -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+            [ -n "$forgejo_ip" ] && break
+            sleep 4
+        done
+    fi
+
+    if [ "${#MISSING[@]}" -gt 0 ] || [ -z "$forgejo_ip" ]; then
+        echo "ERROR: cannot read live LoadBalancer IPs; refusing to rewrite $CONF with a stale/partial map" >&2
+        for m in "${MISSING[@]}"; do
+            echo "  missing traefik LB IP: $m" >&2
+        done
+        if [ -z "$forgejo_ip" ]; then
+            echo "  missing forgejo-ssh LB IP (kind-kubara-spoke-1/forgejo)" >&2
+        fi
+        echo "NOTE: LB IPs are assigned ~30-90s after cluster nodes start." >&2
+        echo "If clusters just restarted, wait and re-run this recipe." >&2
+        exit 1
+    fi
+
+    for i in "${!DIMS[@]}"; do
+        echo "${DIMS[$i]} -> ${IPS[$i]}"
+    done
+    echo "$FORGEJO_SSH_HOST -> $forgejo_ip"
 
     tmp=$(mktemp)
     cp "$CONF" "$tmp"
@@ -147,33 +200,16 @@ refresh-lb-hosts:
         fi
     done
 
-    spoke1_ip=""
-    for i in "${!DIMS[@]}"; do
-        if [ "${DIMS[$i]}" = "spoke-1.kubara.test" ]; then
-            spoke1_ip="${IPS[$i]}"
-            break
-        fi
-    done
-    if [ -n "$spoke1_ip" ]; then
-        if grep -q '^address=/my\.nexus\.me/' "$tmp"; then
-            sed -i.bak "s#^address=/my\.nexus\.me/.*#address=/my.nexus.me/$spoke1_ip#" "$tmp"
-        else
-            printf 'address=/my.nexus.me/%s\n' "$spoke1_ip" >> "$tmp"
-        fi
+    if grep -q '^address=/my\.nexus\.me/' "$tmp"; then
+        sed -i.bak "s#^address=/my\.nexus\.me/.*#address=/my.nexus.me/$spoke1_ip#" "$tmp"
+    else
+        printf 'address=/my.nexus.me/%s\n' "$spoke1_ip" >> "$tmp"
     fi
 
-    FORGEJO_SSH_HOST="forgejo-ssh.me"
-    forgejo_ip=$(kubectl --kubeconfig "$KCFG" --context kind-kubara-spoke-1 \
-        -n forgejo get svc forgejo-ssh -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
-    if [ -n "$forgejo_ip" ]; then
-        if grep -q "^address=/$FORGEJO_SSH_HOST/" "$tmp"; then
-            sed -i.bak "s#^address=/$FORGEJO_SSH_HOST/.*#address=/$FORGEJO_SSH_HOST/$forgejo_ip#" "$tmp"
-        else
-            printf 'address=/%s/%s\n' "$FORGEJO_SSH_HOST" "$forgejo_ip" >> "$tmp"
-        fi
-        echo "$FORGEJO_SSH_HOST -> $forgejo_ip"
+    if grep -q "^address=/$FORGEJO_SSH_HOST/" "$tmp"; then
+        sed -i.bak "s#^address=/$FORGEJO_SSH_HOST/.*#address=/$FORGEJO_SSH_HOST/$forgejo_ip#" "$tmp"
     else
-        echo "WARN: no forgejo-ssh LB IP; leaving $FORGEJO_SSH_HOST unchanged" >&2
+        printf 'address=/%s/%s\n' "$FORGEJO_SSH_HOST" "$forgejo_ip" >> "$tmp"
     fi
     rm -f "$tmp.bak"
     mv "$tmp" "$CONF"

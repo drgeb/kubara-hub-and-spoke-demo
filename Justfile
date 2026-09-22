@@ -357,6 +357,13 @@ cilium-hubble-ui:
 docker-prune-images:
     docker container prune -f && docker network prune -f && docker volume prune -f && docker builder prune -f
 
+# Refresh the per-cluster dnsmasq address= map from the live traefik
+# LoadBalancer IPs (plus the forgejo-ssh LB on spoke-1) and restart dnsmasq.
+# Refuses to write a partial/stale map if any LB IP is missing.
+# Needs the user's sudo password for the dnsmasq restart.
+refresh-dns-lb-hosts:
+    just -f dnsmasq/Justfile refresh-lb-hosts
+
 # Stop all kind clusters (and their cloud-provider-kind load balancers) without deleting them
 kind-stop:
     #!/usr/bin/env bash
@@ -365,13 +372,36 @@ kind-stop:
         docker stop $(docker ps -qa --filter "label=io.x-k8s.kind.cluster=$cluster") $(docker ps -qa --filter "label=io.x-k8s.cloud-provider-kind.cluster=$cluster")
     done
 
-# Restart all stopped kind clusters (containers, load balancers, and services come back)
+# Restart all stopped kind clusters (containers, load balancers, and services
+# come back), wait for the traefik LoadBalancer IPs to be (re)assigned by
+# cloud-provider-kind, then refresh the dnsmasq map so DNS never goes stale.
+# The refresh needs sudo (first prompt after a restart).
 kind-restart:
     #!/usr/bin/env bash
     set -euo pipefail
     for cluster in {{HUB_KIND}} {{SPOKE1_NAME}} {{SPOKE2_NAME}}; do
         docker start $(docker ps -aq --filter "label=io.x-k8s.kind.cluster=$cluster") $(docker ps -aq --filter "label=io.x-k8s.cloud-provider-kind.cluster=$cluster")
     done
+    KCFG="{{ KUBARA_KUBECONFIG }}"
+    for _ in $(seq 1 30); do
+        missing=""
+        for ctx in {{HUB_CONTEXT}} {{SPOKE1_CONTEXT}} {{SPOKE2_CONTEXT}}; do
+            ip=$(kubectl --kubeconfig "$KCFG" --context "$ctx" get svc/traefik -n traefik \
+                -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+            if [ -z "$ip" ]; then
+                missing="$missing $ctx"
+            fi
+        done
+        if [ -z "$missing" ]; then
+            echo "All traefik LoadBalancer IPs reassigned"
+            break
+        fi
+        sleep 5
+    done
+    if [ -n "${missing:-}" ]; then
+        echo "WARN: no LoadBalancer IP yet for:$missing (refresh-dns-lb-hosts will fail until they appear)" >&2
+    fi
+    just refresh-dns-lb-hosts
 
 kargo-cli-login:
     @: "${KARGO_ADMIN_PASSWORD:?not set - run 'direnv allow' to load .env}"

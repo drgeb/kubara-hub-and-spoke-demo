@@ -80,6 +80,51 @@ test_portal() {
 
 command -v curl >/dev/null 2>&1 || { echo "curl is not installed" >&2; exit 1; }
 
+# --- DNS staleness guard --------------------------------------------------
+# Every *.kubara.test host resolves via the local dnsmasq address= map. If the
+# map is stale (clusters restarted, cloud-provider-kind reassigned LB IPs but
+# nobody re-ran refresh-lb-hosts), requests land on another cluster's Traefik
+# and return uniform 404s. Fail fast instead of printing cryptic failures.
+DNS_CONF="${ROOT_DIR}/dnsmasq/config/dnsmasq.conf"
+DNS_STALE=""
+
+check_dns_map() {
+    local rows="$1" i dom ctx svc ns mapped live
+    for i in $rows; do
+        dom="${i%%:*}"; rest="${i#*:}"
+        ctx="${rest%%:*}"; rest="${rest#*:}"
+        svc="${rest%%:*}"; ns="${rest#*:}"
+        mapped=""
+        if command -v awk >/dev/null 2>&1 && [[ -f "$DNS_CONF" ]]; then
+            mapped="$(awk -v dom="$dom" 'index($0, "address=/" dom "/")==1 { sub("^address=/" dom "/", ""); print; exit }' "$DNS_CONF")"
+        fi
+        live="$(kubectl --kubeconfig "$KC" --context "$ctx" -n "$ns" get svc "$svc" \
+            -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)"
+        if [[ -n "$live" && "$mapped" != "$live" ]]; then
+            DNS_STALE="${DNS_STALE}  ${dom}  dnsmasq=${mapped:-<none>}  live=${live}  (${ctx})\n"
+        fi
+    done
+}
+
+if [[ -f "$KC" ]]; then
+    check_dns_map "hub.kubara.test:kind-hub:traefik:traefik \
+spoke-1.kubara.test:kind-kubara-spoke-1:traefik:traefik \
+spoke-2.kubara.test:kind-kubara-spoke-2:traefik:traefik \
+dev.kubara.test:kind-kubara-dev:traefik:traefik \
+staging.kubara.test:kind-kubara-staging:traefik:traefik \
+prod.kubara.test:kind-kubara-prod:traefik:traefik \
+forgejo-ssh.me:kind-kubara-spoke-1:forgejo-ssh:forgejo"
+    if [[ -n "$DNS_STALE" ]]; then
+        echo
+        echo "==> DNS staleness detected: the local dnsmasq map does not match live LoadBalancer IPs" >&2
+        printf '%b' "$DNS_STALE" >&2
+        echo "    Fix: run 'just -f dnsmasq/Justfile refresh-lb-hosts' (needs sudo)" >&2
+        echo "    or re-run './z-demo-setup/scripts/setup'" >&2
+        echo "    then re-run this test." >&2
+        exit 1
+    fi
+fi
+
 echo "==> Testing app entry points (following redirects, TLS verification off)"
 
 echo
