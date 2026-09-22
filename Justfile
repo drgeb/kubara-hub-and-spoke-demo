@@ -275,8 +275,14 @@ start-cloud-provider-kind:
         echo "cloud-provider-kind exited"
     fi
 
-    echo "removing stale load balancers so they are recreated on the kubara-mesh network"
-    docker rm -f $(docker ps -aq --filter label=io.x-k8s.cloud-provider-kind.cluster=hub) 2>/dev/null || true
+    echo "removing stale hub load balancers not attached to the kubara-mesh network"
+    stale=$(comm -23 \
+        <(docker ps -aq --filter label=io.x-k8s.cloud-provider-kind.cluster=hub | sort) \
+        <(docker ps -aq --filter network=kubara-mesh --filter label=io.x-k8s.cloud-provider-kind.cluster=hub | sort))
+    for cid in $stale; do
+        echo "  removing $cid"
+        docker rm -f "$cid" 2>/dev/null || true
+    done
     sudo -n env KIND_EXPERIMENTAL_DOCKER_NETWORK=kubara-mesh \
         nohup cloud-provider-kind > .cloud-provider-kind.log 2>&1 &
     pid=$!
@@ -363,6 +369,8 @@ docker-prune-images:
 # Needs the user's sudo password for the dnsmasq restart.
 refresh-dns-lb-hosts:
     just -f dnsmasq/Justfile refresh-lb-hosts
+
+
 
 # Stop all kind clusters (and their cloud-provider-kind load balancers) without deleting them
 kind-stop:
