@@ -1,19 +1,21 @@
 #!/usr/bin/env bash
+set -Eeuo pipefail
 
-sudo -v
-just -f dnsmasq/Justfile stop-dnsmasq
-just -f dnsmasq/Justfile refresh-lb-hosts
-just -f dnsmasq/Justfile start-dnsmasq
-just stop-cloud-provider-kind
+# Bring the local DNS + cloud-provider-kind layer up to match the current mesh.
+# Idempotent: re-runnable; every step is a no-op when already in the desired state.
+
+sudo -v   # cache credentials for the sudo-gated steps below
+
+# 1. Ensure cloud-provider-kind is running (no-op if already up). Starting it
+#    prunes stale hub LB containers so LBs land on kubara-mesh; the refresh in
+#    the next step chases whatever IPs those end up with.
 just start-cloud-provider-kind
 
-# dig +short hub.kubara.test; echo "---"; dig @1.1.1.1 +short hub.kubara.test;echo "---"; grep -n hub.kubara.test /etc/hosts || echo "no /etc/hosts entry" 
+# 2. Rewrite the dnsmasq map from the live traefik LB IPs and restart dnsmasq.
+#    Aborts (without touching the map) if any required LB IP is missing.
+just -f dnsmasq/Justfile refresh-lb-hosts
 
-# kubectl get applications.argoproj.io -n argocd \
-#  -o custom-columns='APP:.metadata.name,SYNC:.status.sync.status,HEALTH:.status.health.status' \
-#  && kubectl get applications.argoproj.io -n argocd \
-#  -o custom-columns='APP:.metadata.name,SYNC:.status.sync.status,HEALTH:.status.health.status' \
-#  | tail -n +2 \
-#  | grep -qvE 'Synced[[:space:]]+Healthy' \
-#  && echo "WARNING: Apps need attention" \
-#  || echo "ALL apps Synced+Healthy"
+# 3. Ensure dnsmasq is serving the new map (no-op after step 2; covers cold starts).
+just -f dnsmasq/Justfile start-dnsmasq
+
+echo "DNS + LB layer is up to date"
