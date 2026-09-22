@@ -27,6 +27,11 @@ Workflow whenever a LoadBalancer IP matters:
 2. If it is a new service/host, add it to the `refresh-lb-hosts` recipe rows first.
 3. Regenerate the map: `just -f dnsmasq/Justfile refresh-lb-hosts` (user runs the sudo part).
 
+Bring-up is orchestrated by `just bring-up` (build-mesh.sh → wait for the six
+traefik LB IPs → dnsmasq refresh). `build-mesh.sh` ensures cloud-provider-kind
+is running before the hub bootstrap; `z-demo-setup/scripts/setup` is the
+idempotent DNS/LB bring-up for an already-built mesh. Repeated runs are safe.
+
 ### Allowed exceptions
 
 - Network fabric constants that *define* the docker network — keep these, do

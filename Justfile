@@ -370,6 +370,45 @@ docker-prune-images:
 refresh-dns-lb-hosts:
     just -f dnsmasq/Justfile refresh-lb-hosts
 
+# Full demo bring-up from scratch: build the Cilium hub-and-spoke mesh (creates
+# clusters, starts cloud-provider-kind before bootstrap, boots the hub and
+# provisions platform services), wait until all six traefik LoadBalancer IPs are
+# live, then refresh the local dnsmasq map. Run `just bring-up -- --rebuild` to
+# recreate existing clusters. Needs sudo (first prompt is the cpk start inside
+# build-mesh, second is the dnsmasq refresh).
+bring-up *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ./z-demo-setup/scripts/build-mesh.sh {{args}}
+
+    KCFG="{{ KUBARA_KUBECONFIG }}"
+    echo "Waiting for all six traefik LoadBalancer IPs..."
+    for _ in $(seq 1 120); do
+        missing=""
+        for ctx in {{HUB_CONTEXT}} {{SPOKE1_CONTEXT}} {{SPOKE2_CONTEXT}} {{DEV_CONTEXT}} {{STAGING_CONTEXT}} {{PROD_CONTEXT}}; do
+            ip=$(kubectl --kubeconfig "$KCFG" --context "$ctx" get svc/traefik -n traefik \
+                -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+            if [ -z "$ip" ]; then
+                missing="$missing $ctx"
+            fi
+        done
+        if [ -z "$missing" ]; then
+            echo "All traefik LoadBalancer IPs live"
+            break
+        fi
+        sleep 5
+    done
+    if [ -n "${missing:-}" ]; then
+        echo "WARN: still no LoadBalancer IP for:$missing (refresh-dns-lb-hosts will fail until they appear)" >&2
+    fi
+
+    just refresh-dns-lb-hosts
+
+    echo
+    echo "Post-bring-up steps:"
+    echo "  just setup-uptime-kuma"
+    echo "  just test-open-apps"
+
 
 
 # Stop all kind clusters (and their cloud-provider-kind load balancers) without deleting them
