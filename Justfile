@@ -463,10 +463,16 @@ open-alertmanager:
     @echo passwd: 
     @open https://alertmanager.{{HUB_DNS_NAME}}/
 
+# Create the Uptime Kuma admin from .env (UPTIME_KUMA_ADMIN_USER / UPTIME_KUMA_PASSWORD)
+# Safe to re-run; required again after `bring-up` recreates the cluster.
+setup-uptime-kuma:
+    ./z-demo-setup/scripts/setup-uptime-kuma.sh
+
 # Open Uptime Kuma
 open-uptime-kuma:
-    @echo user: 
-    @echo passwd: 
+    @echo user: ${UPTIME_KUMA_ADMIN_USER}
+    @echo passwd: ${UPTIME_KUMA_PASSWORD}
+    @echo $UPTIME_KUMA_PASSWORD | pbcopy
     @open https://uptime-kuma.{{SPOKE2_DNS_NAME}}/
 
 # Open Forgejo
