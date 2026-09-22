@@ -14,6 +14,7 @@ Usage: $0 [options]
 Delete the kind clusters defined by the hub cluster 
 (${DEMO_HUB_CLUSTER_NAME}), along with any cloud-provider-kind
 load balancers and leftover Docker networks (kubara-mesh, empty 'kind' default).
+Finally stops the local dnsmasq serving *.kubara.test (best-effort, needs sudo).
 
 Options:
   -c, --config <file>  Path to the demo environment YAML
@@ -135,6 +136,23 @@ cleanup_local_artifacts() {
   done
 }
 
+stop_dnsmasq() {
+  if [ "$DRY_RUN" = "true" ]; then
+    printf '+\tstop local dnsmasq (just -f dnsmasq/Justfile stop-dnsmasq, sudo)\n'
+    return 0
+  fi
+
+  local justfile="${DEMO_REPO_ROOT}/dnsmasq/Justfile"
+  if ! command -v just >/dev/null 2>&1; then
+    echo "WARN: 'just' not found; dnsmasq left running (clusters are already gone)" >&2
+    return 0
+  fi
+  if ! just -f "$justfile" stop-dnsmasq; then
+    echo "WARN: failed to stop dnsmasq; it may still be running (clusters are already gone)" >&2
+    return 0
+  fi
+}
+
 cluster_count=0
 failures=0
 
@@ -163,6 +181,9 @@ demo_cleanup_demo_networks || failures=$((failures + 1))
 
 printf '\n=== Cleaning up local artifacts ===\n'
 cleanup_local_artifacts || failures=$((failures + 1))
+
+printf '\n=== Stopping local dnsmasq ===\n'
+stop_dnsmasq
 
 if [ "$failures" -gt 0 ]; then
   demo_die "${failures} step(s) reported errors; see messages above"
