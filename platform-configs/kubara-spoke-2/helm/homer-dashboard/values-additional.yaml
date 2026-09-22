@@ -11,3 +11,9 @@ dashboardConfig:
           url: "https://traefik.spoke-2.kubara.test/traefik/"
           subtitle: "Traefik Dashboard"
           target: "_blank"
+    - name: "Uptime"
+      items:
+        - name: "uptime-kuma"
+          url: "https://uptime-kuma.spoke-2.kubara.test/"
+          subtitle: "Uptime Monitoring"
+          target: "_blank"

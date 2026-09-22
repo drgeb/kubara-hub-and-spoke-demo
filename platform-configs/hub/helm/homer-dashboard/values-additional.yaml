@@ -37,6 +37,8 @@ dashboardConfig:
           target: "_blank"
     - name: "DevOps Links"
       items:
-        - name: "Secretsmanager"
-          logo: "/assets/tools/secretsmanager.png"
-          url: "https://replace-me-with-your-url"
+        - name: "OpenBao"
+          logo: "/assets/tools/openbao.png"
+          url: "https://openbao.hub.kubara.test/"
+          subtitle: "Secrets Manager"
+          target: "_blank"
