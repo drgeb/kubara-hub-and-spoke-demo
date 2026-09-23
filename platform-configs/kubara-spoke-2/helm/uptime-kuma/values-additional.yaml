@@ -2,5 +2,6 @@ ingress:
   enabled: true
   host: uptime-kuma.spoke-2.kubara.test
   path: /
+  ingressClassName: traefik
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-staging
