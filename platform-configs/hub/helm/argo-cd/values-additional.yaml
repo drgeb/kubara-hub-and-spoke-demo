@@ -28,11 +28,18 @@ argo-cd:
       limits:
         memory: 256Mi
   repoServer:
+    livenessProbe:
+      timeoutSeconds: 10
+      periodSeconds: 20
+    readinessProbe:
+      timeoutSeconds: 10
+      periodSeconds: 20
     resources:
       requests:
-        memory: 512Mi
+        cpu: 500m
+        memory: 768Mi
       limits:
-        memory: 512Mi
+        memory: 768Mi
     volumeMounts:
       - name: host-ca-certificates
         mountPath: /etc/ssl/certs/ca-certificates.crt
