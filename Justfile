@@ -363,6 +363,12 @@ cilium-hubble-ui:
 docker-prune-images:
     docker container prune -f && docker network prune -f && docker volume prune -f && docker builder prune -f
 
+start-dnsmasq:
+    just -f dnsmasq/Justfile start-dnsmasq
+
+stop-dnsmasq:
+    just -f dnsmasq/Justfile stop-dnsmasq
+
 # Refresh the per-cluster dnsmasq address= map from the live traefik
 # LoadBalancer IPs (plus the forgejo-ssh LB on spoke-1) and restart dnsmasq.
 # Refuses to write a partial/stale map if any LB IP is missing.
