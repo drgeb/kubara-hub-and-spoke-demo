@@ -77,5 +77,4 @@ bin/
 **/.cloud-provider-kind.log
 .aider*
 .atuin/
-
 dnsmasq/config/dnsmasq.conf
