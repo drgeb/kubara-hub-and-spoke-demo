@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Kubara Hub-and-Spoke Lab",
+    "subtitle": "kind + Cilium ClusterMesh + Argo CD",
+    "output": "high-level-architecture.html",
+    "viewBox": [1240, 820],
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/drgeb/kubara-hub-and-spoke-demo.git",
+      "provider": "github",
+      "revision": "68d5dad6a1e74763e3c56a76b983525f67d24e4c",
+      "link_mode": "web"
+    }
+  },
+  "components": [
+    { "id": "users", "type": "external", "label": "Users", "sublabel": "browser / curl", "pos": [16, 60], "size": [130, 56], "sources": [{ "path": "dnsmasq/Justfile", "line": 21, "end_line": 42, "label": "refresh-lb-hosts recipe" }] },
+    { "id": "dnsmasq", "type": "external", "label": "dnsmasq", "sublabel": "*.kubara.test → LB IPs", "pos": [180, 60], "size": [150, 56], "sources": [{ "path": "dnsmasq/Justfile", "line": 21, "end_line": 42, "label": "refresh-lb-hosts recipe" }] },
+    { "id": "cpk", "type": "cloud", "label": "cloud-provider-kind", "sublabel": "LB controller", "pos": [370, 60], "size": [170, 56], "sources": [{ "path": "z-demo-setup/scripts/build-mesh.sh", "line": 939, "end_line": 966, "label": "starts LB controller" }] },
+    { "id": "traefik-lbs", "type": "cloud", "label": "Traefik LBs", "sublabel": "one per cluster ×6", "pos": [600, 60], "size": [360, 56], "tag": "dynamic IPs", "sources": [{ "path": "Justfile", "line": 391, "end_line": 410, "label": "waits for six LB IPs" }] },
+    { "id": "argocd", "type": "backend", "label": "Argo CD", "sublabel": "self-managed", "pos": [180, 260], "size": [160, 60], "sources": [{ "path": "config.yaml", "line": 10, "end_line": 19, "label": "selfManaged + repo" }] },
+    { "id": "openbao", "type": "security", "label": "OpenBao", "sublabel": "kubeconfigs + secrets", "pos": [180, 420], "size": [160, 60], "sources": [{ "path": "z-demo-setup/scripts/build-mesh.sh", "line": 1057, "end_line": 1083, "label": "waits for OpenBao" }] },
+    { "id": "observability", "type": "backend", "label": "kube-prometheus-stack", "sublabel": "Grafana · Prometheus · Alertmanager", "pos": [180, 580], "size": [280, 56], "sources": [{ "path": "config.yaml", "line": 50, "end_line": 52, "label": "enabled on hub" }] },
+    { "id": "forgejo", "type": "backend", "label": "Forgejo", "sublabel": "git + Actions", "pos": [480, 260], "size": [150, 60], "sources": [{ "path": "config.yaml", "line": 129, "end_line": 143, "label": "enabled on spoke-1" }] },
+    { "id": "harbor", "type": "backend", "label": "Harbor", "sublabel": "registry", "pos": [480, 380], "size": [150, 60], "sources": [{ "path": "config.yaml", "line": 144, "end_line": 164, "label": "enabled on spoke-1" }] },
+    { "id": "kargo", "type": "backend", "label": "Kargo", "sublabel": "freight / promotion", "pos": [480, 500], "size": [150, 60], "sources": [{ "path": "config.yaml", "line": 169, "end_line": 179, "label": "enabled on spoke-1" }] },
+    { "id": "nexus", "type": "backend", "label": "Nexus", "sublabel": "repository manager", "pos": [480, 620], "size": [150, 56], "sources": [{ "path": "config.yaml", "line": 206, "end_line": 213, "label": "enabled on spoke-1" }] },
+    { "id": "ollama", "type": "backend", "label": "Ollama", "sublabel": "local LLM", "pos": [680, 260], "size": [150, 60], "sources": [{ "path": "config.yaml", "line": 311, "end_line": 316, "label": "enabled on spoke-2" }] },
+    { "id": "uptime-kuma", "type": "backend", "label": "Uptime Kuma", "sublabel": "monitoring", "pos": [670, 380], "size": [170, 60], "sources": [{ "path": "config.yaml", "line": 342, "end_line": 346, "label": "enabled on spoke-2" }] },
+    { "id": "workloads", "type": "backend", "label": "Workloads", "sublabel": "dev · staging · prod", "pos": [850, 260], "size": [200, 60], "sources": [{ "path": "config.yaml", "line": 354, "end_line": 424, "label": "dev cluster services" }] },
+    { "id": "postgres", "type": "database", "label": "PostgreSQL", "sublabel": "per-cluster backing DB", "pos": [1000, 380], "size": [180, 56], "sources": [{ "path": "z-demo-setup/scripts/provision-platform.sh", "line": 121, "end_line": 131, "label": "per-cluster roles" }] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "host — macOS · kubara-mesh 172.19.0.0/16", "wraps": ["dnsmasq", "cpk", "traefik-lbs"] },
+    { "kind": "region", "label": "hub — control plane (cilium id 1)", "wraps": ["argocd", "openbao", "observability"], "pad": 18 },
+    { "kind": "region", "label": "kubara-spoke-1 — platform engineering (id 2)", "wraps": ["forgejo", "harbor", "kargo", "nexus"], "pad": 18 },
+    { "kind": "region", "label": "kubara-spoke-2 — POC (id 3)", "wraps": ["ollama", "uptime-kuma"], "pad": 18 },
+    { "kind": "region", "label": "kubara-dev / staging / prod (ids 4–6)", "wraps": ["workloads", "postgres"], "pad": 18 }
+  ],
+  "connections": [
+    { "id": "users-to-dnsmasq", "from": "users", "to": "dnsmasq", "label": "resolve", "fromSide": "right", "toSide": "left", "labelAt": [163, 130] },
+    { "id": "users-to-traefik", "from": "users", "to": "traefik-lbs", "label": "HTTPS :443", "variant": "emphasis", "fromSide": "bottom", "toSide": "bottom", "via": [[81, 168], [780, 168]], "labelAt": [340, 124] },
+    { "id": "dnsmasq-to-traefik", "from": "dnsmasq", "to": "traefik-lbs", "label": "host → LB IP", "fromSide": "bottom", "toSide": "bottom", "via": [[255, 184], [780, 184]], "labelAt": [560, 124] },
+    { "id": "cpk-assigns", "from": "cpk", "to": "traefik-lbs", "fromSide": "right", "toSide": "left" },
+    { "id": "lb-argocd", "from": "traefik-lbs", "to": "argocd", "fromSide": "bottom", "toSide": "top", "via": [[780, 140], [260, 140]] },
+    { "id": "lb-forgejo", "from": "traefik-lbs", "to": "forgejo", "fromSide": "bottom", "toSide": "top", "via": [[780, 200], [555, 200]] },
+    { "id": "lb-ollama", "from": "traefik-lbs", "to": "ollama", "fromSide": "bottom", "toSide": "top", "via": [[780, 216], [755, 216]] },
+    { "id": "lb-workloads", "from": "traefik-lbs", "to": "workloads", "fromSide": "bottom", "toSide": "top", "via": [[780, 232], [950, 232]] },
+    { "id": "openbao-argocd", "from": "openbao", "to": "argocd", "label": "publishes spoke kubeconfigs", "variant": "dashed", "fromSide": "top", "toSide": "bottom", "via": [[260, 390]], "labelAt": [265, 355] },
+    { "id": "workloads-db", "from": "workloads", "to": "postgres", "label": "SQL", "fromSide": "bottom", "toSide": "top", "via": [[950, 350], [1090, 350]] },
+    { "id": "argocd-manages", "from": "argocd", "to": "workloads", "label": "GitOps sync", "variant": "dashed", "fromSide": "left", "toSide": "bottom", "via": [[40, 290], [40, 740], [940, 740], [950, 740]] }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Fabric", "items": ["All 6 kind clusters on kubara-mesh 172.19.0.0/16", "cloud-provider-kind assigns dynamic LB IPs", "Cilium ClusterMesh links hub ↔ spokes (ids 1–6)"] },
+    { "dot": "emerald", "title": "Hub — control plane", "items": ["Argo CD self-managed from git main", "OpenBao stores spoke kubeconfigs + platform secrets", "kube-prometheus-stack + metrics-server"] },
+    { "dot": "violet", "title": "spoke-1 — platform engineering", "items": ["Forgejo, Harbor, Kargo, Nexus + Keycloak, OpenProject, Apicurio, OPA", "Shared bitnami postgres provisioned via Liquibase"] },
+    { "dot": "amber", "title": "spoke-2 / workloads", "items": ["spoke-2 POC: Kafka, Ollama, Uptime Kuma", "dev/staging/prod run workloads; each cluster fronts traffic with its own traefik"] }
+  ]
+}

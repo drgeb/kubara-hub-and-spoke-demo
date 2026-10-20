@@ -1,0 +1,58 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Platform Delivery Pipeline",
+    "subtitle": "Forgejo → Harbor → Kargo → Argo CD",
+    "output": "delivery-pipeline-flow.html",
+    "quality_profile": "showcase",
+    "animation": "trace"
+  },
+  "lanes": [
+    { "id": "source", "label": "Source (Forgejo)" },
+    { "id": "ci", "label": "CI (Forgejo Actions)" },
+    { "id": "registry", "label": "Registry (Harbor)" },
+    { "id": "delivery", "label": "Delivery (Kargo)" },
+    { "id": "gitops", "label": "GitOps (Argo CD)" },
+    { "id": "exceptions", "label": "Exceptions", "variant": "exception" }
+  ],
+  "phases": [
+    { "id": "build", "label": "Build", "fromCol": 0, "toCol": 1 },
+    { "id": "ship", "label": "Ship", "fromCol": 2, "toCol": 3 },
+    { "id": "promote", "label": "Promote → deploy", "fromCol": 4, "toCol": 5, "variant": "emphasis" }
+  ],
+  "groups": [
+    { "id": "gate", "label": "Promotion gate", "lane": "exceptions", "fromCol": 3, "toCol": 5, "variant": "security" }
+  ],
+  "mainPath": ["commit", "build", "push", "watch", "promote", "deploy"],
+  "semanticChecks": {
+    "allowedRoots": ["commit"],
+    "allowedTerminals": ["deploy", "rollback"],
+    "requiredPaths": [{ "from": "promote", "to": "deploy" }]
+  },
+  "nodes": [
+    { "id": "commit", "lane": "source", "col": 0, "type": "external", "label": "Commit", "sublabel": "git push" },
+    { "id": "build", "lane": "ci", "col": 1, "width": 92, "type": "backend", "label": "Build + test", "sublabel": "Actions workflow" },
+    { "id": "push", "lane": "registry", "col": 2, "width": 92, "type": "cloud", "label": "Push image", "sublabel": "Harbor robot account" },
+    { "id": "watch", "lane": "delivery", "col": 3, "width": 94, "type": "messagebus", "label": "Watch freight", "sublabel": "warehouse → freight" },
+    { "id": "promote", "lane": "delivery", "col": 4, "width": 84, "type": "backend", "label": "Promote", "sublabel": "dev → staging → prod", "tag": "per stage" },
+    { "id": "deploy", "lane": "gitops", "col": 5, "width": 74, "type": "backend", "label": "Deploy", "sublabel": "Argo CD app sync" },
+    { "id": "approve", "lane": "exceptions", "col": 4, "width": 76, "type": "security", "label": "Approval", "sublabel": "manual promote" },
+    { "id": "rollback", "lane": "exceptions", "col": 5, "width": 70, "type": "security", "label": "Rollback", "sublabel": "last known good" }
+  ],
+  "edges": [
+    { "from": "commit", "to": "build", "label": "webhook", "variant": "emphasis", "route": "drop", "fromSide": "bottom", "toSide": "top" },
+    { "from": "build", "to": "push", "route": "drop", "fromSide": "bottom", "toSide": "top", "label": "artifact" },
+    { "from": "push", "to": "watch", "label": "image digest", "variant": "emphasis", "route": "drop", "fromSide": "bottom", "toSide": "top" },
+    { "from": "watch", "to": "promote", "route": "bottom-channel", "fromSide": "bottom", "toSide": "bottom" },
+    { "from": "promote", "to": "deploy", "label": "promote freight", "variant": "emphasis", "fromSide": "bottom", "toSide": "top" },
+    { "from": "watch", "to": "approve", "label": "requires approval", "variant": "security", "fromSide": "bottom", "toSide": "top" },
+    { "from": "approve", "to": "deploy", "variant": "dashed", "fromSide": "bottom", "toSide": "top" },
+    { "from": "deploy", "to": "rollback", "label": "on failure", "variant": "security", "role": "error" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "Source → artifact", "items": ["Forgejo hosts the repo and runs Actions", "Robot-account credentials are set as Forgejo repo secrets", "Harbor receives the built image"] },
+    { "dot": "cyan", "title": "Progressive delivery", "items": ["Kargo turns images into freight and promotes per stage", "Stages may require a manual approval gate", "Argo CD syncs the promoted app into the target cluster"] },
+    { "dot": "rose", "title": "Safety", "items": ["Promotion stops if verification fails", "Rollback returns to the last known good image", "go-hello and ebank recipes expose the same loop"] }
+  ]
+}
