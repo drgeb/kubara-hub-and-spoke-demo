@@ -6,7 +6,7 @@ clusters:
     dnsName: hub.kubara.test
     ssoOrg: local
     ssoTeam: local
-    ingressClassName: traefik
+    ingressClassName: cilium
     argocd:
       selfManaged: enabled
       repo:
@@ -31,6 +31,8 @@ clusters:
             email: developer@drgeb.com
             name: letsencrypt-staging
             server: https://acme-staging-v02.api.letsencrypt.org/directory
+      cilium:
+        status: disabled
       external-dns:
         status: disabled
       external-secrets:
@@ -79,8 +81,6 @@ clusters:
         status: disabled
       reloader:
         status: disabled
-      traefik:
-        status: enabled
       uptime-kuma:
         status: disabled
       velero:
@@ -94,7 +94,7 @@ clusters:
     stage: platform-engineering
     type: spoke
     dnsName: spoke-1.kubara.test
-    ingressClassName: traefik
+    ingressClassName: cilium
     argocd:
       selfManaged: disabled
       repo: {}
@@ -122,6 +122,8 @@ clusters:
             email: developer@drgeb.com
             name: letsencrypt-staging
             server: https://acme-staging-v02.api.letsencrypt.org/directory
+      cilium:
+        status: enabled
       external-dns:
         status: disabled
       external-secrets:
@@ -245,8 +247,6 @@ clusters:
         status: disabled
       reloader:
         status: disabled
-      traefik:
-        status: enabled
       uptime-kuma:
         status: disabled
       velero:
@@ -260,7 +260,7 @@ clusters:
     stage: poc
     type: spoke
     dnsName: spoke-2.kubara.test
-    ingressClassName: traefik
+    ingressClassName: cilium
     argocd:
       selfManaged: disabled
       repo: {}
@@ -275,6 +275,8 @@ clusters:
             email: developer@drgeb.com
             name: letsencrypt-staging
             server: https://acme-staging-v02.api.letsencrypt.org/directory
+      cilium:
+        status: enabled
       external-dns:
         status: disabled
       external-secrets:
@@ -337,8 +339,6 @@ clusters:
             storageClass: ""
       reloader:
         status: disabled
-      traefik:
-        status: enabled
       uptime-kuma:
         status: enabled
         networking:
@@ -355,7 +355,7 @@ clusters:
     stage: dev
     type: spoke
     dnsName: dev.kubara.test
-    ingressClassName: traefik
+    ingressClassName: cilium
     argocd:
       selfManaged: disabled
       repo: {}
@@ -370,6 +370,8 @@ clusters:
             email: yourname@your-domain.de
             name: letsencrypt-staging
             server: https://acme-staging-v02.api.letsencrypt.org/directory
+      cilium:
+        status: enabled
       external-dns:
         status: disabled
       external-secrets:
@@ -411,8 +413,6 @@ clusters:
         status: disabled
       reloader:
         status: disabled
-      traefik:
-        status: enabled
       uptime-kuma:
         status: disabled
       velero:
@@ -426,7 +426,7 @@ clusters:
     stage: staging
     type: spoke
     dnsName: staging.kubara.test
-    ingressClassName: traefik
+    ingressClassName: cilium
     argocd:
       selfManaged: disabled
       repo: {}
@@ -441,6 +441,8 @@ clusters:
             email: yourname@your-domain.de
             name: letsencrypt-staging
             server: https://acme-staging-v02.api.letsencrypt.org/directory
+      cilium:
+        status: enabled
       external-dns:
         status: disabled
       external-secrets:
@@ -482,8 +484,6 @@ clusters:
         status: disabled
       reloader:
         status: disabled
-      traefik:
-        status: enabled
       uptime-kuma:
         status: disabled
       velero:
@@ -497,7 +497,7 @@ clusters:
     stage: prod
     type: spoke
     dnsName: prod.kubara.test
-    ingressClassName: traefik
+    ingressClassName: cilium
     argocd:
       selfManaged: disabled
       repo: {}
@@ -512,6 +512,8 @@ clusters:
             email: yourname@your-domain.de
             name: letsencrypt-staging
             server: https://acme-staging-v02.api.letsencrypt.org/directory
+      cilium:
+        status: enabled
       external-dns:
         status: disabled
       external-secrets:
@@ -553,8 +555,6 @@ clusters:
         status: disabled
       reloader:
         status: disabled
-      traefik:
-        status: enabled
       uptime-kuma:
         status: disabled
       velero:

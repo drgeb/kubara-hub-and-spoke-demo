@@ -5,7 +5,7 @@
 ingress:
   host: staging.kubara.test
   path: "/"
-  ingressClassName: traefik
+  ingressClassName: cilium
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-staging
 namespace:

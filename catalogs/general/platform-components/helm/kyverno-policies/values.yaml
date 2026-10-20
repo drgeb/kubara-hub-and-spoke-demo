@@ -46,10 +46,6 @@ kyverno-policies:
       any:
         - resources:
             kinds: [Pod]
-            names: [traefik-*]
-            namespaces: [traefik]
-        - resources:
-            kinds: [Pod]
             names: [kube-prometheus-stack-grafana-*]
             namespaces: [kube-prometheus-stack]
         - resources:

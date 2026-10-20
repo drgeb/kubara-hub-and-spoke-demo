@@ -12,7 +12,7 @@ expose:
     secret:
       secretName: ""
   ingress:
-    className: "traefik"
+    className: "cilium"
     hosts:
       core: "harbor.spoke-1.kubara.test"
     annotations:

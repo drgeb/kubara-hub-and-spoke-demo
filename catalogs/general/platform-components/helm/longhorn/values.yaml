@@ -1,8 +1,5 @@
 ---
 namespace: {}
-traefikPathRewrite:
-  enabled: false
-  pathPrefix: /longhorn
 longhorn:
   ingress:
     enabled: false

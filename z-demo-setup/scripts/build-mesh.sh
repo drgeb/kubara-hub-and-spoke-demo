@@ -496,6 +496,11 @@ install_cilium() {
         --set "clustermesh.apiserver.replicas=1"
         --set "prometheus.enabled=true"
         --set "hubble.metrics.enabled={dns,drop,tcp,flow,http,icmp}"
+        # Ingress controller: replaces traefik as the cluster ingressClass
+        # ("cilium"). Shared mode -> a single cilium-ingress LoadBalancer
+        # service in kube-system fronts every Ingress (see AGENTS.md).
+        --set "ingressController.enabled=true"
+        --set "ingressController.loadbalancerMode=shared"
     )
     # Only the hub runs Prometheus Operator, so only it can consume
     # Cilium ServiceMonitors.

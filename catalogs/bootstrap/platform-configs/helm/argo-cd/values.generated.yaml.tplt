@@ -4,7 +4,6 @@
 
 {{- $oauth2ProxyStatus := dig "cluster" "services" "oauth2-proxy" "status" "disabled" . -}}
 {{- $kubePrometheusStatus := dig "cluster" "services" "kube-prometheus-stack" "status" "disabled" . -}}
-{{- $traefikStatus := dig "cluster" "services" "traefik" "status" "disabled" . -}}
 {{- $reloaderStatus := dig "cluster" "services" "reloader" "status" "disabled" . -}}
 
 {{- if (eq .cluster.type "hub") }}
@@ -86,6 +85,9 @@ This is a fixed assumption and needs to be followed for spoke cluster onboarding
 {{- if eq $serviceName "longhorn" }}
           namespace: longhorn
 {{- end }}
+{{- if eq $serviceName "cilium" }}
+          namespace: kube-system
+{{- end }}
 {{- end }}
 
 
@@ -145,9 +147,6 @@ externalSecrets:
 {{- $argocdIngressGrpcAnnotations = mergeOverwrite $argocdIngressGrpcAnnotations $argocdUserIngressAnnotations -}}
 
 {{- $argocdIngressAnnotations := dict "cert-manager.io/cluster-issuer" $certManagerIssuer -}}
-{{- if (and (eq $oauth2ProxyStatus "enabled") (eq $traefikStatus "enabled")) -}}
-{{- $_ := set $argocdIngressAnnotations "traefik.ingress.kubernetes.io/router.middlewares" "oauth2-proxy-oauth-auth@kubernetescrd" -}}
-{{- end -}}
 {{- $argocdIngressAnnotations = mergeOverwrite $argocdIngressAnnotations $argocdUserIngressAnnotations -}}
 
 argo-cd:

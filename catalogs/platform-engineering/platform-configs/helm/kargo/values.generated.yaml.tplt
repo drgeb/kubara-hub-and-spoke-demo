@@ -23,7 +23,7 @@ api:
     enabled: false
   ingress:
     enabled: true
-    ingressClassName: {{ .cluster.ingressClassName | default "traefik" }}
+    ingressClassName: {{ .cluster.ingressClassName | default "cilium" }}
     tls:
       enabled: false
   rollouts:

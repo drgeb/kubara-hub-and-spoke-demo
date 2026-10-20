@@ -59,6 +59,6 @@ podDisruptionBudget:
 ingress:
   enabled: true
   hostname: opa.spoke-1.kubara.test
-  ingressClassName: traefik
+  ingressClassName: cilium
   annotations:
     {}

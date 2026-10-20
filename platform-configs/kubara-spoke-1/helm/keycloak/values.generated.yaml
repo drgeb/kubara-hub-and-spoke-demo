@@ -35,7 +35,7 @@ replicaCount: 1
 
 ingress:
   enabled: true
-  ingressClassName: traefik
+  ingressClassName: cilium
   hostname: keycloak.spoke-1.kubara.test
   pathType: Prefix
   annotations:

@@ -1,0 +1,20 @@
+---
+apiVersion: kubara.io/v1alpha1
+kind: ServiceDefinition
+metadata:
+  name: cilium
+  annotations:
+    kubara.io/category: networking
+spec:
+  chartPath: cilium
+  status: enabled
+  clusterTypes: [hub, spoke]
+  configSchema:
+    type: object
+    required: [clusterId]
+    properties:
+      clusterId:
+        type: integer
+        minimum: 1
+        maximum: 255
+        description: Unique Cilium cluster ID for ClusterMesh (1=hub, 2..6=spokes). Must match z-demo-setup/config/kind-demo.yaml cilium_id.

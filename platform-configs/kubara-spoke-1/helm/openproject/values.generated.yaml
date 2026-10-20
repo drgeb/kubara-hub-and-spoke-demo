@@ -48,7 +48,7 @@ postgresql:
 
 ingress:
   enabled: true
-  ingressClassName: traefik
+  ingressClassName: cilium
   host: openproject.spoke-1.kubara.test
   path: /
   pathType: Prefix

@@ -38,7 +38,7 @@ ingress:
     cert-manager.io/cluster-issuer: kubara-local-ca-issuer
   hostRepo: {{ $host }}
   hostPath: /
-  ingressClassName: {{ .cluster.ingressClassName | default "traefik" }}
+  ingressClassName: {{ .cluster.ingressClassName | default "cilium" }}
   tls:
     - secretName: nexus-tls
       hosts:

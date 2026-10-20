@@ -1,0 +1,12 @@
+---
+apiVersion: v2
+name: cilium
+version: 0.1.0
+description: This Chart deploys cilium (CNI + ingress controller). The CNI is bootstrapped by build-mesh.sh on first boot; Argo CD adopts the release for ongoing GitOps management.
+dependencies:
+  - name: cilium
+    version: 1.19.5
+    repository: https://helm.cilium.io/
+  - name: template-library
+    repository: file://../template-library
+    version: 0.2.1

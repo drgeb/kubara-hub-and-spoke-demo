@@ -17,7 +17,7 @@ service:
 
 ingress:
   enabled: true
-  className: traefik
+  className: cilium
   annotations:
     cert-manager.io/cluster-issuer: kubara-local-ca-issuer
   hosts:

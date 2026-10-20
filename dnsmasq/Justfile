@@ -1,5 +1,5 @@
 # Self-contained wildcard DNS for the kubara hub-and-spoke demo.
-# Resolves <svc>.<cluster>.kubara.test -> that cluster's traefik LoadBalancer
+# Resolves <svc>.<cluster>.kubara.test -> that cluster's cilium-ingress LoadBalancer
 # and installs macOS /etc/resolver overrides for kubara.test and my.nexus.me.
 
 KUBECONFIG := parent_directory(justfile_directory()) + "/.local/kind.kubeconfig"
@@ -99,7 +99,7 @@ status-dnsmasq:
         fi
     fi
 
-# Rewrite the address=/<cluster>.kubara.test lines from the live traefik
+# Rewrite the address=/<cluster>.kubara.test lines from the live cilium-ingress
 # LoadBalancer IPs (plus the forgejo SSH LB on spoke-1) and reload dnsmasq.
 # Run after rebuilding/restarting clusters.
 refresh-lb-hosts:
@@ -109,8 +109,11 @@ refresh-lb-hosts:
     CONF="{{ CONF }}"
     [ -f "$KCFG" ] || { echo "kubeconfig not found: $KCFG" >&2; exit 1; }
 
+    # The shared cilium ingress proxy fronts every Ingress in its cluster, so
+    # the wildcard DNS target is that cluster's cilium-ingress LoadBalancer
+    # service (kube-system) - not a per-app service.
     ip_of() {
-        kubectl --kubeconfig "$KCFG" --context "$1" get svc/traefik -n traefik \
+        kubectl --kubeconfig "$KCFG" --context "$1" get svc/cilium-ingress -n kube-system \
             -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true
     }
 
@@ -174,7 +177,7 @@ refresh-lb-hosts:
     if [ "${#MISSING[@]}" -gt 0 ] || [ -z "$forgejo_ip" ]; then
         echo "ERROR: cannot read live LoadBalancer IPs; refusing to rewrite $CONF with a stale/partial map" >&2
         for m in "${MISSING[@]}"; do
-            echo "  missing traefik LB IP: $m" >&2
+            echo "  missing cilium-ingress LB IP: $m" >&2
         done
         if [ -z "$forgejo_ip" ]; then
             echo "  missing forgejo-ssh LB IP (kind-kubara-spoke-1/forgejo)" >&2

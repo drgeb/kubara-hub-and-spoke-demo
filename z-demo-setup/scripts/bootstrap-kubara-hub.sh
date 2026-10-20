@@ -23,7 +23,6 @@ OPENBAO_NAMESPACE="openbao"
 OPENBAO_CHART_REPO="openbao"
 OPENBAO_CHART_REPO_URL="https://openbao.github.io/openbao-helm"
 HUB_KUBECONFIG="${ROOT_DIR}/.local/kind.kubeconfig"
-TRAEFIK_OVERLAY="${ROOT_DIR}/platform-configs/hub/helm/traefik/values-additional.yaml"
 OPENBAO_VALUES="${ROOT_DIR}/.local/openbao/values.yaml"
 
 SKIP_BOOTSTRAP=false
@@ -39,7 +38,7 @@ kubara overwrites with <traefik-LB-IP>.traefik.me:
   2. re-run kubara generate --helm (via generate-helm.sh) + restore any
      tracked platform-configs files that still contain .traefik.me
   3. re-point the deployed OpenBao ingress/apiAddr to ${OPENBAO_DNS_NAME}
-  4. re-pin the gitignored traefik dashboard / openbao values hostnames
+  4. re-pin the openbao values hostnames
   5. verify the argocd-server ingress is ${ARGOCD_DNS_NAME} (git-driven via values-additional.yaml)
 
 Options:
@@ -117,7 +116,6 @@ restore_demo_overrides() {
   # generate to keep bootstrap idempotent.
   local file
   for file in \
-      "platform-components/helm/argo-cd/templates/redirect.yaml" \
       "platform-components/helm/argo-cd/values.yaml" \
       "platform-configs/hub/helm/cert-manager/values-additional.yaml" \
       "platform-configs/hub/helm/homer-dashboard/values-additional.yaml" \
@@ -195,7 +193,6 @@ restore_tracked_platform_configs
 restore_demo_overrides
 repoint_openbao
 repoint_argocd_ingress
-repoint_host_in_file "${TRAEFIK_OVERLAY}" "${HUB_DNS_NAME}"
 repoint_host_in_file "${OPENBAO_VALUES}" "${OPENBAO_DNS_NAME}"
 
 echo "==> kubara bootstrap + DNS re-pin complete"

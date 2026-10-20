@@ -83,8 +83,9 @@ command -v curl >/dev/null 2>&1 || { echo "curl is not installed" >&2; exit 1; }
 # --- DNS staleness guard --------------------------------------------------
 # Every *.kubara.test host resolves via the local dnsmasq address= map. If the
 # map is stale (clusters restarted, cloud-provider-kind reassigned LB IPs but
-# nobody re-ran refresh-lb-hosts), requests land on another cluster's Traefik
-# and return uniform 404s. Fail fast instead of printing cryptic failures.
+# nobody re-ran refresh-lb-hosts), requests land on another cluster's ingress
+# LoadBalancer and return uniform 404s. Fail fast instead of printing cryptic
+# failures.
 DNS_CONF="${ROOT_DIR}/dnsmasq/config/dnsmasq.conf"
 DNS_STALE=""
 
@@ -107,12 +108,12 @@ check_dns_map() {
 }
 
 if [[ -f "$KC" ]]; then
-    check_dns_map "hub.kubara.test:kind-hub:traefik:traefik \
-spoke-1.kubara.test:kind-kubara-spoke-1:traefik:traefik \
-spoke-2.kubara.test:kind-kubara-spoke-2:traefik:traefik \
-dev.kubara.test:kind-kubara-dev:traefik:traefik \
-staging.kubara.test:kind-kubara-staging:traefik:traefik \
-prod.kubara.test:kind-kubara-prod:traefik:traefik \
+    check_dns_map "hub.kubara.test:kind-hub:cilium-ingress:kube-system \
+spoke-1.kubara.test:kind-kubara-spoke-1:cilium-ingress:kube-system \
+spoke-2.kubara.test:kind-kubara-spoke-2:cilium-ingress:kube-system \
+dev.kubara.test:kind-kubara-dev:cilium-ingress:kube-system \
+staging.kubara.test:kind-kubara-staging:cilium-ingress:kube-system \
+prod.kubara.test:kind-kubara-prod:cilium-ingress:kube-system \
 forgejo-ssh.me:kind-kubara-spoke-1:forgejo-ssh:forgejo"
     if [[ -n "$DNS_STALE" ]]; then
         echo

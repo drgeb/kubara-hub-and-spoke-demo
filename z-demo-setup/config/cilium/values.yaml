@@ -23,3 +23,8 @@ hubble:
     auto:
       enabled: true
       method: cronJob
+ingressController:
+  # Replaces traefik as the cluster ingressClass ("cilium"). Shared mode
+  # keeps a single cilium-ingress LoadBalancer service in kube-system.
+  enabled: true
+  loadbalancerMode: shared

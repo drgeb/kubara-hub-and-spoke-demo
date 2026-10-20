@@ -13,10 +13,9 @@ locals {
     "/v1",
   ])
 
-  ingress_default_annotations = var.ingress_enabled && local.ingress_path != "/" ? {
-    "traefik.ingress.kubernetes.io/app-root"           = "${local.ingress_path}/ui/"
-    "traefik.ingress.kubernetes.io/router.middlewares" = "${var.namespace}-openbao-redirect-noslash@kubernetescrd,${var.namespace}-openbao-strip-prefix@kubernetescrd"
-  } : {}
+  # Cilium's Ingress controller has no path-rewrite/root-redirect annotations
+  # (the former traefik middlewares); OpenBao is served as-is under its path.
+  ingress_default_annotations = {}
 
   ingress_tls = var.ingress_tls_secret_name == "" ? [] : [
     {

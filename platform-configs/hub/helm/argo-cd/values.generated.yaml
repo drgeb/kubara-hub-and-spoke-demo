@@ -37,6 +37,7 @@ bootstrapValues:
       additionalLabels:
         apicurio: "enabled"
         cert-manager: "enabled"
+        cilium: "enabled"
         external-dns: "disabled"
         external-secrets: "enabled"
         forgejo: "enabled"
@@ -61,7 +62,6 @@ bootstrapValues:
         postgresql: "enabled"
         postgresql19: "disabled"
         reloader: "disabled"
-        traefik: "enabled"
         uptime-kuma: "disabled"
         velero: "disabled"
     - name: kubara-spoke-2
@@ -74,6 +74,7 @@ bootstrapValues:
         remoteKeyProperty: kubeconfig
       additionalLabels:
         cert-manager: "disabled"
+        cilium: "enabled"
         external-dns: "disabled"
         external-secrets: "enabled"
         homer-dashboard: "enabled"
@@ -91,7 +92,6 @@ bootstrapValues:
         postgresql: "enabled"
         postgresql19: "enabled"
         reloader: "disabled"
-        traefik: "enabled"
         uptime-kuma: "enabled"
         velero: "disabled"
     - name: kubara-dev
@@ -104,6 +104,7 @@ bootstrapValues:
         remoteKeyProperty: kubeconfig
       additionalLabels:
         cert-manager: "enabled"
+        cilium: "enabled"
         external-dns: "disabled"
         external-secrets: "enabled"
         homer-dashboard: "enabled"
@@ -121,7 +122,6 @@ bootstrapValues:
         postgresql: "enabled"
         postgresql19: "disabled"
         reloader: "disabled"
-        traefik: "enabled"
         uptime-kuma: "disabled"
         velero: "disabled"
     - name: kubara-staging
@@ -134,6 +134,7 @@ bootstrapValues:
         remoteKeyProperty: kubeconfig
       additionalLabels:
         cert-manager: "enabled"
+        cilium: "enabled"
         external-dns: "disabled"
         external-secrets: "enabled"
         homer-dashboard: "enabled"
@@ -151,7 +152,6 @@ bootstrapValues:
         postgresql: "enabled"
         postgresql19: "disabled"
         reloader: "disabled"
-        traefik: "enabled"
         uptime-kuma: "disabled"
         velero: "disabled"
     - name: kubara-prod
@@ -164,6 +164,7 @@ bootstrapValues:
         remoteKeyProperty: kubeconfig
       additionalLabels:
         cert-manager: "enabled"
+        cilium: "enabled"
         external-dns: "disabled"
         external-secrets: "enabled"
         homer-dashboard: "enabled"
@@ -181,7 +182,6 @@ bootstrapValues:
         postgresql: "enabled"
         postgresql19: "disabled"
         reloader: "disabled"
-        traefik: "enabled"
         uptime-kuma: "disabled"
         velero: "disabled"
 
@@ -208,6 +208,9 @@ bootstrapValues:
         cert-manager:
           name: cert-manager
           path: cert-manager
+        cilium:
+          name: cilium
+          path: cilium
         external-dns:
           name: external-dns
           path: external-dns
@@ -281,9 +284,6 @@ bootstrapValues:
         reloader:
           name: reloader
           path: reloader
-        traefik:
-          name: traefik
-          path: traefik
         uptime-kuma:
           name: uptime-kuma
           path: uptime-kuma
@@ -302,6 +302,7 @@ inClusterSecretLabels:
   argocd: "enabled"
   apicurio: "disabled"
   cert-manager: "enabled"
+  cilium: "disabled"
   external-dns: "disabled"
   external-secrets: "enabled"
   forgejo: "disabled"
@@ -326,7 +327,6 @@ inClusterSecretLabels:
   postgresql: "disabled"
   postgresql19: "disabled"
   reloader: "disabled"
-  traefik: "enabled"
   uptime-kuma: "disabled"
   velero: "disabled"
 

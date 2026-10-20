@@ -36,7 +36,7 @@ registry:
       memory: 512Mi
   ingress:
     enabled: true
-    ingressClassName: {{ .cluster.ingressClassName | default "traefik" }}
+    ingressClassName: {{ .cluster.ingressClassName | default "cilium" }}
     host: {{ $host }}
     path: /
     tls: true

@@ -1,0 +1,89 @@
+# Standalone Cilium-on-kind learning cluster - NOT part of the kubara mesh.
+# Reproduces the manual session: create the cluster from ./kind-config.yaml
+# (1 control-plane + 3 workers, default CNI disabled), preload the Cilium
+# image into every node, install the Cilium chart, wait for the rollouts.
+#
+#   just -f Justfile.cilium-kind setup
+#
+# Requires: kind, kubectl, helm 3, Docker with `docker save --platform` (28+).
+#
+# Two workarounds are baked in:
+#   - `kind load docker-image` fails on multi-platform images stored by
+#     Docker Desktop's containerd image store (ctr import --all-platforms
+#     cannot resolve the foreign-platform manifest digest, kind#3996), so
+#     the image is saved for the host platform only and ctr-imported.
+#   - `helm install` needs a cached chart index; `helm repo update cilium`
+#     is part of the flow (fixes "no cached repo found").
+
+CONFIG := justfile_directory() + "/kind-config.yaml"
+CLUSTER := "kind"
+CONTEXT := "kind-" + CLUSTER
+CILIUM_VERSION := "1.20.2"
+CILIUM_IMAGE := "quay.io/cilium/cilium:v" + CILIUM_VERSION
+
+default:
+    @just -f "{{ justfile() }}" --list
+
+# Full setup: cluster -> image preload -> helm repo -> Cilium install -> ready
+setup: create-cluster preload-cilium install-cilium
+
+# Create the kind cluster from kind-config.yaml (skips if it already exists)
+create-cluster:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if kind get clusters | grep -qx "{{ CLUSTER }}"; then
+        echo "cluster '{{ CLUSTER }}' already exists - skipping creation"
+    else
+        kind create cluster --name "{{ CLUSTER }}" --config "{{ CONFIG }}"
+    fi
+
+# Import the Cilium image into every node (kind load workaround, see header)
+preload-cilium: create-cluster
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "$(uname -m)" in
+        arm64|aarch64) platform="linux/arm64" ;;
+        x86_64)        platform="linux/amd64" ;;
+        *) echo "unsupported host arch: $(uname -m)" >&2; exit 1 ;;
+    esac
+    tarfile="$(mktemp)"
+    trap 'rm -f "$tarfile"' EXIT
+    echo "Saving {{ CILIUM_IMAGE }} for $platform ..."
+    docker save --platform "$platform" "{{ CILIUM_IMAGE }}" -o "$tarfile"
+    for node in $(kind get nodes --name "{{ CLUSTER }}"); do
+        echo "Importing into $node"
+        docker exec -i "$node" ctr --namespace=k8s.io images import \
+            --all-platforms --digests --snapshotter=overlayfs - < "$tarfile"
+    done
+    echo "Cilium image available on all nodes"
+
+# Cache the Cilium chart index (fixes helm "no cached repo found")
+helm-repo:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    helm repo add cilium https://helm.cilium.io/
+    helm repo update cilium
+
+# Install (or upgrade) Cilium as the CNI and wait until it is healthy
+install-cilium: create-cluster helm-repo
+    #!/usr/bin/env bash
+    set -euo pipefail
+    helm upgrade --install cilium cilium/cilium \
+        --version "{{ CILIUM_VERSION }}" \
+        --namespace kube-system \
+        --kube-context "{{ CONTEXT }}" \
+        --set image.pullPolicy=IfNotPresent \
+        --set ipam.mode=kubernetes
+    kubectl --context "{{ CONTEXT }}" -n kube-system rollout status ds/cilium --timeout=180s
+    kubectl --context "{{ CONTEXT }}" -n kube-system rollout status ds/cilium-envoy --timeout=180s
+    kubectl --context "{{ CONTEXT }}" -n kube-system get pods
+    echo "Cilium {{ CILIUM_VERSION }} is up on {{ CONTEXT }}"
+
+# Nodes and pods at a glance
+status:
+    kubectl --context "{{ CONTEXT }}" get nodes -o wide
+    kubectl --context "{{ CONTEXT }}" get pods -A
+
+# Tear the cluster down
+delete:
+    kind delete cluster --name "{{ CLUSTER }}"

@@ -198,14 +198,14 @@ ensure_image_pull_secret() {
 
 if is_cluster_reachable "$SPOKE1_CONTEXT"; then
     log "Ensuring image-pull-secret on ${SPOKE1_CONTEXT}"
-    for ns in external-secrets forgejo kargo traefik; do
+    for ns in external-secrets forgejo kargo; do
         ensure_image_pull_secret "$SPOKE1_CONTEXT" "$ns"
     done
 fi
 
 if is_cluster_reachable "$SPOKE2_CONTEXT"; then
     log "Ensuring image-pull-secret on ${SPOKE2_CONTEXT}"
-    for ns in external-secrets traefik; do
+    for ns in external-secrets; do
         ensure_image_pull_secret "$SPOKE2_CONTEXT" "$ns"
     done
 fi
@@ -213,7 +213,7 @@ fi
 for ctx in "$DEV_CONTEXT" "$STAGING_CONTEXT" "$PROD_CONTEXT"; do
     if is_cluster_reachable "$ctx"; then
         log "Ensuring image-pull-secret on ${ctx}"
-        for ns in external-secrets traefik; do
+        for ns in external-secrets; do
             ensure_image_pull_secret "$ctx" "$ns"
         done
     fi

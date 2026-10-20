@@ -62,6 +62,6 @@ podDisruptionBudget:
 ingress:
   enabled: true
   hostname: {{ $host }}
-  ingressClassName: {{ .cluster.ingressClassName | default "traefik" }}
+  ingressClassName: {{ .cluster.ingressClassName | default "cilium" }}
   annotations:
     {}

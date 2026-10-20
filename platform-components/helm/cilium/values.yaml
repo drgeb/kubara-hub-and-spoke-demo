@@ -1,0 +1,48 @@
+---
+# Static, cluster-agnostic Cilium defaults. Per-cluster values (cluster.name,
+# cluster.id, Prometheus Operator ServiceMonitors on the hub only) are rendered
+# into values.generated.yaml by kubara from the cluster context.
+#
+# The CNI itself is bootstrapped by build-mesh.sh on first boot; this chart lets
+# Argo CD adopt the same release for ongoing GitOps management. Keep these
+# values in sync with z-demo-setup/scripts/build-mesh.sh and
+# z-demo-setup/config/cilium/values.yaml or the two managers will fight.
+cilium:
+  kubeProxyReplacement: true
+  ipam:
+    mode: kubernetes
+  image:
+    pullPolicy: IfNotPresent
+  clustermesh:
+    apiserver:
+      replicas: 1
+  prometheus:
+    enabled: true
+  operator:
+    prometheus:
+      enabled: true
+  hubble:
+    enabled: true
+    relay:
+      enabled: true
+    ui:
+      enabled: true
+    metrics:
+      enabled:
+        - dns
+        - drop
+        - tcp
+        - flow
+        - http
+        - icmp
+    tls:
+      auto:
+        enabled: true
+        method: cronJob
+  # Ingress controller: replaces traefik as the cluster ingressClass ("cilium").
+  # Shared mode -> a single cilium-ingress LoadBalancer service in kube-system
+  # fronts every Ingress (see AGENTS.md: no loadBalancerIP pins, DNS chases the
+  # live LB IP).
+  ingressController:
+    enabled: true
+    loadbalancerMode: shared

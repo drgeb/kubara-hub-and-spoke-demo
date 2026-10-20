@@ -33,7 +33,7 @@ registry:
       memory: 512Mi
   ingress:
     enabled: true
-    ingressClassName: traefik
+    ingressClassName: cilium
     host: apicurio.spoke-1.kubara.test
     path: /
     tls: true

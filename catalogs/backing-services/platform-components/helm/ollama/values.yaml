@@ -286,8 +286,7 @@ ingress:
 
   # -- Additional annotations for the Ingress resource.
   annotations: {}
-    # kubernetes.io/ingress.class: traefik
-    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/ingress.class: cilium
     # kubernetes.io/tls-acme: "true"
 
   # The list of hostnames to be covered with this ingress record.

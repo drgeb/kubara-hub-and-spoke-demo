@@ -1,8 +1,8 @@
-# Each kind cluster's traefik LoadBalancer IP is resolved explicitly instead of
-# relying on the current kubectl context. Hub apps (argocd, homer, grafana,
-# prometheus, alertmanager, openbao) live on the "hub" kind cluster; PLTFME
-# (platform engineering: forgejo, kargo, harbor, nexus, keycloak, ...) on
-# kubara-spoke-1; DEV apps on kubara-spoke-2.
+# Each kind cluster's cilium-ingress LoadBalancer IP is resolved explicitly
+# instead of relying on the current kubectl context. Hub apps (argocd, homer,
+# grafana, prometheus, alertmanager, openbao) live on the "hub" kind cluster;
+# PLTFME (platform engineering: forgejo, kargo, harbor, nexus, keycloak, ...)
+# on kubara-spoke-1; DEV apps on kubara-spoke-2.
 
 KUBARA_KUBECONFIG:=".local/kind.kubeconfig"
 
@@ -40,7 +40,7 @@ STAGING_NAME:="kubara-staging"
 PROD_NAME:="kubara-prod"
 
 # Stable per-cluster DNS names. Resolved by the local dnsmasq wildcard setup
-# in ./dnsmasq: <any>.<cluster>.kubara.test -> that cluster's traefik LB IP.
+# in ./dnsmasq: <any>.<cluster>.kubara.test -> that cluster's cilium-ingress LB IP.
 # Refresh the dnsmasq address= lines with `just -f dnsmasq/Justfile refresh-lb-hosts`.
 HUB_DNS_NAME := "hub.kubara.test"
 SPOKE1_DNS_NAME := "spoke-1.kubara.test"
@@ -58,12 +58,12 @@ apply-coredns-patch:
     echo "CoreDNS patched: hosts entries applied, coredns restarted"
 
 # Re-render CoreDNS hosts entries from live service ClusterIPs and apply them.
-# Run this after reinstalling traefik or nexus (their ClusterIPs change on recreation).
+# Run this after reinstalling cilium-ingress or nexus (their ClusterIPs change on recreation).
 refresh-coredns-hosts:
     #!/usr/bin/env bash
     set -euo pipefail
     NEXUS_IP="$(kubectl get svc nexus -n nexus -o jsonpath='{.spec.clusterIP}')"
-    TRAEFIK_IP="$(kubectl get svc traefik -n traefik -o jsonpath='{.spec.clusterIP}')"
+    INGRESS_IP="$(kubectl get svc cilium-ingress -n kube-system -o jsonpath='{.spec.clusterIP}')"
     FILE="platform-components/coredns/coredns-configmap.yaml"
     cat > "$FILE" <<EOF
     apiVersion: v1
@@ -82,7 +82,7 @@ refresh-coredns-hosts:
             log
             hosts {
                 ${NEXUS_IP} my.nexus.me
-                ${TRAEFIK_IP} my.harbor.me
+                ${INGRESS_IP} my.harbor.me
                 fallthrough
             }
             kubernetes cluster.local in-addr.arpa ip6.arpa {
@@ -106,7 +106,7 @@ refresh-coredns-hosts:
     kubectl apply -f "$FILE"
     kubectl rollout restart deployment coredns -n kube-system
     kubectl rollout status deployment coredns -n kube-system --timeout=120s
-    echo "CoreDNS hosts refreshed: my.nexus.me → ${NEXUS_IP} (svc/nexus), my.harbor.me → ${TRAEFIK_IP} (svc/traefik)"
+    echo "CoreDNS hosts refreshed: my.nexus.me → ${NEXUS_IP} (svc/nexus), my.harbor.me → ${INGRESS_IP} (svc/cilium-ingress)"
 
 # Run the default recipe (list)
 default:
@@ -125,7 +125,7 @@ check-nodes-running:
 
 export-loadbalancer-ip:
     @echo "LoadBalancer service was assigned an EXTERNAL-IP by cloud-provider-kind"
-    @kubectl get svc/traefik -n traefik -o=jsonpath='{.status.loadBalancer.ingress[0].ip}'
+    @kubectl get svc/cilium-ingress -n kube-system -o=jsonpath='{.status.loadBalancer.ingress[0].ip}'
 
 # Run kubara generate --helm and restore the charts kubara prunes from the
 # repo-root platform-components/helm tree (template-library, harbor).
@@ -369,7 +369,7 @@ start-dnsmasq:
 stop-dnsmasq:
     just -f dnsmasq/Justfile stop-dnsmasq
 
-# Refresh the per-cluster dnsmasq address= map from the live traefik
+# Refresh the per-cluster dnsmasq address= map from the live cilium-ingress
 # LoadBalancer IPs (plus the forgejo-ssh LB on spoke-1) and restart dnsmasq.
 # Refuses to write a partial/stale map if any LB IP is missing.
 # Needs the user's sudo password for the dnsmasq restart.
@@ -378,9 +378,9 @@ refresh-dns-lb-hosts:
 
 # Full demo bring-up from scratch: build the Cilium hub-and-spoke mesh (creates
 # clusters, starts cloud-provider-kind before bootstrap, boots the hub and
-# provisions platform services), wait until all six traefik LoadBalancer IPs are
-# live, then refresh the local dnsmasq map. Run `just bring-up -- --rebuild` to
-# recreate existing clusters. Needs sudo (first prompt is the cpk start inside
+# provisions platform services), wait until all six cilium-ingress LoadBalancer
+# IPs are live, then refresh the local dnsmasq map. Run `just bring-up -- --rebuild`
+# to recreate existing clusters. Needs sudo (first prompt is the cpk start inside
 # build-mesh, second is the dnsmasq refresh).
 bring-up *args:
     #!/usr/bin/env bash
@@ -388,18 +388,18 @@ bring-up *args:
     ./z-demo-setup/scripts/build-mesh.sh {{args}}
 
     KCFG="{{ KUBARA_KUBECONFIG }}"
-    echo "Waiting for all six traefik LoadBalancer IPs..."
+    echo "Waiting for all six cilium-ingress LoadBalancer IPs..."
     for _ in $(seq 1 120); do
         missing=""
         for ctx in {{HUB_CONTEXT}} {{SPOKE1_CONTEXT}} {{SPOKE2_CONTEXT}} {{DEV_CONTEXT}} {{STAGING_CONTEXT}} {{PROD_CONTEXT}}; do
-            ip=$(kubectl --kubeconfig "$KCFG" --context "$ctx" get svc/traefik -n traefik \
+            ip=$(kubectl --kubeconfig "$KCFG" --context "$ctx" get svc/cilium-ingress -n kube-system \
                 -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
             if [ -z "$ip" ]; then
                 missing="$missing $ctx"
             fi
         done
         if [ -z "$missing" ]; then
-            echo "All traefik LoadBalancer IPs live"
+            echo "All cilium-ingress LoadBalancer IPs live"
             break
         fi
         sleep 5
@@ -426,7 +426,7 @@ kind-stop:
     done
 
 # Restart all stopped kind clusters (containers, load balancers, and services
-# come back), wait for the traefik LoadBalancer IPs to be (re)assigned by
+# come back), wait for the cilium-ingress LoadBalancer IPs to be (re)assigned by
 # cloud-provider-kind, then refresh the dnsmasq map so DNS never goes stale.
 # The refresh needs sudo (first prompt after a restart).
 kind-restart:
@@ -439,14 +439,14 @@ kind-restart:
     for _ in $(seq 1 30); do
         missing=""
         for ctx in {{HUB_CONTEXT}} {{SPOKE1_CONTEXT}} {{SPOKE2_CONTEXT}}; do
-            ip=$(kubectl --kubeconfig "$KCFG" --context "$ctx" get svc/traefik -n traefik \
+            ip=$(kubectl --kubeconfig "$KCFG" --context "$ctx" get svc/cilium-ingress -n kube-system \
                 -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
             if [ -z "$ip" ]; then
                 missing="$missing $ctx"
             fi
         done
         if [ -z "$missing" ]; then
-            echo "All traefik LoadBalancer IPs reassigned"
+            echo "All cilium-ingress LoadBalancer IPs reassigned"
             break
         fi
         sleep 5

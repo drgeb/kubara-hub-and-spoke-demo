@@ -11,7 +11,7 @@ sudo -v   # cache credentials for the sudo-gated steps below
 #    the next step chases whatever IPs those end up with.
 just start-cloud-provider-kind
 
-# 2. Rewrite the dnsmasq map from the live traefik LB IPs and restart dnsmasq.
+# 2. Rewrite the dnsmasq map from the live cilium-ingress LB IPs and restart dnsmasq.
 #    Aborts (without touching the map) if any required LB IP is missing.
 just -f dnsmasq/Justfile refresh-lb-hosts
 

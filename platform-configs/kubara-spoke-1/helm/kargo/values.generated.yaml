@@ -20,7 +20,7 @@ api:
     enabled: false
   ingress:
     enabled: true
-    ingressClassName: traefik
+    ingressClassName: cilium
     tls:
       enabled: false
   rollouts:

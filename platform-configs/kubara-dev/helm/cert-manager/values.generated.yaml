@@ -6,7 +6,7 @@ clusterIssuer:
   name: letsencrypt-staging
   email: yourname@your-domain.de
   server: https://acme-staging-v02.api.letsencrypt.org/directory
-  ingressClassName: traefik
+  ingressClassName: cilium
 
 
 cert-manager:
