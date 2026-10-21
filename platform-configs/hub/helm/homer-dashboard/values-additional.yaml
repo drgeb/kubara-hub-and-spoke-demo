@@ -2,7 +2,7 @@ ingress:
   enabled: true
   host: homer.hub.kubara.test
   path: /
-  ingressClassName: traefik
+  ingressClassName: cilium
   annotations:
     cert-manager.io/cluster-issuer: kubara-local-ca-issuer
 
@@ -29,11 +29,6 @@ dashboardConfig:
           logo: "/assets/tools/alertmanager.png"
           url: "https://alertmanager.hub.kubara.test/"
           subtitle: "Alertmanager Dashboard"
-          target: "_blank"
-        - name: "traefik"
-          logo: "/assets/tools/traefik.png"
-          url: "https://traefik.hub.kubara.test/"
-          subtitle: "Traefik Dashboard"
           target: "_blank"
     - name: "DevOps Links"
       items:

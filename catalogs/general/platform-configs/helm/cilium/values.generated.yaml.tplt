@@ -3,7 +3,7 @@
 # To customize values, you can add additional files named values-*.yaml to this directory.
 
 {{- $ciliumConfig := (index .cluster.services "cilium" "config") -}}
-{{- $kubePrometheusEnabled := eq (index .cluster.services "kube-prometheus-stack" "status") "enabled" -}}
+{{- $kubePrometheusEnabled := eq (index .cluster.services "kube-prometheus-stack" "status") "enabled" }}
 cilium:
   # Per-cluster identity. cluster.id must be unique across the mesh for
   # ClusterMesh (1=hub, 2..6=spokes) and must match

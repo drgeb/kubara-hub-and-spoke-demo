@@ -302,7 +302,7 @@ inClusterSecretLabels:
   argocd: "enabled"
   apicurio: "disabled"
   cert-manager: "enabled"
-  cilium: "disabled"
+  cilium: "enabled"
   external-dns: "disabled"
   external-secrets: "enabled"
   forgejo: "disabled"
@@ -342,13 +342,13 @@ argo-cd:
     ingressGrpc:
       enabled: true
       path: "/argocd"
-      ingressClassName: traefik
+      ingressClassName: cilium
       tls: true
       annotations:
         cert-manager.io/cluster-issuer: letsencrypt-staging
     ingress:
       path: "/argocd"
-      ingressClassName: traefik
+      ingressClassName: cilium
       tls: true
       annotations:
         cert-manager.io/cluster-issuer: letsencrypt-staging

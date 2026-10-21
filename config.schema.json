@@ -1848,50 +1848,6 @@
                   ],
                   "type": "object"
                 },
-                "traefik": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "networking": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "annotations": {
-                          "additionalProperties": {
-                            "type": "string"
-                          },
-                          "description": "Optional ingress annotation overrides for this service.",
-                          "title": "Ingress Annotations",
-                          "type": "object"
-                        }
-                      },
-                      "type": "object"
-                    },
-                    "status": {
-                      "description": "The desired status of the service.",
-                      "enum": [
-                        "enabled",
-                        "disabled"
-                      ],
-                      "title": "Service Status",
-                      "type": "string"
-                    },
-                    "storage": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "className": {
-                          "description": "Optional storage class name override for persistent volumes.",
-                          "minLength": 1,
-                          "title": "Storage Class Name",
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
-                  "required": [
-                    "status"
-                  ],
-                  "type": "object"
-                },
                 "uptime-kuma": {
                   "additionalProperties": false,
                   "properties": {
@@ -3886,50 +3842,6 @@
                   ],
                   "type": "object"
                 },
-                "traefik": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "networking": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "annotations": {
-                          "additionalProperties": {
-                            "type": "string"
-                          },
-                          "description": "Optional ingress annotation overrides for this service.",
-                          "title": "Ingress Annotations",
-                          "type": "object"
-                        }
-                      },
-                      "type": "object"
-                    },
-                    "status": {
-                      "description": "The desired status of the service.",
-                      "enum": [
-                        "enabled",
-                        "disabled"
-                      ],
-                      "title": "Service Status",
-                      "type": "string"
-                    },
-                    "storage": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "className": {
-                          "description": "Optional storage class name override for persistent volumes.",
-                          "minLength": 1,
-                          "title": "Storage Class Name",
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
-                  "required": [
-                    "status"
-                  ],
-                  "type": "object"
-                },
                 "uptime-kuma": {
                   "additionalProperties": false,
                   "properties": {
@@ -5168,50 +5080,6 @@
                   "type": "object"
                 },
                 "reloader": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "networking": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "annotations": {
-                          "additionalProperties": {
-                            "type": "string"
-                          },
-                          "description": "Optional ingress annotation overrides for this service.",
-                          "title": "Ingress Annotations",
-                          "type": "object"
-                        }
-                      },
-                      "type": "object"
-                    },
-                    "status": {
-                      "description": "The desired status of the service.",
-                      "enum": [
-                        "enabled",
-                        "disabled"
-                      ],
-                      "title": "Service Status",
-                      "type": "string"
-                    },
-                    "storage": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "className": {
-                          "description": "Optional storage class name override for persistent volumes.",
-                          "minLength": 1,
-                          "title": "Storage Class Name",
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
-                  "required": [
-                    "status"
-                  ],
-                  "type": "object"
-                },
-                "traefik": {
                   "additionalProperties": false,
                   "properties": {
                     "networking": {
@@ -6536,50 +6404,6 @@
                   ],
                   "type": "object"
                 },
-                "traefik": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "networking": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "annotations": {
-                          "additionalProperties": {
-                            "type": "string"
-                          },
-                          "description": "Optional ingress annotation overrides for this service.",
-                          "title": "Ingress Annotations",
-                          "type": "object"
-                        }
-                      },
-                      "type": "object"
-                    },
-                    "status": {
-                      "description": "The desired status of the service.",
-                      "enum": [
-                        "enabled",
-                        "disabled"
-                      ],
-                      "title": "Service Status",
-                      "type": "string"
-                    },
-                    "storage": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "className": {
-                          "description": "Optional storage class name override for persistent volumes.",
-                          "minLength": 1,
-                          "title": "Storage Class Name",
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
-                  "required": [
-                    "status"
-                  ],
-                  "type": "object"
-                },
                 "uptime-kuma": {
                   "additionalProperties": false,
                   "properties": {
@@ -7861,50 +7685,6 @@
                   ],
                   "type": "object"
                 },
-                "traefik": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "networking": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "annotations": {
-                          "additionalProperties": {
-                            "type": "string"
-                          },
-                          "description": "Optional ingress annotation overrides for this service.",
-                          "title": "Ingress Annotations",
-                          "type": "object"
-                        }
-                      },
-                      "type": "object"
-                    },
-                    "status": {
-                      "description": "The desired status of the service.",
-                      "enum": [
-                        "enabled",
-                        "disabled"
-                      ],
-                      "title": "Service Status",
-                      "type": "string"
-                    },
-                    "storage": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "className": {
-                          "description": "Optional storage class name override for persistent volumes.",
-                          "minLength": 1,
-                          "title": "Storage Class Name",
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
-                  "required": [
-                    "status"
-                  ],
-                  "type": "object"
-                },
                 "uptime-kuma": {
                   "additionalProperties": false,
                   "properties": {
@@ -9143,50 +8923,6 @@
                   "type": "object"
                 },
                 "reloader": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "networking": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "annotations": {
-                          "additionalProperties": {
-                            "type": "string"
-                          },
-                          "description": "Optional ingress annotation overrides for this service.",
-                          "title": "Ingress Annotations",
-                          "type": "object"
-                        }
-                      },
-                      "type": "object"
-                    },
-                    "status": {
-                      "description": "The desired status of the service.",
-                      "enum": [
-                        "enabled",
-                        "disabled"
-                      ],
-                      "title": "Service Status",
-                      "type": "string"
-                    },
-                    "storage": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "className": {
-                          "description": "Optional storage class name override for persistent volumes.",
-                          "minLength": 1,
-                          "title": "Storage Class Name",
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
-                  "required": [
-                    "status"
-                  ],
-                  "type": "object"
-                },
-                "traefik": {
                   "additionalProperties": false,
                   "properties": {
                     "networking": {
@@ -11283,50 +11019,6 @@
           "type": "object"
         },
         "reloader": {
-          "additionalProperties": false,
-          "properties": {
-            "networking": {
-              "additionalProperties": false,
-              "properties": {
-                "annotations": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "description": "Optional ingress annotation overrides for this service.",
-                  "title": "Ingress Annotations",
-                  "type": "object"
-                }
-              },
-              "type": "object"
-            },
-            "status": {
-              "description": "The desired status of the service.",
-              "enum": [
-                "enabled",
-                "disabled"
-              ],
-              "title": "Service Status",
-              "type": "string"
-            },
-            "storage": {
-              "additionalProperties": false,
-              "properties": {
-                "className": {
-                  "description": "Optional storage class name override for persistent volumes.",
-                  "minLength": 1,
-                  "title": "Storage Class Name",
-                  "type": "string"
-                }
-              },
-              "type": "object"
-            }
-          },
-          "required": [
-            "status"
-          ],
-          "type": "object"
-        },
-        "traefik": {
           "additionalProperties": false,
           "properties": {
             "networking": {

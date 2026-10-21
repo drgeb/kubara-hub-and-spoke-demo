@@ -20,7 +20,7 @@ kube-prometheus-stack:
       additionalLabels:
         monitoring.instance: hub-local
     ingress:
-      ingressClassName: traefik
+      ingressClassName: cilium
       annotations:
         cert-manager.io/cluster-issuer: letsencrypt-staging
       paths:
@@ -58,7 +58,7 @@ kube-prometheus-stack:
       additionalLabels:
         monitoring.instance: hub-local
     ingress:
-      ingressClassName: traefik
+      ingressClassName: cilium
       annotations:
         cert-manager.io/cluster-issuer: letsencrypt-staging
       paths:
@@ -162,7 +162,7 @@ kube-prometheus-stack:
       labels:
         monitoring.instance: hub-local
     ingress:
-      ingressClassName: traefik
+      ingressClassName: cilium
       annotations:
         cert-manager.io/cluster-issuer: letsencrypt-staging
       path: /grafana

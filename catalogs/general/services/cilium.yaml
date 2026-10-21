@@ -9,6 +9,7 @@ spec:
   chartPath: cilium
   status: enabled
   clusterTypes: [hub, spoke]
+  namespace: kube-system
   configSchema:
     type: object
     required: [clusterId]

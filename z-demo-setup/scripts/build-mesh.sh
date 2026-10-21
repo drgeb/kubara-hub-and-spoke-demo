@@ -481,6 +481,12 @@ install_cilium() {
         get deployment cilium-operator >/dev/null 2>&1; then
 
         log "Cilium is already installed on ${cluster_name}"
+        # Still roll the components: an existing install can carry a stale
+        # operator/agent config (e.g. an older kube-proxy-replacement or
+        # ingress-hostnetwork-enabled setting), which is exactly what makes
+        # the ingress stop being served.
+        restart_cilium_components "$context" "$cluster_name"
+        wait_for_cilium_ingress "$context" "$cluster_name"
         return
     fi
 
@@ -493,6 +499,11 @@ install_cilium() {
         --set "cluster.name=${cluster_name}"
         --set "cluster.id=${cluster_id}"
         --set "ipam.mode=kubernetes"
+        # Cilium's ingress controller hard-requires kube-proxy replacement
+        # (the operator logs "Ingress Controller support requires
+        # kube-proxy-replacement enabled" and silently never programs Ingress
+        # otherwise). Must match the catalog chart's cilium.values.yaml.
+        --set "kubeProxyReplacement=true"
         --set "clustermesh.apiserver.replicas=1"
         --set "prometheus.enabled=true"
         --set "hubble.metrics.enabled={dns,drop,tcp,flow,http,icmp}"
@@ -501,6 +512,12 @@ install_cilium() {
         # service in kube-system fronts every Ingress (see AGENTS.md).
         --set "ingressController.enabled=true"
         --set "ingressController.loadbalancerMode=shared"
+        # Host network mode is mutually exclusive with the LoadBalancer/NodePort
+        # service mode: it demotes cilium-ingress to a ClusterIP, so the
+        # cluster loses the LoadBalancer IP the dnsmasq map chases. Pin it off
+        # explicitly - the operator reads this flag once at startup and keeps
+        # generating host-network style listeners otherwise.
+        --set "ingressController.hostNetwork.enabled=false"
     )
     # Only the hub runs Prometheus Operator, so only it can consume
     # Cilium ServiceMonitors.
@@ -530,6 +547,87 @@ install_cilium() {
     if [ $? -ne 0 ]; then
         die "Failed to install Cilium on ${cluster_name}"
     fi
+
+    restart_cilium_components "$context" "$cluster_name"
+
+    # The shared-mode ingress LoadBalancer service is created asynchronously
+    # by the Cilium agent once the ingress controller reconciles, and
+    # cloud-provider-kind has to assign an IP to it. Wait for both here so
+    # every later consumer of the IP (dnsmasq map, OpenBao readiness) has a
+    # stable value instead of re-polling.
+    wait_for_cilium_ingress "$context" "$cluster_name"
+}
+
+# Restart the operator and the agent so the running config matches the
+# installed config.
+#
+# The operator reads ingress-hostnetwork-enabled from the cilium-config
+# ConfigMap exactly once, at startup, and keeps generating a host-network
+# style CEC (a single listener on 8080 with SNI filter chains) if it started
+# while that flag was on. The agent does not pick up kube-proxy-replacement
+# changes from the ConfigMap at all - it needs a restart. Without both
+# restarts the cilium-ingress service exposes 80/443 while the datapath
+# only proxies the ports the CEC mentions, and every Ingress silently stops
+# being served ("Empty reply from server" through the LoadBalancer).
+restart_cilium_components() {
+    local context="$1"
+    local cluster_name="$2"
+
+    echo "    Restarting cilium-operator and cilium agent on ${cluster_name}..."
+
+    kubectl \
+        --kubeconfig "$MESH_KUBECONFIG" \
+        --context "$context" \
+        -n kube-system \
+        rollout restart deploy/cilium-operator >/dev/null 2>&1 || true
+
+    kubectl \
+        --kubeconfig "$MESH_KUBECONFIG" \
+        --context "$context" \
+        -n kube-system \
+        rollout restart ds/cilium >/dev/null 2>&1 || true
+
+    kubectl \
+        --kubeconfig "$MESH_KUBECONFIG" \
+        --context "$context" \
+        -n kube-system \
+        rollout status deploy/cilium-operator --timeout=180s >/dev/null 2>&1 || true
+
+    kubectl \
+        --kubeconfig "$MESH_KUBECONFIG" \
+        --context "$context" \
+        -n kube-system \
+        rollout status ds/cilium --timeout=180s >/dev/null 2>&1 || true
+}
+
+wait_for_cilium_ingress() {
+    local context="$1"
+    local cluster_name="$2"
+    local timeout="${3:-180}"
+
+    echo "    Waiting for the cilium-ingress LoadBalancer on ${cluster_name}..."
+
+    local deadline=$((SECONDS + timeout))
+    local ip=""
+
+    while (( SECONDS < deadline )); do
+        ip="$(kubectl \
+            --kubeconfig "$MESH_KUBECONFIG" \
+            --context "$context" \
+            -n kube-system \
+            get svc cilium-ingress \
+            -o jsonpath='{.status.loadBalancer.ingress[0].ip}' \
+            2>/dev/null || true)"
+
+        if [[ -n "$ip" ]]; then
+            echo "    cilium-ingress on ${cluster_name} is at ${ip}"
+            return 0
+        fi
+
+        sleep 3
+    done
+
+    die "cilium-ingress LoadBalancer IP did not appear on ${cluster_name} within ${timeout}s"
 }
 
 install_all_cilium() {
@@ -938,7 +1036,7 @@ bootstrap_kubara_hub() {
 }
 
 # cloud-provider-kind must be running before the hub bootstrap so the first
-# LoadBalancer services (OpenBao, Traefik, Argo CD) get IPs; build-mesh.sh
+# LoadBalancer services (cilium-ingress, OpenBao, Argo CD) get IPs; build-mesh.sh
 # itself never starts it. No-op when already running, otherwise best-effort
 # auto-start and a clear error pointing at the exact commands to run.
 check_cloud_provider_kind() {
@@ -1050,11 +1148,16 @@ get_openbao_ingress_host() {
 }
 
 get_openbao_lb_ip() {
+    # The ingress LB IP must come from the shared cilium ingress service, not
+    # from the Ingress object: Cilium's ingress controller (loadbalancerMode
+    # shared) keeps a single cilium-ingress LoadBalancer service in kube-system
+    # and does NOT populate .status.loadBalancer on Ingress resources the way
+    # traefik did. Reading the Ingress status here yields an empty IP forever.
     kubectl \
         --kubeconfig "$PERSISTENT_HUB_KUBECONFIG" \
         --context "$HUB_CONTEXT" \
-        -n "$OPENBAO_NAMESPACE" \
-        get ingress openbao \
+        -n kube-system \
+        get svc cilium-ingress \
         -o jsonpath='{.status.loadBalancer.ingress[0].ip}' \
         2>/dev/null || true
 }

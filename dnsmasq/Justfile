@@ -174,23 +174,28 @@ refresh-lb-hosts:
         done
     fi
 
-    if [ "${#MISSING[@]}" -gt 0 ] || [ -z "$forgejo_ip" ]; then
+    if [ "${#MISSING[@]}" -gt 0 ]; then
         echo "ERROR: cannot read live LoadBalancer IPs; refusing to rewrite $CONF with a stale/partial map" >&2
         for m in "${MISSING[@]}"; do
             echo "  missing cilium-ingress LB IP: $m" >&2
         done
-        if [ -z "$forgejo_ip" ]; then
-            echo "  missing forgejo-ssh LB IP (kind-kubara-spoke-1/forgejo)" >&2
-        fi
         echo "NOTE: LB IPs are assigned ~30-90s after cluster nodes start." >&2
         echo "If clusters just restarted, wait and re-run this recipe." >&2
         exit 1
     fi
 
+    if [ -z "$forgejo_ip" ]; then
+        # forgejo-ssh is an extra LoadBalancer that only exists once forgejo is
+        # deployed on spoke-1. It is not part of the wildcard *.kubara.test
+        # map, so a missing one must not block the refresh - drop the entry
+        # instead of leaving a stale IP behind.
+        echo "WARN: no forgejo-ssh LoadBalancer on kind-kubara-spoke-1; dropping ${FORGEJO_SSH_HOST} from the map" >&2
+    fi
+
     for i in "${!DIMS[@]}"; do
         echo "${DIMS[$i]} -> ${IPS[$i]}"
     done
-    echo "$FORGEJO_SSH_HOST -> $forgejo_ip"
+    [ -n "$forgejo_ip" ] && echo "$FORGEJO_SSH_HOST -> $forgejo_ip"
 
     tmp=$(mktemp)
     cp "$CONF" "$tmp"
@@ -209,10 +214,14 @@ refresh-lb-hosts:
         printf 'address=/my.nexus.me/%s\n' "$spoke1_ip" >> "$tmp"
     fi
 
-    if grep -q "^address=/$FORGEJO_SSH_HOST/" "$tmp"; then
-        sed -i.bak "s#^address=/$FORGEJO_SSH_HOST/.*#address=/$FORGEJO_SSH_HOST/$forgejo_ip#" "$tmp"
+    if [ -n "$forgejo_ip" ]; then
+        if grep -q "^address=/$FORGEJO_SSH_HOST/" "$tmp"; then
+            sed -i.bak "s#^address=/$FORGEJO_SSH_HOST/.*#address=/$FORGEJO_SSH_HOST/$forgejo_ip#" "$tmp"
+        else
+            printf 'address=/%s/%s\n' "$FORGEJO_SSH_HOST" "$forgejo_ip" >> "$tmp"
+        fi
     else
-        printf 'address=/%s/%s\n' "$FORGEJO_SSH_HOST" "$forgejo_ip" >> "$tmp"
+        sed -i.bak "/^address=\/$FORGEJO_SSH_HOST\//d" "$tmp" 2>/dev/null || true
     fi
     rm -f "$tmp.bak"
     mv "$tmp" "$CONF"

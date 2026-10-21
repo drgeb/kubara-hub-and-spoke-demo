@@ -32,7 +32,9 @@ clusters:
             name: letsencrypt-staging
             server: https://acme-staging-v02.api.letsencrypt.org/directory
       cilium:
-        status: disabled
+        status: enabled
+        config:
+          clusterId: 1
       external-dns:
         status: disabled
       external-secrets:
@@ -124,6 +126,8 @@ clusters:
             server: https://acme-staging-v02.api.letsencrypt.org/directory
       cilium:
         status: enabled
+        config:
+          clusterId: 2
       external-dns:
         status: disabled
       external-secrets:
@@ -277,6 +281,8 @@ clusters:
             server: https://acme-staging-v02.api.letsencrypt.org/directory
       cilium:
         status: enabled
+        config:
+          clusterId: 3
       external-dns:
         status: disabled
       external-secrets:
@@ -372,6 +378,8 @@ clusters:
             server: https://acme-staging-v02.api.letsencrypt.org/directory
       cilium:
         status: enabled
+        config:
+          clusterId: 4
       external-dns:
         status: disabled
       external-secrets:
@@ -443,6 +451,8 @@ clusters:
             server: https://acme-staging-v02.api.letsencrypt.org/directory
       cilium:
         status: enabled
+        config:
+          clusterId: 5
       external-dns:
         status: disabled
       external-secrets:
@@ -514,6 +524,8 @@ clusters:
             server: https://acme-staging-v02.api.letsencrypt.org/directory
       cilium:
         status: enabled
+        config:
+          clusterId: 6
       external-dns:
         status: disabled
       external-secrets:

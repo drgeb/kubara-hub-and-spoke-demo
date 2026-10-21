@@ -1,5 +1,3 @@
-metaRedirect:
-  argocdRootEnabled: true
 bootstrapValues:
   projects:
     hub-local:
@@ -8,8 +6,7 @@ bootstrapValues:
         - "https://charts.external-secrets.io/"
         - "https://charts.jetstack.io"
         - "https://prometheus-community.github.io/helm-charts"
-        - "ghcr.io/traefik/helm"
-        - "oci://ghcr.io/traefik/helm"
+        - "https://helm.cilium.io/"
 dexRestarter:
   enabled: false
 argo-cd:
@@ -68,7 +65,7 @@ argo-cd:
       tls: true
     ingress:
       enabled: true
-      ingressClassName: traefik
+      ingressClassName: cilium
       annotations:
         cert-manager.io/cluster-issuer: kubara-local-ca-issuer
       tls: true

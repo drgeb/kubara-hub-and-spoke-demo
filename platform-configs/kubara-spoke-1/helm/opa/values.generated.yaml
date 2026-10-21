@@ -6,7 +6,7 @@ replicas: 1
 
 # OPA server configuration — disable the default quickstart bundle from
 # openpolicyagent.org (inaccessible in an airgapped kind cluster) and
-# expose an extra HTTP port for the Traefik ingress.
+# expose an extra HTTP port for the Cilium ingress.
 opa:
   services: {}
   bundles: {}

@@ -35,7 +35,7 @@ ingress:
     cert-manager.io/cluster-issuer: kubara-local-ca-issuer
   hostRepo: nexus.hub.kubara.test
   hostPath: /
-  ingressClassName: traefik
+  ingressClassName: cilium
   tls:
     - secretName: nexus-tls
       hosts:

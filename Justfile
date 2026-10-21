@@ -663,8 +663,8 @@ open-postgres19-shell:
     @: "${APP_POSTGRES_PASSWORD:?not set - run 'direnv allow' to load .env}"
     kubectl exec -it postgresql19-1 -n postgresql19 -- env "PGPASSWORD=$APP_POSTGRES_PASSWORD" psql -h 127.0.0.1 -U app -d app
 
-inspect-what-certificate-Traefik-is-serving:
-    @echo "Traefik is serving the following certificate:"
+inspect-what-certificate-cilium-is-serving:
+    @echo "Cilium is serving the following certificate:"
     echo | openssl s_client \
         -connect forgejo.{{SPOKE1_DNS_NAME}}:443 \
         -servername forgejo.{{SPOKE1_DNS_NAME}} \

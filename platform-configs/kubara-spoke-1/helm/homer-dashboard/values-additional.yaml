@@ -6,13 +6,6 @@ ingress:
 
 dashboardConfig:
   services:
-    - name: "Tools"
-      items:
-        - name: "traefik"
-          logo: "/assets/tools/traefik.png"
-          url: "https://traefik.spoke-1.kubara.test/traefik/"
-          subtitle: "Traefik Dashboard"
-          target: "_blank"
     - name: "DevOps Links"
       items:
         - name: "forgejo"

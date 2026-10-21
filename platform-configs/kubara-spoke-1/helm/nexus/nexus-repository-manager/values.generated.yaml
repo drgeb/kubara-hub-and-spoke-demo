@@ -35,7 +35,7 @@ ingress:
     cert-manager.io/cluster-issuer: kubara-local-ca-issuer
   hostRepo: nexus.spoke-1.kubara.test
   hostPath: /
-  ingressClassName: traefik
+  ingressClassName: cilium
   tls:
     - secretName: nexus-tls
       hosts:
@@ -44,4 +44,4 @@ ingress:
 namespace:
   labels:
     project-name: "kubara-spoke-1"
-    stage: "dev"
+    stage: "platform-engineering"
