@@ -7,6 +7,15 @@ bootstrapValues:
         - "https://charts.jetstack.io"
         - "https://prometheus-community.github.io/helm-charts"
         - "https://helm.cilium.io/"
+  applicationSets:
+    hub-local:
+      apps:
+        # Cilium lives in kube-system (bootstrapped there by build-mesh.sh).
+        # Without this, the appset defaults the destination namespace to the
+        # app name ("cilium"), and Helm renders the operator/agent RBAC
+        # subjects as cilium/<sa>, which crash-loops cilium-operator.
+        cilium:
+          namespace: kube-system
 dexRestarter:
   enabled: false
 argo-cd:
