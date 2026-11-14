@@ -20,6 +20,11 @@ SCRIPTS_DIR="${ROOT_DIR}/z-demo-setup/scripts"
 ENV_FILE="${ROOT_DIR}/.env"
 LOCAL_KUBECONFIG="${ROOT_DIR}/.local/kind.kubeconfig"
 LIQUIBASE_DIR="${ROOT_DIR}/z-demo-setup/liquibase"
+# Helm --wait timeout for liquibase hook jobs. Must cover first-run image
+# pulls (kubelet pulls serially behind postgres/bitnami on a fresh kind node)
+# and stay >= the jobs' activeDeadlineSeconds (900s), or helm marks the
+# release failed while the job is still on its way to succeeding.
+LIQUIBASE_HELM_TIMEOUT="${LIQUIBASE_HELM_TIMEOUT:-15m}"
 
 # ── Cluster / context ────────────────────────────────────────────────────────
 HUB_CONTEXT="kind-hub"
@@ -243,7 +248,7 @@ provision_liquibase_bootstrap() {
         --namespace postgresql \
         --kubeconfig "$KUBECONFIG" \
         --kube-context "$context" \
-        --wait --timeout 5m \
+        --wait --timeout "$LIQUIBASE_HELM_TIMEOUT" \
         -f "$tmp_values"
     rm -f "$tmp_values"
 }
@@ -261,7 +266,7 @@ provision_liquibase_migrations() {
             --namespace "$svc" \
             --kubeconfig "$KUBECONFIG" \
             --kube-context "$context" \
-            --wait --timeout 5m
+            --wait --timeout "$LIQUIBASE_HELM_TIMEOUT"
     done
 }
 

@@ -32,7 +32,9 @@ test_url() {
     local url="$2"
     local code
     code="$(curl -skL -o /dev/null -w '%{http_code}' \
-        --connect-timeout 8 --max-time 25 "$url" 2>/dev/null || echo 000)"
+        --connect-timeout 8 --max-time 25 "$url" 2>/dev/null || true)"
+    # curl's -w already prints 000 on failure; only default if it printed nothing.
+    code="${code:-000}"
     local ok=0
     [[ "$code" =~ ^[23][0-9][0-9]$ ]] && ok=1
     if (( ok )); then
