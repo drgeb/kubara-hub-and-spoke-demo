@@ -436,6 +436,9 @@ demo_delete_cloud_provider_kind_lbs() {
 
   if [ -n "$lb_containers" ]; then
     for cid in $lb_containers; do
+      # cloud-provider-kind removes its own LB containers as their cluster
+      # disappears, so one listed a moment ago may already be gone.
+      docker inspect "$cid" >/dev/null 2>&1 || continue
       printf 'Removing LB container: %s\n' "$cid"
       # shellcheck disable=SC2086
       demo_run docker rm -f "$cid" || \

@@ -510,6 +510,10 @@ go-hello-test:
 test-open-apps:
     ./z-demo-setup/scripts/test-open-apps.sh
 
+# Verify delete-kind-demo.sh left the host clean (read-only; exit 1 on any failure)
+test-teardown *args:
+    ./z-demo-setup/scripts/test-teardown.sh {{ args }}
+
 # Seed the ebank delivery pipeline (Argo CD repo creds + AppProject/Applications)
 # Safe to re-run; required again after `bring-up` recreates the cluster.
 ebank-setup:
