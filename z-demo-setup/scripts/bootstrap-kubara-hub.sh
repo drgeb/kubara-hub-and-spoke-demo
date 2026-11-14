@@ -184,10 +184,10 @@ repoint_argocd_ingress() {
   current_path="$(kubectl --kubeconfig "${HUB_KUBECONFIG}" -n "${ARGOCD_NAMESPACE}" \
       get ingress "${ARGOCD_INGRESS}" \
       -o jsonpath='{.spec.rules[0].http.paths[0].path}' 2>/dev/null || true)"
-  if [ "${current_host}" = "${ARGOCD_DNS_NAME}" ] && [ "${current_path}" = "/argocd" ]; then
-    echo "==> argocd ingress already git-driven: ${ARGOCD_DNS_NAME}/argocd"
+  if [ "${current_host}" = "${ARGOCD_DNS_NAME}" ] && [ "${current_path}" = "/" ]; then
+    echo "==> argocd ingress already git-driven: ${ARGOCD_DNS_NAME}/"
   else
-    echo "==> WARNING: argocd ingress is '${current_host}${current_path}' (expected ${ARGOCD_DNS_NAME}/argocd)." >&2
+    echo "==> WARNING: argocd ingress is '${current_host}${current_path}' (expected ${ARGOCD_DNS_NAME}/)." >&2
     echo "==> WARNING: host is set by platform-configs/hub/helm/argo-cd/values-additional.yaml; push main and let Argo sync." >&2
   fi
 }

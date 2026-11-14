@@ -67,13 +67,17 @@ argo-cd:
         memory: 256Mi
       limits:
         memory: 256Mi
+    # Argo CD has its own hostname, so serve it at "/" instead of kubara's
+    # default "/argocd" subpath (Cilium Ingress can't redirect "/" for us).
     ingressGrpc:
       enabled: false
+      path: "/"
       annotations:
         cert-manager.io/cluster-issuer: kubara-local-ca-issuer
       tls: true
     ingress:
       enabled: true
+      path: "/"
       ingressClassName: cilium
       annotations:
         cert-manager.io/cluster-issuer: kubara-local-ca-issuer
@@ -81,6 +85,9 @@ argo-cd:
   global:
     domain: argocd.hub.kubara.test
   configs:
+    params:
+      server.rootpath: ""
+      server.basehref: /
     rbac:
       policy.default: role:admin
       policy.csv: ""
