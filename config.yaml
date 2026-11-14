@@ -1,4 +1,4 @@
-version: v1alpha4
+version: v1alpha6
 clusters:
   - name: hub
     stage: local
@@ -6,11 +6,15 @@ clusters:
     dnsName: hub.kubara.test
     ssoOrg: local
     ssoTeam: local
-    ingressClassName: cilium
+    networking:
+      type: ingress
+      ingress:
+        className: cilium
     argocd:
       selfManaged: enabled
       repo:
-        https:
+        authMode: https
+        git:
           configs:
             url: https://github.com/drgeb/kubara-hub-and-spoke-demo.git
             targetRevision: main
@@ -96,10 +100,21 @@ clusters:
     stage: platform-engineering
     type: spoke
     dnsName: spoke-1.kubara.test
-    ingressClassName: cilium
+    networking:
+      type: ingress
+      ingress:
+        className: cilium
     argocd:
       selfManaged: disabled
-      repo: {}
+      repo:
+        authMode: https
+        git:
+          configs:
+            url: https://github.com/drgeb/kubara-hub-and-spoke-demo.git
+            targetRevision: main
+          components:
+            url: https://github.com/drgeb/kubara-hub-and-spoke-demo.git
+            targetRevision: main
     catalogs:
       - ./catalogs/platform-engineering
       - ./catalogs/backing-services
@@ -264,10 +279,21 @@ clusters:
     stage: poc
     type: spoke
     dnsName: spoke-2.kubara.test
-    ingressClassName: cilium
+    networking:
+      type: ingress
+      ingress:
+        className: cilium
     argocd:
       selfManaged: disabled
-      repo: {}
+      repo:
+        authMode: https
+        git:
+          configs:
+            url: https://github.com/drgeb/kubara-hub-and-spoke-demo.git
+            targetRevision: main
+          components:
+            url: https://github.com/drgeb/kubara-hub-and-spoke-demo.git
+            targetRevision: main
     catalogs:
       - ./catalogs/backing-services
       - ./catalogs/general
@@ -361,10 +387,21 @@ clusters:
     stage: dev
     type: spoke
     dnsName: dev.kubara.test
-    ingressClassName: cilium
+    networking:
+      type: ingress
+      ingress:
+        className: cilium
     argocd:
       selfManaged: disabled
-      repo: {}
+      repo:
+        authMode: https
+        git:
+          configs:
+            url: https://github.com/drgeb/kubara-hub-and-spoke-demo.git
+            targetRevision: main
+          components:
+            url: https://github.com/drgeb/kubara-hub-and-spoke-demo.git
+            targetRevision: main
     catalogs:
       - ./catalogs/backing-services
       - ./catalogs/general
@@ -434,10 +471,21 @@ clusters:
     stage: staging
     type: spoke
     dnsName: staging.kubara.test
-    ingressClassName: cilium
+    networking:
+      type: ingress
+      ingress:
+        className: cilium
     argocd:
       selfManaged: disabled
-      repo: {}
+      repo:
+        authMode: https
+        git:
+          configs:
+            url: https://github.com/drgeb/kubara-hub-and-spoke-demo.git
+            targetRevision: main
+          components:
+            url: https://github.com/drgeb/kubara-hub-and-spoke-demo.git
+            targetRevision: main
     catalogs:
       - ./catalogs/backing-services
       - ./catalogs/general
@@ -507,10 +555,21 @@ clusters:
     stage: prod
     type: spoke
     dnsName: prod.kubara.test
-    ingressClassName: cilium
+    networking:
+      type: ingress
+      ingress:
+        className: cilium
     argocd:
       selfManaged: disabled
-      repo: {}
+      repo:
+        authMode: https
+        git:
+          configs:
+            url: https://github.com/drgeb/kubara-hub-and-spoke-demo.git
+            targetRevision: main
+          components:
+            url: https://github.com/drgeb/kubara-hub-and-spoke-demo.git
+            targetRevision: main
     catalogs:
       - ./catalogs/backing-services
       - ./catalogs/general

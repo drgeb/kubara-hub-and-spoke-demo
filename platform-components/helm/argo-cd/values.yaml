@@ -5,10 +5,17 @@ dexRestarter:
   enabled: true
   image:
     repository: "alpine/kubectl"
-    tag: "1.37.0"
+    tag: "1.37.1"
   maxAttempts: "30"
   interval: "10"  # in seconds
   secretName: "oauth2-credentials"
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 10m
+      memory: 64Mi
 defaultProject:
   name: default
   description: |-
@@ -30,6 +37,8 @@ argo-cd:
   notifications:
     enabled: false
   global:
+    logging:
+      format: json
     env:
       - name: "TZ"
         value: "Europe/Berlin"
@@ -60,6 +69,14 @@ argo-cd:
       enabled: true
     readinessProbe:
       enabled: true
+  redisSecretInit:
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+      requests:
+        cpu: 10m
+        memory: 64Mi
   applicationSet:
     pdb:
       enabled: false

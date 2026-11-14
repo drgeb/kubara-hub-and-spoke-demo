@@ -4,6 +4,74 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.3] - 2026-10-12
+### Changed
+- Updated chart dependency version: argo-cd 10.10.2 → 10.10.3
+
+## [1.11.2] - 2026-10-09
+### Changed
+- Updated chart dependency version: argo-cd 10.10.1 → 10.10.2
+
+## [1.11.1] - 2026-10-08
+### Changed
+- Updated chart dependency version: argo-cd 10.10.0 → 10.10.1
+
+## [1.11.0] - 2026-10-07
+### Changed
+- Updated chart dependency version: argo-cd 10.9.7 → 10.10.0
+
+## [1.10.7] - 2026-10-07
+### Changed
+- Updated chart dependency version: argo-cd 10.9.6 → 10.9.7
+
+## [1.10.5] - 2026-10-01
+### Changed
+- Updated chart dependency version: argo-cd 10.9.5 → 10.9.6
+
+## [1.10.4] - 2026-09-30
+### Changed
+- Updated chart dependency version: argo-cd 10.9.4 → 10.9.5
+
+## [1.10.3] - 2026-09-29
+### Changed
+- Updated chart dependency version: argo-cd 10.9.2 → 10.9.4
+
+## [1.10.2] - 2026-09-17
+### Changed
+- Updated chart dependency version: argo-cd 10.9.1 → 10.9.2
+
+## [1.10.1] - 2026-09-14
+### Changed
+- Updated chart dependency version: argo-cd 10.9.0 → 10.9.1
+
+## [1.10.0] - 2026-09-11
+### Changed
+- Updated chart dependency version: argo-cd 10.8.4 → 10.9.0
+
+## [1.9.3] - 2026-09-09
+### Changed
+- Updated chart dependency version: argo-cd 10.8.2 → 10.8.4
+
+## [1.9.2] - 2026-09-07
+### Changed
+- Updated chart dependency version: argo-cd 10.8.1 → 10.8.2
+
+## [1.9.1] - 2026-09-07
+### Changed
+- Updated chart dependency version: argo-cd 10.8.0 → 10.8.1
+
+## [1.9.0] - 2026-09-04
+### Changed
+- Updated chart dependency version: argo-cd 10.7.2 → 10.8.0
+
+## [1.8.2] - 2026-09-04
+### Changed
+- Updated chart dependency version: argo-cd 10.7.1 → 10.7.2
+
+## [1.8.1] - 2026-09-03
+### Changed
+- Updated chart dependency version: argo-cd 10.7.0 → 10.7.1
+
 ## [1.8.0] - 2026-09-02
 ### Changed
 - Updated chart dependency version: argo-cd 10.6.4 → 10.7.0
