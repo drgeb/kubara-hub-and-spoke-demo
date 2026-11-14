@@ -56,9 +56,12 @@ test_portal() {
 
     sleep 4
 
+    # Argo CD runs with server.insecure: true (TLS ends at the Cilium
+    # ingress), so the port-forward reaches plain HTTP. An https:// probe
+    # fails the TLS handshake and also makes kubectl drop the tunnel.
     local code
-    code="$(curl -skL -o /dev/null -w '%{http_code}' \
-        --connect-timeout 5 --max-time 15 https://localhost:8080 2>/dev/null || echo 000)"
+    code="$(curl -sL -o /dev/null -w '%{http_code}' \
+        --connect-timeout 5 --max-time 15 http://localhost:8080 2>/dev/null || true)"
 
     if [[ -n "$PORTAL_PID" ]] && kill -0 "$PORTAL_PID" 2>/dev/null; then
         kill "$PORTAL_PID" 2>/dev/null || true
@@ -70,11 +73,11 @@ test_portal() {
     [[ "$code" =~ ^[23][0-9][0-9]$ ]] && ok=1
     if (( ok )); then
         PASS=$((PASS + 1))
-        printf '  PASS  %-18s %-4s %s\n' "$name" "$code" "https://localhost:8080"
+        printf '  PASS  %-18s %-4s %s\n' "$name" "$code" "http://localhost:8080"
     else
         FAIL=$((FAIL + 1))
         FAILED+=("$name ($code)")
-        printf '  FAIL  %-18s %-4s %s\n' "$name" "$code" "https://localhost:8080"
+        printf '  FAIL  %-18s %-4s %s\n' "$name" "$code" "http://localhost:8080"
     fi
 }
 

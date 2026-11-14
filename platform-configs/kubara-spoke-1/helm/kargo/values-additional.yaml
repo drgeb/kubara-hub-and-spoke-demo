@@ -1,0 +1,15 @@
+api:
+  ingress:
+    # Serve the Kargo UI/API over HTTPS with a cert from the cluster's local CA
+    # (the generated values disable TLS, so Cilium had no cert for the host).
+    annotations:
+      cert-manager.io/cluster-issuer: kubara-local-ca-issuer
+    # Cilium Ingress treats ImplementationSpecific "/" as an exact match;
+    # Prefix routes the UI's sub-paths too.
+    pathType: Prefix
+    tls:
+      enabled: true
+      # The secret is issued by cert-manager's ingress-shim from the annotation
+      # above, so the chart must not create its own self-signed Issuer.
+      selfSignedCert: false
+      secretName: kargo-api-ingress-cert

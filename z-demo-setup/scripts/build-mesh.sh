@@ -1105,7 +1105,7 @@ publish_spoke_kubeconfig() {
     local kubeconfig="$3"
     local openbao_addr="$4"
     local root_token="$5"
-    local openbao_host="$6"
+    local openbao_resolve="$6"
 
     local secret_path="${HUB_NAME}/${HUB_STAGE}/argocd/${cluster_name}-${spoke_stage}"
     local api_url="${openbao_addr}/v1/${OPENBAO_MOUNT}/data/${secret_path}"
@@ -1114,17 +1114,17 @@ publish_spoke_kubeconfig() {
         die "Internal kubeconfig not found: $kubeconfig"
 
     jq -Rs '{data: {kubeconfig: .}}' "$kubeconfig" |
-        curl -fsS \
+        curl -fsSk \
             --header "X-Vault-Token: ${root_token}" \
             --header 'Content-Type: application/json' \
-            --header "Host: ${openbao_host}" \
+            --resolve "$openbao_resolve" \
             --request POST \
             --data-binary @- \
             "$api_url" >/dev/null
 
-    curl -fsS \
+    curl -fsSk \
         --header "X-Vault-Token: ${root_token}" \
-        --header "Host: ${openbao_host}" \
+        --resolve "$openbao_resolve" \
         "$api_url" |
         jq -e '.data.data.kubeconfig | type == "string" and length > 0' \
         >/dev/null
@@ -1177,7 +1177,12 @@ get_openbao_lb_ip() {
 wait_for_openbao() {
     log "Waiting for OpenBao to become ready on the hub"
 
-    local deadline=$((SECONDS + 300))
+    # The OpenBao ingress is HTTPS-only (Cilium redirects http:// for TLS
+    # hosts) with a cert from the hub's local CA. That cert can only be issued
+    # once Argo CD has deployed cert-manager on the hub, so allow for it.
+    # --resolve sends SNI for the ingress host while connecting to the LB IP
+    # (no dependency on dnsmasq yet); -k because the local CA is not trusted.
+    local deadline=$((SECONDS + 600))
     local host=""
     local lb_ip=""
 
@@ -1187,19 +1192,19 @@ wait_for_openbao() {
 
         if [[ -n "$host" ]] &&
            [[ -n "$lb_ip" ]] &&
-             curl -fsS \
+             curl -fsSk \
                  --max-time 5 \
                  --connect-timeout 3 \
-                 -H "Host: ${host}" \
-                 "http://${lb_ip}/v1/sys/health" >/dev/null 2>&1; then
-            log "OpenBao is ready at http://${host}"
+                 --resolve "${host}:443:${lb_ip}" \
+                 "https://${host}/v1/sys/health" >/dev/null 2>&1; then
+            log "OpenBao is ready at https://${host}"
             return 0
         fi
 
         sleep 5
     done
 
-    die "OpenBao did not become ready within 300s (last host: ${host}, last LB IP: ${lb_ip})"
+    die "OpenBao did not become ready over HTTPS within 600s (last host: ${host}, last LB IP: ${lb_ip}; is the openbao-tls certificate issued?)"
 }
 
 publish_spoke_kubeconfigs_to_openbao() {
@@ -1239,9 +1244,12 @@ publish_spoke_kubeconfigs_to_openbao() {
     [[ -n "$root_token" ]] ||
         die "Could not read OpenBao root token"
 
-    local openbao_addr="http://${lb_ip}"
+    # HTTPS to the ingress host, pinned to the LB IP via --resolve (SNI must
+    # carry the host name for Cilium to pick the right cert).
+    local openbao_addr="https://${ingress_host}"
+    local openbao_resolve="${ingress_host}:443:${lb_ip}"
 
-    echo "    OpenBao: http://${ingress_host} (LB ${lb_ip})"
+    echo "    OpenBao: ${openbao_addr} (LB ${lb_ip})"
 
     for ((i = 1; i < CLUSTER_COUNT; i++)); do
         publish_spoke_kubeconfig \
@@ -1250,7 +1258,7 @@ publish_spoke_kubeconfigs_to_openbao() {
             "${INTERNAL_KUBECONFIGS[i]}" \
             "$openbao_addr" \
             "$root_token" \
-            "$ingress_host"
+            "$openbao_resolve"
     done
 
     unset root_token

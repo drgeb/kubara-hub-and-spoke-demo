@@ -145,7 +145,8 @@ repoint_host_in_file() {
   grep -q '\.traefik\.me' "${file}" || return 0
   tmp="$(mktemp "${ROOT_DIR}/.local/re-pin-host.XXXXXX")"
   sed -e 's/Host(`[^`]*`)/Host(`'"${host}"'`)/' \
-      -e 's#apiAddr: "http://[^"]*#apiAddr: "http://'"${host}"'#' \
+      -e 's#apiAddr: "http://[^"]*#apiAddr: "https://'"${host}"'#' \
+      -e 's#apiAddr: "https://[^"]*#apiAddr: "https://'"${host}"'#' \
       -e 's#^      - host: .*#      - host: '"${host}"'#' \
       "${file}" > "${tmp}"
   mv "${tmp}" "${file}"
@@ -164,14 +165,23 @@ repoint_openbao() {
   # would otherwise keep that stale class forever. Force the demo's cilium class
   # explicitly so the release self-heals on every run and its Ingress is actually
   # served (traefik is removed from the mesh).
+  # TLS: like every other demo ingress, OpenBao gets a cert from the hub's
+  # local CA via cert-manager's ingress-shim. Cilium enforces HTTPS for TLS
+  # hosts (http:// is redirected), so the demo scripts talk to
+  # https://${OPENBAO_DNS_NAME} with curl -k. In-cluster consumers (the
+  # external-secrets ClusterSecretStore) use the openbao service directly and
+  # are unaffected.
   helm upgrade openbao "${OPENBAO_CHART_REPO}/openbao" \
       --kubeconfig "${HUB_KUBECONFIG}" \
       --namespace "${OPENBAO_NAMESPACE}" \
       --reuse-values \
       --set "server.ingress.ingressClassName=cilium" \
       --set "server.ingress.hosts[0].host=${OPENBAO_DNS_NAME}" \
-      --set "server.ha.apiAddr=http://${OPENBAO_DNS_NAME}"
-  echo "==> OpenBao ingress/apiAddr re-pointed to ${OPENBAO_DNS_NAME} (ingressClassName=cilium)"
+      --set-string "server.ingress.annotations.cert-manager\.io/cluster-issuer=kubara-local-ca-issuer" \
+      --set "server.ingress.tls[0].secretName=openbao-tls" \
+      --set "server.ingress.tls[0].hosts[0]=${OPENBAO_DNS_NAME}" \
+      --set "server.ha.apiAddr=https://${OPENBAO_DNS_NAME}"
+  echo "==> OpenBao ingress/apiAddr re-pointed to https://${OPENBAO_DNS_NAME} (ingressClassName=cilium, local-CA TLS)"
 }
 
 reapply_argocd_from_git() {

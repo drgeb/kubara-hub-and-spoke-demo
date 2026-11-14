@@ -243,12 +243,12 @@ get_openbao_addr() {
             -o jsonpath='{.spec.rules[0].host}'
     )" 2>/dev/null || true
     if [[ -n "$host" ]]; then
-        OPENBAO_ADDR="http://${host}"
+        OPENBAO_ADDR="https://${host}"  # HTTPS-only ingress (local CA, hence curl -k)
     fi
 }
 
 verify_openbao() {
-    curl -fsS --max-time 5 \
+    curl -fsSk --max-time 5 \
         --header "X-Vault-Token: ${ROOT_TOKEN}" \
         "${OPENBAO_ADDR}/v1/sys/health" >/dev/null 2>&1
 }
@@ -258,14 +258,14 @@ publish_to_openbao() {
     local data_json="$2"
     local api_url="${OPENBAO_ADDR}/v1/${OPENBAO_MOUNT}/data/${path}"
 
-    echo "$data_json" | curl -fsS \
+    echo "$data_json" | curl -fsSk \
         --header "X-Vault-Token: ${ROOT_TOKEN}" \
         --header 'Content-Type: application/json' \
         --request POST \
         --data-binary @- \
         "$api_url" >/dev/null
 
-    curl -fsS --header "X-Vault-Token: ${ROOT_TOKEN}" "$api_url" |
+    curl -fsSk --header "X-Vault-Token: ${ROOT_TOKEN}" "$api_url" |
         jq -e '.data.data | length > 0' >/dev/null
 
     echo "    ${path}"

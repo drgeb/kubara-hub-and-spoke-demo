@@ -128,8 +128,8 @@ root_token="$(kubectl --kubeconfig "$HUB_KUBECONFIG" -n "$OPENBAO_NAMESPACE" \
   "tr -d '\n\r' < /openbao/data/local-bootstrap/init.json | sed -n 's/.*\"root_token\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p'")"
 [ -n "$root_token" ] || demo_die "Could not read the OpenBao root token"
 
-openbao_addr="http://${ingress_host}"
-curl -fsS --header "X-Vault-Token: ${root_token}" "${openbao_addr}/v1/sys/health" >/dev/null
+openbao_addr="https://${ingress_host}"  # HTTPS-only ingress (local CA, hence curl -k)
+curl -fsSk --header "X-Vault-Token: ${root_token}" "${openbao_addr}/v1/sys/health" >/dev/null
 printf 'OpenBao: %s\n' "$openbao_addr"
 
 while IFS='|' read -r cluster_name _kind_config; do
@@ -153,14 +153,14 @@ while IFS='|' read -r cluster_name _kind_config; do
   api_url="${openbao_addr}/v1/${OPENBAO_MOUNT}/data/${secret_path}"
 
   jq -Rs '{data: {kubeconfig: .}}' "$internal_kubeconfig" |
-    curl -fsS \
+    curl -fsSk \
       --header "X-Vault-Token: ${root_token}" \
       --header 'Content-Type: application/json' \
       --request POST \
       --data-binary @- \
       "$api_url" >/dev/null
 
-  curl -fsS --header "X-Vault-Token: ${root_token}" "$api_url" |
+  curl -fsSk --header "X-Vault-Token: ${root_token}" "$api_url" |
     jq -e '.data.data.kubeconfig | type == "string" and length > 0' >/dev/null
 
   printf 'Published %s/%s (field: kubeconfig)\n' "$OPENBAO_MOUNT" "$secret_path"

@@ -17,6 +17,9 @@ kube-prometheus-stack:
         memory: 100Mi
       limits:
         memory: 100Mi
+  # pathType must be Prefix: Cilium Ingress treats ImplementationSpecific "/"
+  # as an exact match, so redirects to /login (grafana) or /query
+  # (prometheus) would 404.
   prometheus:
     ingress:
       enabled: true
@@ -25,7 +28,7 @@ kube-prometheus-stack:
         cert-manager.io/cluster-issuer: kubara-local-ca-issuer
       paths:
         - /
-      pathType: ImplementationSpecific
+      pathType: Prefix
       hosts:
         - prometheus.hub.kubara.test
       tls:
@@ -48,7 +51,7 @@ kube-prometheus-stack:
         cert-manager.io/cluster-issuer: kubara-local-ca-issuer
       paths:
         - /
-      pathType: ImplementationSpecific
+      pathType: Prefix
       hosts:
         - alertmanager.hub.kubara.test
       tls:
@@ -70,7 +73,7 @@ kube-prometheus-stack:
       annotations:
         cert-manager.io/cluster-issuer: kubara-local-ca-issuer
       path: /
-      pathType: ImplementationSpecific
+      pathType: Prefix
       hosts:
         - grafana.hub.kubara.test
       tls:

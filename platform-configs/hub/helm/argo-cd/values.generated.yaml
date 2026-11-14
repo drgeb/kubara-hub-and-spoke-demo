@@ -73,7 +73,7 @@ bootstrapValues:
         remoteKey: hub/local/argocd/kubara-spoke-2-poc
         remoteKeyProperty: kubeconfig
       additionalLabels:
-        cert-manager: "disabled"
+        cert-manager: "enabled"
         cilium: "enabled"
         external-dns: "disabled"
         external-secrets: "enabled"

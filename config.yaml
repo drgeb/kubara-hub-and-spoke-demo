@@ -299,7 +299,7 @@ clusters:
       - ./catalogs/general
     services:
       cert-manager:
-        status: disabled
+        status: enabled
         config:
           clusterIssuer:
             email: developer@drgeb.com
