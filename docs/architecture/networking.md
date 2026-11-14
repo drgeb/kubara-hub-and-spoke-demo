@@ -8,7 +8,7 @@ Four networking layers make the demo work:
    cloud-provider-kind load balancers hang off this one bridge. Constants live
    in the root `Justfile` and `z-demo-setup/scripts/build-mesh.sh`:
    `MESH_DOCKER_SUBNET=172.19.0.0/16`, `MESH_DOCKER_GATEWAY=172.19.0.1`,
-   `MESH_DOCKER_IP_RANGE=172.19.0.10/28`. A second default `kind` network is
+   `MESH_DOCKER_IP_RANGE=172.19.0.0/24`. A second default `kind` network is
    kept for any unrelated local clusters (e.g. `test-cluster`) and is never
    force-detached by the demo (see `z-demo-setup/scripts/lib/kind-demo-common.sh`).
 2. **Cilium ClusterMesh** — per-cluster Cilium with unique `cluster.id`

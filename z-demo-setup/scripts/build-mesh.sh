@@ -16,7 +16,7 @@ KUBE_PROMETHEUS_STACK_VERSION="${KUBE_PROMETHEUS_STACK_VERSION:-88.6.3}"
 MESH_DOCKER_NETWORK="kubara-mesh"
 MESH_DOCKER_SUBNET="172.19.0.0/16"
 MESH_DOCKER_GATEWAY="172.19.0.1"
-MESH_DOCKER_IP_RANGE="172.19.0.10/28"
+MESH_DOCKER_IP_RANGE="172.19.0.0/24"
 
 DEMO_CLUSTER_CONFIG="${CONFIG_DIR}/kind-demo.yaml"
 
@@ -258,6 +258,17 @@ ensure_mesh_docker_network() {
 
     if docker network inspect "$MESH_DOCKER_NETWORK" >/dev/null 2>&1; then
         echo "    Docker network already exists"
+
+        # Docker cannot change a network's IPAM in place, so a network created
+        # with an older ip-range (e.g. the former /28, which ran out of
+        # addresses for LoadBalancers) is silently kept. Warn so it is noticed.
+        local live_range
+        live_range="$(docker network inspect "$MESH_DOCKER_NETWORK" \
+            -f '{{range .IPAM.Config}}{{.IPRange}}{{end}}')"
+        if [[ "$live_range" != "$MESH_DOCKER_IP_RANGE" ]]; then
+            echo "    WARNING: ${MESH_DOCKER_NETWORK} ip-range is '${live_range}', expected '${MESH_DOCKER_IP_RANGE}'." >&2
+            echo "    WARNING: tear down (delete-kind-demo.sh) and re-run to recreate the network." >&2
+        fi
 
         return
     fi

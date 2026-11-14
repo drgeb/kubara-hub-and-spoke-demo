@@ -36,7 +36,7 @@ idempotent DNS/LB bring-up for an already-built mesh. Repeated runs are safe.
 
 - Network fabric constants that *define* the docker network — keep these, do
   not "make them dynamic": `MESH_DOCKER_SUBNET=172.19.0.0/16`,
-  `MESH_DOCKER_GATEWAY=172.19.0.1`, `MESH_DOCKER_IP_RANGE=172.19.0.10/28`
+  `MESH_DOCKER_GATEWAY=172.19.0.1`, `MESH_DOCKER_IP_RANGE=172.19.0.0/24`
   (in root `Justfile` and `z-demo-setup/scripts/build-mesh.sh`, passed to
   `docker network create`).
 - Architecture docs (`docs/`, `observability-design-options.md`) may describe
