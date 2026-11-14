@@ -415,8 +415,6 @@ bring-up *args:
     echo "  just setup-uptime-kuma"
     echo "  just test-open-apps"
 
-
-
 # Stop all kind clusters (and their cloud-provider-kind load balancers) without deleting them
 kind-stop:
     #!/usr/bin/env bash

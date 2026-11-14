@@ -1046,10 +1046,10 @@ bootstrap_kubara_hub() {
     "${ROOT_DIR}/z-demo-setup/scripts/bootstrap-kubara-hub.sh"
 }
 
-# cloud-provider-kind must be running before the hub bootstrap so the first
-# LoadBalancer services (cilium-ingress, OpenBao, Argo CD) get IPs; build-mesh.sh
-# itself never starts it. No-op when already running, otherwise best-effort
-# auto-start and a clear error pointing at the exact commands to run.
+# cloud-provider-kind must be running before Cilium is installed so the first
+# LoadBalancer services (cilium-ingress, then OpenBao and Argo CD) get IPs.
+# No-op when already running, otherwise best-effort auto-start and a clear
+# error pointing at the exact commands to run.
 check_cloud_provider_kind() {
     local pidfile="${ROOT_DIR}/.cloud-provider-kind"
     local running=""
@@ -1074,9 +1074,10 @@ check_cloud_provider_kind() {
         return 0
     fi
 
-    die "cloud-provider-kind is required before bootstrap (LoadBalancer IPs). Run:
+    die "cloud-provider-kind is required before Cilium is installed (LoadBalancer IPs).
+sudo needs an interactive terminal: run this from a real terminal window, or first run
   sudo -v && just start-cloud-provider-kind
-then re-run this script (cluster creation is idempotent)."
+in that same terminal, then re-run this script (cluster creation is idempotent)."
 }
 
 generate_internal_kubeconfigs() {
@@ -1421,6 +1422,13 @@ main() {
     fi
 
     create_clusters
+
+    # cloud-provider-kind assigns LoadBalancer IPs. install_cilium blocks on the
+    # cilium-ingress LB IP (wait_for_cilium_ingress), so it must be running
+    # before Cilium is installed - not just before the hub bootstrap. Running
+    # it here also moves its sudo prompt to the start of the run.
+    check_cloud_provider_kind
+
     generate_kubeconfigs
     wait_for_api
 
@@ -1437,8 +1445,6 @@ main() {
     done
 
     wait_for_mesh_connections 300
-
-    check_cloud_provider_kind
 
     bootstrap_kubara_hub
     generate_internal_kubeconfigs
