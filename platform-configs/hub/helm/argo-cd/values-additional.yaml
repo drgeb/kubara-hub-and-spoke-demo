@@ -16,6 +16,12 @@ bootstrapValues:
         # subjects as cilium/<sa>, which crash-loops cilium-operator.
         cilium:
           namespace: kube-system
+          # Never cascade-delete the CNI. If the cluster secret's cilium label
+          # flips (a re-run of `kubara bootstrap hub` writes cilium=disabled),
+          # the appset drops hub-cilium; without this its finalizer deletes
+          # the Cilium DaemonSet/operator, pods lose networking, and the
+          # deletion deadlocks because argocd itself can't start a sandbox.
+          preserveResourcesOnDeletion: true
 dexRestarter:
   enabled: false
 argo-cd:
