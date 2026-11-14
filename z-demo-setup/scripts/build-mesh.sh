@@ -489,7 +489,7 @@ install_cilium() {
         --kubeconfig "$MESH_KUBECONFIG" \
         --context "$context" \
         -n kube-system \
-        get deployment cilium-operator >/dev/null 2>&1; then
+        get deployment/cilium-operator daemonset/cilium >/dev/null 2>&1; then
 
         log "Cilium is already installed on ${cluster_name}"
         # Still roll the components: an existing install can carry a stale
@@ -516,6 +516,15 @@ install_cilium() {
         # otherwise). Must match the catalog chart's cilium.values.yaml.
         --set "kubeProxyReplacement=true"
         --set "clustermesh.apiserver.replicas=1"
+        # The chart default NodePort (32379) sits in the dynamic NodePort
+        # band, so a random allocation (e.g. cilium-ingress) can take it first
+        # and `cilium clustermesh enable` then fails with "provided port is
+        # already allocated". 30000-30085 is the static band that dynamic
+        # allocation avoids (K8s >= 1.27), so pin it there.
+        --set "clustermesh.apiserver.service.nodePort=30079"
+        # One node per kind cluster and the operator binds host ports: a
+        # second replica (the chart default) can never be scheduled.
+        --set "operator.replicas=1"
         --set "prometheus.enabled=true"
         --set "hubble.metrics.enabled={dns,drop,tcp,flow,http,icmp}"
         # Ingress controller: replaces traefik as the cluster ingressClass
@@ -1040,10 +1049,40 @@ connect_clusters() {
     done
 }
 
+ensure_registry_cache() {
+    if [ "${KUBARA_REGISTRY_CACHE:-1}" = "0" ]; then
+        log "Registry cache disabled (KUBARA_REGISTRY_CACHE=0)"
+        return 0
+    fi
+    "${ROOT_DIR}/z-demo-setup/scripts/registry-cache.sh" up &&
+        "${ROOT_DIR}/z-demo-setup/scripts/registry-cache.sh" configure-nodes ||
+        echo "WARN: registry cache setup failed; continuing with direct upstream pulls" >&2
+}
+
 bootstrap_kubara_hub() {
     log "Bootstrapping Kubara hub"
 
     "${ROOT_DIR}/z-demo-setup/scripts/bootstrap-kubara-hub.sh"
+}
+
+# The hub bootstrap hands Cilium to Argo CD (the cilium ApplicationSet). A bad
+# cluster-secret label or appset change there can delete Cilium outright, and
+# the first visible symptom used to be an unrelated timeout much later
+# (postgres rollout, liquibase). Fail here, at the cause, instead.
+verify_cilium_after_bootstrap() {
+    log "Verifying Cilium is intact after the hub bootstrap"
+    local context
+    for context in "${CONTEXTS[@]}"; do
+        if ! kubectl --kubeconfig "$MESH_KUBECONFIG" --context "$context" \
+            -n kube-system get daemonset/cilium >/dev/null 2>&1; then
+            die "Cilium DaemonSet is gone on ${context} after the hub bootstrap.
+Argo CD most likely cascade-deleted it via the cilium ApplicationSet. Check:
+  kubectl --kubeconfig ${MESH_KUBECONFIG} --context kind-hub -n argocd get applications | grep cilium
+Recover with a rebuild: ./z-demo-setup/scripts/delete-kind-demo.sh && just bring-up"
+        fi
+        wait_for_cilium_cluster "$context" ||
+            die "Cilium is not healthy on ${context} after the hub bootstrap (see cilium status above)"
+    done
 }
 
 # cloud-provider-kind must be running before Cilium is installed so the first
@@ -1431,6 +1470,13 @@ main() {
 
     create_clusters
 
+    # Local pull-through image caches. Right after the clusters exist (so the
+    # nodes keep the first mesh IPs) and before Cilium (its images go through
+    # the cache too). Best-effort: nodes fall back to the upstream registries,
+    # so a cache problem must never fail the build. KUBARA_REGISTRY_CACHE=0
+    # disables it.
+    ensure_registry_cache
+
     # cloud-provider-kind assigns LoadBalancer IPs. install_cilium blocks on the
     # cilium-ingress LB IP (wait_for_cilium_ingress), so it must be running
     # before Cilium is installed - not just before the hub bootstrap. Running
@@ -1455,6 +1501,7 @@ main() {
     wait_for_mesh_connections 300
 
     bootstrap_kubara_hub
+    verify_cilium_after_bootstrap
     generate_internal_kubeconfigs
     set_values_to_publish_spoke_kubeconfigs_to_openbao
     wait_for_openbao

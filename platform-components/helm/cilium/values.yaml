@@ -16,9 +16,16 @@ cilium:
   clustermesh:
     apiserver:
       replicas: 1
+      service:
+        # Static NodePort band (30000-30085); the 32379 default can be taken
+        # by a dynamic allocation first. Keep in sync with build-mesh.sh.
+        nodePort: 30079
   prometheus:
     enabled: true
   operator:
+    # One node per kind cluster, and the operator binds host ports: a 2nd
+    # replica (chart default) can never schedule and the rollout hangs.
+    replicas: 1
     prometheus:
       enabled: true
   hubble:

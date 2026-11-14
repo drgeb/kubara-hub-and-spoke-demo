@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# sudo shim: notify the user right before sudo would block on "Password:".
+#
+# The demo's Justfiles and scripts prepend z-demo-setup/bin to PATH, so every
+# `sudo ...` they run lands here first. If sudo can run without prompting
+# (credentials cached, or the caller passed -n) this is a silent pass-through;
+# otherwise it fires notify-attention and then hands over to the real sudo,
+# which prompts as usual.
+
+REAL_SUDO=/usr/bin/sudo
+SHIM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+will_prompt=1
+for arg in "$@"; do
+    case "$arg" in
+        -n|--non-interactive) will_prompt=0; break ;;
+        --) break ;;
+        -*) ;;
+        *) break ;;  # first non-option = the command; stop scanning
+    esac
+done
+
+if [ "$will_prompt" = 1 ] && ! "$REAL_SUDO" -n true 2>/dev/null; then
+    "$SHIM_DIR/notify-attention" \
+        "kubara demo: sudo password needed" \
+        "$(basename "$PWD"): sudo $*"
+fi
+
+exec "$REAL_SUDO" "$@"

@@ -5,6 +5,14 @@ image:
   pullPolicy: IfNotPresent
 prometheus:
   enabled: true
+operator:
+  # One node per kind cluster; a 2nd replica can never schedule.
+  replicas: 1
+clustermesh:
+  apiserver:
+    replicas: 1
+    service:
+      nodePort: 30079   # static NodePort band, see build-mesh.sh
 hubble:
   enabled: true
   relay:

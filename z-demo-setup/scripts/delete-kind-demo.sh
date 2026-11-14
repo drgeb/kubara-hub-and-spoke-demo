@@ -176,6 +176,11 @@ demo_delete_cluster "$DEMO_HUB_CLUSTER_NAME" || failures=$((failures + 1))
 printf '\n=== Stopping cloud-provider-kind ===\n'
 stop_cloud_provider_kind || failures=$((failures + 1))
 
+printf '\n=== Detaching registry caches (kept for the next build) ===\n'
+# Running caches on kubara-mesh would block its removal; their volumes keep
+# the cached images. `registry-cache.sh purge` deletes them for real.
+"${SCRIPT_DIR}/registry-cache.sh" detach || true
+
 printf '\n=== Cleaning up Docker networks ===\n'
 demo_cleanup_demo_networks || failures=$((failures + 1))
 

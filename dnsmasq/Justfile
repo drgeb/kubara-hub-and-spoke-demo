@@ -2,6 +2,9 @@
 # Resolves <svc>.<cluster>.kubara.test -> that cluster's cilium-ingress LoadBalancer
 # and installs macOS /etc/resolver overrides for kubara.test and my.nexus.me.
 
+# sudo shim: notify (cmux/macOS) before any password prompt.
+export PATH := parent_directory(justfile_directory()) + "/z-demo-setup/bin:" + env_var("PATH")
+
 KUBECONFIG := parent_directory(justfile_directory()) + "/.local/kind.kubeconfig"
 CONF := justfile_directory() + "/config/dnsmasq.conf"
 RESOLVER_DIR := justfile_directory() + "/resolver"

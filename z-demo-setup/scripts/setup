@@ -4,6 +4,9 @@ set -Eeuo pipefail
 # Bring the local DNS + cloud-provider-kind layer up to match the current mesh.
 # Idempotent: re-runnable; every step is a no-op when already in the desired state.
 
+# sudo shim: notify (cmux/macOS) before the password prompt.
+PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/bin:${PATH}"; export PATH
+
 sudo -v   # cache credentials for the sudo-gated steps below
 
 # 1. Ensure cloud-provider-kind is running (no-op if already up). Starting it

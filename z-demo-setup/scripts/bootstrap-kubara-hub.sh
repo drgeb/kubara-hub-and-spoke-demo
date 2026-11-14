@@ -275,6 +275,26 @@ repoint_argocd_ingress() {
   fi
 }
 
+# Re-running kubara bootstrap against a hub that Argo CD already manages is
+# destructive: kubara applies its compiled-in hub cluster-secret labels
+# (cilium: "disabled") before the restore steps below put git's back. The
+# cilium ApplicationSet then drops hub-cilium, its resources-finalizer
+# cascade-deletes Cilium on the hub, the CNI is gone, and the Argo CD
+# controller can no longer start to finish (or undo) the deletion. Observed
+# 2026-11-14 on a plain `just bring-up` re-run. So bootstrap only once; every
+# re-pin step after this is idempotent and still runs.
+# Override (e.g. after changing kubara config) with KUBARA_FORCE_BOOTSTRAP=1.
+hub_already_bootstrapped() {
+  kubectl --kubeconfig "${HUB_KUBECONFIG}" --context kind-hub --request-timeout=10s \
+      -n "${ARGOCD_NAMESPACE}" get applicationsets.argoproj.io cilium >/dev/null 2>&1
+}
+
+if ! "${SKIP_BOOTSTRAP}" && [ "${KUBARA_FORCE_BOOTSTRAP:-0}" != "1" ] && hub_already_bootstrapped; then
+  echo "==> hub already bootstrapped (Argo CD manages it); skipping 'kubara bootstrap hub --local'"
+  echo "    (re-running it would cascade-delete Cilium on the hub; KUBARA_FORCE_BOOTSTRAP=1 to override)"
+  SKIP_BOOTSTRAP=true
+fi
+
 if ! "${SKIP_BOOTSTRAP}"; then
   echo "==> kubara bootstrap hub --local"
   if ! kubara bootstrap hub --local; then

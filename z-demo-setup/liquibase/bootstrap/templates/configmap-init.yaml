@@ -24,14 +24,19 @@ data:
     {{- range .Values.services }}
     echo "  -> Processing {{ .name }}..."
 
-    # Create role if not exists
-    PGPASSWORD="$POSTGRES_PASSWORD" psql -h {{ $.Values.db.host }} -p {{ $.Values.db.port }} -U postgres -c "
+    # Create the role, or re-sync its password if it already exists: the app
+    # reads the password from its k8s secret (.env), so a role left with an
+    # older password makes the app crash-loop on "password authentication
+    # failed" even though every re-run of this job "succeeds".
+    PGPASSWORD="$POSTGRES_PASSWORD" psql -v ON_ERROR_STOP=1 -h {{ $.Values.db.host }} -p {{ $.Values.db.port }} -U postgres -c "
       DO \$$ BEGIN
         IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{{ .name }}') THEN
           CREATE ROLE {{ .name }} LOGIN PASSWORD '$(cat /secrets/{{ .name }}-password)';
+        ELSE
+          ALTER ROLE {{ .name }} WITH LOGIN PASSWORD '$(cat /secrets/{{ .name }}-password)';
         END IF;
       END \$$;
-    " || echo "    WARN: Role {{ .name }} creation skipped (may already exist)"
+    "
 
     # Create database if not exists
     PGPASSWORD="$POSTGRES_PASSWORD" psql -h {{ $.Values.db.host }} -p {{ $.Values.db.port }} -U postgres -c "

@@ -5,3 +5,10 @@ networking:
   podSubnet: "10.40.0.0/16"
   serviceSubnet: "10.99.0.0/16"
 
+# Let containerd read per-registry mirror config from certs.d, which
+# z-demo-setup/scripts/registry-cache.sh fills with the local pull-through
+# caches (cache first, upstream fallback). Only applied at cluster creation.
+containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".registry]
+      config_path = "/etc/containerd/certs.d"

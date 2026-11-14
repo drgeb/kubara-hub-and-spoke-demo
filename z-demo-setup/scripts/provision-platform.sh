@@ -270,6 +270,41 @@ provision_liquibase_migrations() {
     done
 }
 
+# DB-backed apps (keycloak, openproject, apicurio) are deployed by Argo CD
+# and usually start before their role/database exist, so they crash-loop on
+# "password authentication failed". Once provisioning has created them, the
+# pods would only recover after their back-off (up to 5 min) — long enough
+# for test-open-apps to report 503. Restart just the crash-looping ones now.
+restart_crashlooping_db_apps() {
+    local context="$1"
+    local services="$2"
+    local svc pod
+    [[ "$context" == "$SPOKE1_CONTEXT" ]] || return 0
+    local job
+    for svc in $services; do
+        # Argo-managed setup Jobs (e.g. openproject-seeder-1) that ran before
+        # the database existed stay Failed forever under their fixed name, and
+        # the app waits on their migrations indefinitely. Delete them so Argo
+        # selfHeal recreates and re-runs them against the now-ready database.
+        while read -r job; do
+            [[ -n "$job" ]] || continue
+            log "Deleting failed ${svc}/${job} so Argo CD re-runs it"
+            kubectl --kubeconfig "$KUBECONFIG" --context "$context" \
+                -n "$svc" delete job "$job" --wait=false >/dev/null || true
+        done < <(kubectl --kubeconfig "$KUBECONFIG" --context "$context" -n "$svc" \
+            get jobs -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.failed}{" "}{.status.conditions[*].type}{"\n"}{end}' \
+            2>/dev/null | awk '/ Failed/ {print $1}')
+        while read -r pod; do
+            [[ -n "$pod" ]] || continue
+            log "Restarting crash-looping ${svc}/${pod} now that its database exists"
+            kubectl --kubeconfig "$KUBECONFIG" --context "$context" \
+                -n "$svc" delete pod "$pod" --wait=false >/dev/null || true
+        done < <(kubectl --kubeconfig "$KUBECONFIG" --context "$context" -n "$svc" \
+            get pods -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.initContainerStatuses[*].state.waiting.reason}{" "}{.status.containerStatuses[*].state.waiting.reason}{" "}{.status.initContainerStatuses[*].state.terminated.reason}{"\n"}{end}' \
+            2>/dev/null | awk '/CrashLoopBackOff| Error/ {print $1}')
+    done
+}
+
 provision_liquibase() {
     local context services
     for context in "${POSTGRES_CONTEXTS[@]}"; do
@@ -280,6 +315,7 @@ provision_liquibase() {
         services="$(services_for_cluster "$context")"
         provision_liquibase_bootstrap "$context" "$services"
         provision_liquibase_migrations "$context" "$services"
+        restart_crashlooping_db_apps "$context" "$services"
     done
 }
 

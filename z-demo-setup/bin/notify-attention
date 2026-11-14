@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# notify-attention TITLE [BODY]
+#
+# Alert the user that the demo scripts need them (sudo password, a failed
+# bring-up, ...). Best-effort: never fails the caller.
+#
+#   1. cmux (when running inside it): `cmux notify` + flash the pane, so the
+#      notification points at the exact terminal that is waiting.
+#   2. otherwise: a macOS notification via osascript.
+#   3. plus an audible chime, since the user is often in another app.
+#
+# Opt out with KUBARA_NOTIFY=0; change the chime with KUBARA_NOTIFY_SOUND
+# (path to an .aiff, or "none").
+
+[ "${KUBARA_NOTIFY:-1}" = "0" ] && exit 0
+
+title="${1:-kubara demo needs you}"
+body="${2:-}"
+# Keep banners readable.
+[ "${#body}" -gt 120 ] && body="${body:0:117}..."
+
+sent=0
+if [ -n "${CMUX_SOCKET_PATH:-}${CMUX_SOCKET:-}" ] && command -v cmux >/dev/null 2>&1; then
+    if cmux notify --title "$title" --body "$body" >/dev/null 2>&1; then
+        sent=1
+        cmux trigger-flash >/dev/null 2>&1 || true
+    fi
+fi
+
+if [ "$sent" = 0 ] && command -v osascript >/dev/null 2>&1; then
+    # Pass text as argv so quotes in it cannot break the AppleScript.
+    osascript - "$title" "$body" >/dev/null 2>&1 <<'APPLESCRIPT' || true
+on run argv
+    display notification (item 2 of argv) with title (item 1 of argv)
+end run
+APPLESCRIPT
+fi
+
+sound="${KUBARA_NOTIFY_SOUND:-/System/Library/Sounds/Glass.aiff}"
+if [ "$sound" != "none" ] && [ -f "$sound" ] && command -v afplay >/dev/null 2>&1; then
+    (afplay "$sound" >/dev/null 2>&1 &)
+fi
+
+exit 0

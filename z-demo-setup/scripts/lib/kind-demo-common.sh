@@ -5,6 +5,13 @@ DEMO_SETUP_ROOT="$(cd "${DEMO_LIB_DIR}/../.." && pwd)"
 DEMO_REPO_ROOT="$(cd "${DEMO_SETUP_ROOT}/.." && pwd)"
 DEMO_DEFAULT_CONFIG="${DEMO_SETUP_ROOT}/config/kind-demo.yaml"
 
+# Route sudo through the notify-on-prompt shim (cmux/macOS alert before
+# "Password:"). Guarded so re-sourcing does not stack PATH entries.
+case ":${PATH}:" in
+  *":${DEMO_SETUP_ROOT}/bin:"*) ;;
+  *) PATH="${DEMO_SETUP_ROOT}/bin:${PATH}"; export PATH ;;
+esac
+
 # Docker resources created by the demo's mesh setup (build-mesh.sh).
 # The 'kind' default network is shared by all local kind clusters.
 DEMO_MESH_DOCKER_NETWORK="kubara-mesh"

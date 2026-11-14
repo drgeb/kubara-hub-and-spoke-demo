@@ -4,6 +4,10 @@
 # PLTFME (platform engineering: forgejo, kargo, harbor, nexus, keycloak, ...)
 # on kubara-spoke-1; DEV apps on kubara-spoke-2.
 
+# z-demo-setup/bin holds a sudo shim that fires a cmux/macOS notification
+# before any sudo password prompt (see z-demo-setup/bin/sudo).
+export PATH := justfile_directory() + "/z-demo-setup/bin:" + env_var("PATH")
+
 KUBARA_KUBECONFIG:=".local/kind.kubeconfig"
 
 MESH_DOCKER_NETWORK:="kubara-mesh"
@@ -372,6 +376,17 @@ stop-dnsmasq:
 # Refresh the per-cluster dnsmasq address= map from the live cilium-ingress
 # LoadBalancer IPs (plus the forgejo-ssh LB on spoke-1) and restart dnsmasq.
 # Refuses to write a partial/stale map if any LB IP is missing.
+# Local pull-through image caches for the kind nodes (up | configure-nodes |
+# detach | status | purge). bring-up runs `up` + `configure-nodes` itself.
+registry-cache *args:
+    ./z-demo-setup/scripts/registry-cache.sh {{args}}
+
+# Snapshot why the mesh is unhealthy: host, DNS/LB map, per-cluster pods,
+# events, image-pull timings, Argo CD apps. Writes .local/diagnostics/<ts>/.
+# Read-only; runs automatically when bring-up fails.
+diagnose *args:
+    ./z-demo-setup/scripts/diagnose.sh {{args}}
+
 # Needs the user's sudo password for the dnsmasq restart.
 refresh-dns-lb-hosts:
     just -f dnsmasq/Justfile refresh-lb-hosts
@@ -385,6 +400,20 @@ refresh-dns-lb-hosts:
 bring-up *args:
     #!/usr/bin/env bash
     set -euo pipefail
+    # Long, mostly unattended run. On failure, snapshot the mesh immediately
+    # (events expire after ~1h) and then alert.
+    on_exit() {
+        rc=$?
+        if [ "$rc" -eq 0 ]; then
+            notify-attention "kubara bring-up finished" "Mesh is up; run just test-open-apps"
+            return
+        fi
+        echo
+        echo "==> bring-up failed (exit $rc); capturing diagnostics..."
+        ./z-demo-setup/scripts/diagnose.sh || true
+        notify-attention "kubara bring-up FAILED" "exit $rc - diagnostics in .local/diagnostics/"
+    }
+    trap on_exit EXIT
     ./z-demo-setup/scripts/build-mesh.sh {{args}}
 
     KCFG="{{ KUBARA_KUBECONFIG }}"

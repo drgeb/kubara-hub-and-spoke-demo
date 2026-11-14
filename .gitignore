@@ -73,6 +73,8 @@ out/
 /go.sum
 /go.mod
 bin/
+# demo helper scripts (sudo notify shim) are source, not build output
+!z-demo-setup/bin/
 **/.cloud-provider-kind
 **/.cloud-provider-kind.log
 .aider*
