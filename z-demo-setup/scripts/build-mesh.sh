@@ -1397,13 +1397,18 @@ main() {
     check_prerequisites
     ensure_cilium_helm_repo
     ensure_prometheus_helm_repo
+
+    # Create the mesh network (pinned to MESH_DOCKER_SUBNET) BEFORE the
+    # unpinned 'kind' network: otherwise Docker may hand 'kind' the same free
+    # /16 right after a teardown, and the mesh create fails with
+    # "failed to allocate gateway ... Address already in use".
+    ensure_mesh_docker_network
     check_kind_network
 
     if "$REBUILD"; then
         rebuild_clusters
     fi
 
-    ensure_mesh_docker_network
     create_clusters
     generate_kubeconfigs
     wait_for_api
