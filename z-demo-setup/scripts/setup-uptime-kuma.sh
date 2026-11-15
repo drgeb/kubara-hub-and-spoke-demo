@@ -28,6 +28,27 @@ kubectl --kubeconfig "$KC" --context "$CONTEXT" rollout status deploy/uptime-kum
 POD="$(kubectl --kubeconfig "$KC" --context "$CONTEXT" -n "$NS" get pod -o jsonpath='{.items[?(@.status.phase=="Running")].metadata.name}' | awk '{print $1}')"
 [ -n "$POD" ] || { echo "no running uptime-kuma pod found" >&2; exit 1; }
 
+kx() { kubectl --kubeconfig "$KC" --context "$CONTEXT" -n "$NS" exec "$POD" -- "$@"; }
+
+# Ready != migrated: the pod listens before kuma.db exists and its schema
+# (the `user` table) is created. Uptime Kuma 2.x also never creates kuma.db
+# while it sits in its "Setup Database" wizard (no data/db-config.json).
+echo ">> Waiting for the Uptime Kuma database to be initialised..."
+i=0
+until kx sqlite3 -readonly /app/data/kuma.db "SELECT 1 FROM user LIMIT 1;" >/dev/null 2>&1; do
+    if [ "$i" -ge 60 ]; then
+        if ! kx test -f /app/data/db-config.json; then
+            echo "Uptime Kuma is waiting in its 'Setup Database' wizard (no /app/data/db-config.json)." >&2
+            echo "Its chart must set env UPTIME_KUMA_DB_TYPE=sqlite (platform-components/helm/uptime-kuma/values.yaml);" >&2
+            echo "push that to main and let Argo CD roll the pod, then re-run this script." >&2
+        else
+            echo "kuma.db still has no 'user' table after 120s; check: kubectl logs -n ${NS} ${POD}" >&2
+        fi
+        exit 1
+    fi
+    i=$((i + 1)); sleep 2
+done
+
 EXISTING="$(kubectl --kubeconfig "$KC" --context "$CONTEXT" -n "$NS" exec "$POD" -- sqlite3 -readonly /app/data/kuma.db "SELECT username FROM user;")"
 if [ -n "$EXISTING" ]; then
     if [ "$RESET" = true ]; then

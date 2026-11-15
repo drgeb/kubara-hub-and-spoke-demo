@@ -7,6 +7,11 @@ image:
   tag: "2"
   repository: louislam/uptime-kuma
   pullPolicy: IfNotPresent
+# Uptime Kuma 2.x starts a browser "Setup Database" wizard and creates no
+# data/kuma.db until someone picks a DB type. Choosing SQLite via env skips
+# the wizard so setup-uptime-kuma.sh can seed the admin user unattended.
+env:
+  UPTIME_KUMA_DB_TYPE: sqlite
 container:
   port: 3001
 service:
