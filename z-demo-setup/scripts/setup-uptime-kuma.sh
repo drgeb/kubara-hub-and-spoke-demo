@@ -67,4 +67,10 @@ kubectl --kubeconfig "$KC" --context "$CONTEXT" -n "$NS" exec "$POD" -- \
 
 COUNT="$(kubectl --kubeconfig "$KC" --context "$CONTEXT" -n "$NS" exec "$POD" -- sqlite3 -readonly /app/data/kuma.db "SELECT COUNT(*) FROM user;")"
 echo "Created Uptime Kuma admin '${UPTIME_KUMA_ADMIN_USER}' (users in db: ${COUNT})."
+
+# Uptime Kuma decides "needs setup" once at startup (empty user table) and
+# caches it, so every request keeps redirecting to /setup until it restarts.
+echo ">> Restarting Uptime Kuma so it picks up the new admin..."
+kubectl --kubeconfig "$KC" --context "$CONTEXT" -n "$NS" rollout restart deploy/uptime-kuma >/dev/null
+kubectl --kubeconfig "$KC" --context "$CONTEXT" -n "$NS" rollout status deploy/uptime-kuma --timeout=180s >/dev/null
 echo "Refresh https://uptime-kuma.spoke-2.kubara.test/ — log in with UPTIME_KUMA_ADMIN_USER / UPTIME_KUMA_PASSWORD."

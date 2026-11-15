@@ -27,16 +27,30 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# test_url NAME URL [BAD_FINAL_URL_REGEX HINT]
+# The optional regex fails the check when redirects end on a URL that returns
+# 200 but means "not usable yet" (e.g. Uptime Kuma's /setup first-run page).
 test_url() {
     local name="$1"
     local url="$2"
-    local code
-    code="$(curl -skL -o /dev/null -w '%{http_code}' \
+    local bad_re="${3:-}"
+    local hint="${4:-}"
+    local out code final
+    out="$(curl -skL -o /dev/null -w '%{http_code} %{url_effective}' \
         --connect-timeout 8 --max-time 25 "$url" 2>/dev/null || true)"
+    code="${out%% *}"
+    final="${out#* }"
     # curl's -w already prints 000 on failure; only default if it printed nothing.
     code="${code:-000}"
     local ok=0
     [[ "$code" =~ ^[23][0-9][0-9]$ ]] && ok=1
+    if (( ok )) && [[ -n "$bad_re" && "$final" =~ $bad_re ]]; then
+        FAIL=$((FAIL + 1))
+        FAILED+=("$name (redirected to ${final})")
+        printf '  FAIL  %-18s %-4s %s -> %s\n' "$name" "$code" "$url" "$final"
+        [[ -z "$hint" ]] || printf '        %s\n' "$hint"
+        return
+    fi
     if (( ok )); then
         PASS=$((PASS + 1))
         printf '  PASS  %-18s %-4s %s\n' "$name" "$code" "$url"
@@ -152,7 +166,8 @@ test_url keycloak      https://keycloak.spoke-1.kubara.test/
 
 echo
 echo "dev"
-test_url uptime-kuma   https://uptime-kuma.spoke-2.kubara.test/
+test_url uptime-kuma   https://uptime-kuma.spoke-2.kubara.test/ '/setup(-database)?/?$' \
+    "no admin yet (or not restarted after seeding): run 'just setup-uptime-kuma'"
 # test_url go-hello      http://go-hello.dev.kubara.test/
 
 # for env in dev staging prod; do
