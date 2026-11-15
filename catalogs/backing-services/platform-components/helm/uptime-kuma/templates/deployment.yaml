@@ -18,6 +18,12 @@ spec:
         release: {{.Release.Name }}
     spec:
       securityContext:
+        # Run as the image's `node` user. As root with all capabilities but
+        # CHOWN/SETGID/SETUID dropped, Uptime Kuma 2.x cannot copy its
+        # template db into data/ (EPERM/EACCES) and crash-loops.
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
