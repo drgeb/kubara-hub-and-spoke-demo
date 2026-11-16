@@ -96,10 +96,10 @@ clusters:
           backupStorage:
             create: true
             region: eu01
-  - name: kubara-spoke-1
+  - name: kubara-platform-engineering
     stage: platform-engineering
     type: spoke
-    dnsName: spoke-1.kubara.test
+    dnsName: platform-engineering.kubara.test
     networking:
       type: ingress
       ingress:
@@ -169,7 +169,7 @@ clusters:
             - my.harbor.me
           adminPassword: Harbor12345
           databasePassword: changeit
-          hostname: harbor.spoke-1.kubara.test
+          hostname: harbor.platform-engineering.kubara.test
           networking:
             annotations: {}
           persistence:

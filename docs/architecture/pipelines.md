@@ -8,7 +8,7 @@ source (Forgejo) → image build → registry (Harbor) → progressive delivery
 
 A canonical "source → artifact → environment" pipeline.
 
-1. **Forgejo** (spoke-1) hosts the source repository and runs Actions CI.
+1. **Forgejo** (platform-engineering) hosts the source repository and runs Actions CI.
 2. **Harbor** receives built images using a robot account (secrets
    `HARBOR_USERNAME` / `HARBOR_PASSWORD` on the Forgejo repo).
 3. **Kargo** watches the image as *freight* and promotes it through stages.
@@ -47,7 +47,7 @@ The stock Kargo guestbook sample promoted through `dev` and `prod` stages:
 
 ## Supporting recipes
 
-- `just kargo-cli-login` — `kargo login http://kargo.spoke-1.kubara.test`
+- `just kargo-cli-login` — `kargo login http://kargo.platform-engineering.kubara.test`
   with the admin password from `.env`.
 - `just push-forgejo-build-image` /
   `just set-forgejo-harbor-secrets` — create the `forgejo-build-image` repo in

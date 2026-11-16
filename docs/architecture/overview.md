@@ -15,7 +15,7 @@ This repo builds a **hub-and-spoke multi-cluster lab** entirely on one machine:
 - **OpenBao** (Vault fork) is the secret backing store: spoke kubeconfigs and
   platform credentials are published there and materialized into Kubernetes
   Secrets by External Secrets.
-- Platform-engineering tools run on `kubara-spoke-1`; `dev` / `staging` /
+- Platform-engineering tools run on `kubara-platform-engineering`; `dev` / `staging` /
   `prod` spokes consume them.
 
 ## Topology
@@ -25,7 +25,7 @@ Six kind clusters, one Docker network, one DNS zone:
 | Cluster | Stage (`config.yaml`) | Cilium ID | Role |
 | --- | --- | --- | --- |
 | `hub` | `local` | 1 | Control plane + observability |
-| `kubara-spoke-1` | `platform-engineering` | 2 | Platform tools |
+| `kubara-platform-engineering` | `platform-engineering` | 2 | Platform tools |
 | `kubara-poc` | `poc` | 3 | POC / evaluation services |
 | `kubara-dev` | `dev` | 4 | Workload target (dev) |
 | `kubara-staging` | `staging` | 5 | Workload target (staging) |
@@ -44,7 +44,7 @@ git main ──────────► Argo CD (hub) ───────�
                         ├─ materialized cluster secrets
                         │      (kubeconfigs published via OpenBao)
                         ▼
-              platform tools on spoke-1
+              platform tools on platform-engineering
                         │
                         ▼
               dev / staging / prod workloads
@@ -55,7 +55,7 @@ git main ──────────► Argo CD (hub) ───────�
 
 ## What lives on which cluster
 
-| Component | Hub | spoke-1 | poc | dev | staging | prod |
+| Component | Hub | platform-engineering | poc | dev | staging | prod |
 | --- | :-: | :-: | :-: | :-: | :-: | :-: |
 | Argo CD | ✔ (self-managed) | managed | managed | managed | managed | managed |
 | Traefik ingress | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |

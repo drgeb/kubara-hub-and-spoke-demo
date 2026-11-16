@@ -92,7 +92,7 @@ Every concept below depends on this answer, and the repo does not record it.
 
 * **Problem:** Cluster names, stages and IDs are written in seven places
   (analysis §3). Stages already disagree: `create-platform-secrets.sh` labels
-  spoke-1 `dev` and poc `prod`, while `config.yaml` says
+  platform-engineering `dev` and poc `prod`, while `config.yaml` says
   `platform-engineering` and `poc`. As a result, OpenBao paths written by
   `build-mesh.sh` (from `config.yaml`) and by `create-platform-secrets.sh` use
   different stage segments.
@@ -113,7 +113,7 @@ Every concept below depends on this answer, and the repo does not record it.
   (§5.5). Argo CD and the metrics scraping use the shared Docker network.
 * **Possible directions:** keep it and add one feature that needs it (for
   example, a global service so dev/staging/prod reach shared PostgreSQL or
-  Harbor on spoke-1, or Hubble flows across clusters); or make it an opt-in
+  Harbor on platform-engineering, or Hubble flows across clusters); or make it an opt-in
   flag and drop it from the default bring-up.
 * **Risks to raise:** removing it may remove the main learning value if
   Concept 0 says the lab is about Cilium. Adding a dependency on it makes
@@ -131,7 +131,7 @@ Every concept below depends on this answer, and the repo does not record it.
   under version control; define a single `just verify` that runs after
   bring-up and checks named endpoints and one pipeline promotion; add CI
   linting (shellcheck, `helm template`) where full clusters cannot run.
-* **Risks to raise:** a full pipeline check needs all of spoke-1's heavy
+* **Risks to raise:** a full pipeline check needs all of platform-engineering's heavy
   services, which run into the laptop memory limits (§5.5). CI cannot run six
   kind clusters on free runners.
 

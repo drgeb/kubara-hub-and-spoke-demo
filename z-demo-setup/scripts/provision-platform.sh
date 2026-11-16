@@ -28,17 +28,17 @@ LIQUIBASE_HELM_TIMEOUT="${LIQUIBASE_HELM_TIMEOUT:-15m}"
 
 # ── Cluster / context ────────────────────────────────────────────────────────
 HUB_CONTEXT="kind-hub"
-SPOKE1_CONTEXT="kind-kubara-spoke-1"
+PLATFORM_ENGINEERING_CONTEXT="kind-kubara-platform-engineering"
 POC_CONTEXT="kind-kubara-poc"
 DEV_CONTEXT="kind-kubara-dev"
 STAGING_CONTEXT="kind-kubara-staging"
 PROD_CONTEXT="kind-kubara-prod"
 
-KIND_NAMES=(hub kubara-spoke-1 kubara-poc kubara-dev kubara-staging kubara-prod)
+KIND_NAMES=(hub kubara-platform-engineering kubara-poc kubara-dev kubara-staging kubara-prod)
 
 # Every cluster that runs the bitnami `postgresql` chart in the postgresql
 # namespace. Keep in sync with the Argo CD postgresql Applications.
-POSTGRES_CONTEXTS=("$SPOKE1_CONTEXT" "$POC_CONTEXT" "$DEV_CONTEXT" "$STAGING_CONTEXT" "$PROD_CONTEXT")
+POSTGRES_CONTEXTS=("$PLATFORM_ENGINEERING_CONTEXT" "$POC_CONTEXT" "$DEV_CONTEXT" "$STAGING_CONTEXT" "$PROD_CONTEXT")
 
 # ── Options ──────────────────────────────────────────────────────────────────
 KUBECONFIG="${KUBECONFIG:-${LOCAL_KUBECONFIG}}"
@@ -124,13 +124,13 @@ is_cluster_reachable() {
 }
 
 # Deterministic mapping: which liquibase services (roles/databases) does a
-# cluster need? kubara-spoke-1 hosts the DB-backed platform apps; every other
+# cluster need? kubara-platform-engineering hosts the DB-backed platform apps; every other
 # spoke only runs a standalone postgres (role/db "app"). Extend the case
 # statement if future clusters host DB-backed applications.
 services_for_cluster() {
     local context="$1"
     case "$context" in
-        "$SPOKE1_CONTEXT") echo "openproject keycloak apicurio" ;;
+        "$PLATFORM_ENGINEERING_CONTEXT") echo "openproject keycloak apicurio" ;;
         *)                 echo "app" ;;
     esac
 }
@@ -260,7 +260,7 @@ provision_liquibase_migrations() {
     for svc in $services; do
         # Only clusters with DB-backed platform apps have per-service
         # migration charts (openproject/keycloak/apicurio).
-        [[ "$context" == "$SPOKE1_CONTEXT" ]] || return 0
+        [[ "$context" == "$PLATFORM_ENGINEERING_CONTEXT" ]] || return 0
         log "Provisioning liquibase migration for ${svc} on ${context}"
         helm upgrade --install "liquibase-${svc}" "${LIQUIBASE_DIR}/${svc}" \
             --namespace "$svc" \
@@ -279,7 +279,7 @@ restart_crashlooping_db_apps() {
     local context="$1"
     local services="$2"
     local svc pod
-    [[ "$context" == "$SPOKE1_CONTEXT" ]] || return 0
+    [[ "$context" == "$PLATFORM_ENGINEERING_CONTEXT" ]] || return 0
     local job
     for svc in $services; do
         # Argo-managed setup Jobs (e.g. openproject-seeder-1) that ran before

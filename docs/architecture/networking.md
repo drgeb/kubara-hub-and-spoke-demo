@@ -20,7 +20,7 @@ Four networking layers make the demo work:
    `kubara-mesh` bridge.
 4. **Host DNS (dnsmasq)** — the only place a live IP is allowed to live:
    `dnsmasq/config/dnsmasq.conf` maps `*.kubara.test` → each cluster's traefik
-   LB IP (plus `my.nexus.me` → spoke-1 Nexus and `forgejo-ssh.me` → spoke-1
+   LB IP (plus `my.nexus.me` → platform-engineering Nexus and `forgejo-ssh.me` → platform-engineering
    Forgejo SSH). macOS `/etc/resolver/{kubara.test,me}` send those zones to
    `127.0.0.1`.
 
@@ -92,7 +92,7 @@ CoreDNS ConfigMap from live service ClusterIPs.
             O---------------------------- kubara-mesh 172.19.0.0/16
             |        kind clusters + cloud-provider-kind LBs
             |
-   hub(id1) <-ClusterMesh-> spoke-1(id2) poc(id3) dev(id4) staging(id5) prod(id6)
+   hub(id1) <-ClusterMesh-> platform-engineering(id2) poc(id3) dev(id4) staging(id5) prod(id6)
       │ LB IP                   │ LB IP       │ LB IP     ...
       │                         │
    dnsmasq (host) <── *.kubara.test, my.nexus.me, forgejo-ssh.me

@@ -16,7 +16,7 @@ verify-liquibase:
     # context|services rows, same mapping as provision-platform.sh's
     # services_for_cluster. just variables are interpolated, not exported to bash,
     # and bash 3.2 has no associative arrays.
-    ROWS="{{ SPOKE1_CONTEXT }}|openproject keycloak apicurio
+    ROWS="{{ PLATFORM_ENGINEERING_CONTEXT }}|openproject keycloak apicurio
     {{ POC_CONTEXT }}|app
     {{ DEV_CONTEXT }}|app
     {{ STAGING_CONTEXT }}|app

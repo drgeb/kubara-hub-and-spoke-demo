@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 # Create Kubernetes Secrets for platform services across the spoke clusters
-# (kubara-spoke-1, kubara-poc, kubara-dev, kubara-staging, kubara-prod)
+# (kubara-platform-engineering, kubara-poc, kubara-dev, kubara-staging, kubara-prod)
 # from environment variables (loaded from .env via direnv). Publishes the same
 # secrets to OpenBao (Vault) on a best-effort basis — warns if OpenBao is
 # unreachable (chicken-and-egg during initial bootstrap). Creating secrets with
@@ -12,7 +12,7 @@ set -Eeuo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # ── Cluster / context ────────────────────────────────────────────────────────
-SPOKE1_CONTEXT="kind-kubara-spoke-1"
+PLATFORM_ENGINEERING_CONTEXT="kind-kubara-platform-engineering"
 POC_CONTEXT="kind-kubara-poc"
 DEV_CONTEXT="kind-kubara-dev"
 STAGING_CONTEXT="kind-kubara-staging"
@@ -29,7 +29,7 @@ OPENBAO_NAMESPACE="openbao"
 OPENBAO_MOUNT="kv"
 HUB_NAME="hub"
 HUB_STAGE="local"
-CLUSTER_NAME="kubara-spoke-1"
+CLUSTER_NAME="kubara-platform-engineering"
 CLUSTER_STAGE="dev"
 CLUSTER2_NAME="kubara-poc"
 CLUSTER2_STAGE="prod"
@@ -102,13 +102,13 @@ command -v jq      >/dev/null 2>&1 || die "jq is required"
 command -v curl    >/dev/null 2>&1 || die "curl is required"
 command -v kubectl >/dev/null 2>&1 || die "kubectl is required"
 
-# ── Create secrets on kubara-spoke-1 ────────────────────────────────────────
+# ── Create secrets on kubara-platform-engineering ────────────────────────────────────────
 SKIP_KUBECTL=false
 
-if is_cluster_reachable "$SPOKE1_CONTEXT"; then
-    log "Creating platform secrets on ${SPOKE1_CONTEXT}"
+if is_cluster_reachable "$PLATFORM_ENGINEERING_CONTEXT"; then
+    log "Creating platform secrets on ${PLATFORM_ENGINEERING_CONTEXT}"
 else
-    warn "Cluster ${SPOKE1_CONTEXT} is not reachable; skipping kubectl secret creation"
+    warn "Cluster ${PLATFORM_ENGINEERING_CONTEXT} is not reachable; skipping kubectl secret creation"
     SKIP_KUBECTL=true
 fi
 
@@ -119,45 +119,45 @@ if [[ "$SKIP_KUBECTL" == false ]]; then
     # catalogs/backing-services/platform-configs/helm/postgresql) so the
     # secret below is the single source for the superuser (POSTGRES_PASSWORD)
     # and app user (APP_POSTGRES_PASSWORD) passwords, never a committed value.
-    create_secret "$SPOKE1_CONTEXT" postgresql postgresql \
+    create_secret "$PLATFORM_ENGINEERING_CONTEXT" postgresql postgresql \
         --from-literal=postgres-password="$POSTGRES_PASSWORD" \
         --from-literal=password="$APP_POSTGRES_PASSWORD"
 
     # Kargo — bcrypt hash of admin password
     BCRYPT_HASH=$(htpasswd -nbBC 10 "" "$KARGO_ADMIN_PASSWORD" | cut -d: -f2)
 
-    create_secret "$SPOKE1_CONTEXT" kargo kargo-admin \
+    create_secret "$PLATFORM_ENGINEERING_CONTEXT" kargo kargo-admin \
         --from-literal=ADMIN_ACCOUNT_PASSWORD_HASH="$BCRYPT_HASH" \
         --from-literal=ADMIN_ACCOUNT_TOKEN_SIGNING_KEY="$KARGO_ADMIN_TOKEN_SIGNING_KEY"
 
     # Forgejo
-    create_secret "$SPOKE1_CONTEXT" forgejo forgejo-admin \
+    create_secret "$PLATFORM_ENGINEERING_CONTEXT" forgejo forgejo-admin \
         --from-literal=username="$FORGEJO_ADMIN_USER" \
         --from-literal=password="$FORGEJO_ADMIN_PASSWORD"
 
-    create_secret "$SPOKE1_CONTEXT" forgejo forgejo-credentials \
+    create_secret "$PLATFORM_ENGINEERING_CONTEXT" forgejo forgejo-credentials \
         --from-literal=password="$APP_POSTGRES_PASSWORD"
 
     # Harbor
-    create_secret "$SPOKE1_CONTEXT" harbor harbor-credentials \
+    create_secret "$PLATFORM_ENGINEERING_CONTEXT" harbor harbor-credentials \
         --from-literal=HARBOR_ADMIN_PASSWORD="$HARBOR_ADMIN_PASSWORD"
 
     # Keycloak
-    create_secret "$SPOKE1_CONTEXT" keycloak keycloak-credentials \
+    create_secret "$PLATFORM_ENGINEERING_CONTEXT" keycloak keycloak-credentials \
         --from-literal=admin-password="$KEYCLOAK_ADMIN_PASSWORD" \
         --from-literal=db-password="$KEYCLOAK_DB_PASSWORD"
 
     # OpenProject
-    create_secret "$SPOKE1_CONTEXT" openproject openproject-secrets \
+    create_secret "$PLATFORM_ENGINEERING_CONTEXT" openproject openproject-secrets \
         --from-literal=admin-password="$OPENPROJECT_ADMIN_PASSWORD" \
         --from-literal=secret-key-base="$OPENPROJECT_SECRET_KEY_BASE"
 
-    create_secret "$SPOKE1_CONTEXT" openproject openproject-postgresql \
+    create_secret "$PLATFORM_ENGINEERING_CONTEXT" openproject openproject-postgresql \
         --from-literal=postgres-password="$POSTGRES_PASSWORD" \
         --from-literal=password="$OPENPROJECT_DB_PASSWORD"
 
     # Apicurio
-    create_secret "$SPOKE1_CONTEXT" apicurio apicurio-credentials \
+    create_secret "$PLATFORM_ENGINEERING_CONTEXT" apicurio apicurio-credentials \
         --from-literal=password="$APICURIO_DB_PASSWORD"
 fi
 
@@ -196,10 +196,10 @@ ensure_image_pull_secret() {
     echo "    ${namespace}/image-pull-secret"
 }
 
-if is_cluster_reachable "$SPOKE1_CONTEXT"; then
-    log "Ensuring image-pull-secret on ${SPOKE1_CONTEXT}"
+if is_cluster_reachable "$PLATFORM_ENGINEERING_CONTEXT"; then
+    log "Ensuring image-pull-secret on ${PLATFORM_ENGINEERING_CONTEXT}"
     for ns in external-secrets forgejo kargo; do
-        ensure_image_pull_secret "$SPOKE1_CONTEXT" "$ns"
+        ensure_image_pull_secret "$PLATFORM_ENGINEERING_CONTEXT" "$ns"
     done
 fi
 

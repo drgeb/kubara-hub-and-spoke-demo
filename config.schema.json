@@ -2134,7 +2134,7 @@
               "type": "string"
             },
             "name": {
-              "const": "kubara-spoke-1",
+              "const": "kubara-platform-engineering",
               "description": "The unique name for the cluster.",
               "examples": [
                 "my-prod-cluster"

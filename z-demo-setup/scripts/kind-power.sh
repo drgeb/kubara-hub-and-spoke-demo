@@ -64,15 +64,15 @@ power() {
     for name in "${CLUSTERS[@]}"; do
         ids="$(cluster_containers "$name" | tr '\n' ' ')"
         if [ -z "${ids// /}" ]; then
-            printf '    %-16s no containers, skipped\n' "$name"
+            printf '    %-28s no containers, skipped\n' "$name"
             continue
         fi
         PRESENT+=("$name")
         # shellcheck disable=SC2086
         if docker "$verb" $ids >/dev/null; then
-            printf '    %-16s %s (%d containers)\n' "$name" "$([ "$verb" = stop ] && echo stopped || echo started)" "$(echo $ids | wc -w)"
+            printf '    %-28s %s (%d containers)\n' "$name" "$([ "$verb" = stop ] && echo stopped || echo started)" "$(echo $ids | wc -w)"
         else
-            printf '    %-16s FAILED to %s\n' "$name" "$verb" >&2
+            printf '    %-28s FAILED to %s\n' "$name" "$verb" >&2
             failures=$((failures + 1))
         fi
     done
@@ -120,13 +120,13 @@ wait_for_mesh() {
 
 status() {
     local name nodes running ready ip total=0 up=0
-    printf '%-16s %-10s %-10s %-9s %s\n' CLUSTER NODES RUNNING READY LB-IP
+    printf '%-28s %-6s %-8s %-6s %s\n' CLUSTER NODES RUNNING READY LB-IP
     for name in "${CLUSTERS[@]}"; do
         total=$((total + 1))
         nodes="$(docker ps -aq --filter "label=io.x-k8s.kind.cluster=$name" | wc -l | tr -d ' ')"
         running="$(docker ps -q --filter "label=io.x-k8s.kind.cluster=$name" | wc -l | tr -d ' ')"
         if [ "$nodes" -eq 0 ]; then
-            printf '%-16s %-10s %-10s %-9s %s\n' "$name" "-" "-" "-" "not created"
+            printf '%-28s %-6s %-8s %-6s %s\n' "$name" "-" "-" "-" "not created"
             continue
         fi
         ready="-"; ip="-"
@@ -140,7 +140,7 @@ status() {
             [ -n "$ip" ] || ip="none"
         fi
         [ "$running" -eq "$nodes" ] && [ "${ready%%/*}" = "${ready#*/}" ] && [ "$ip" != none ] && up=$((up + 1))
-        printf '%-16s %-10s %-10s %-9s %s\n' "$name" "$nodes" "$running" "$ready" "$ip"
+        printf '%-28s %-6s %-8s %-6s %s\n' "$name" "$nodes" "$running" "$ready" "$ip"
     done
     printf '==> %d/%d clusters fully up (nodes running + Ready, LB IP assigned)\n' "$up" "$total"
 }

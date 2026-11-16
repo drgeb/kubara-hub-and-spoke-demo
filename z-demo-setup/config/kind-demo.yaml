@@ -5,9 +5,9 @@ clusters:
     stage: local
     kind_config: kind-hub-cilium.yaml
     cilium_id: 1
-  - name: kubara-spoke-1
+  - name: kubara-platform-engineering
     stage: platform-engineering
-    kind_config: kind-spoke1-overlay.yaml
+    kind_config: kind-platform-engineering-overlay.yaml
     cilium_id: 2
   - name: kubara-poc
     stage: poc

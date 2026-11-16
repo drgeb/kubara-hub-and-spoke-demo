@@ -29,7 +29,7 @@ REQ_TIMEOUT="10s"
 # Same domain->context rows as `refresh-lb-hosts` in dnsmasq/Justfile.
 DNS_ROWS=(
     "hub.kubara.test kind-hub"
-    "spoke-1.kubara.test kind-kubara-spoke-1"
+    "platform-engineering.kubara.test kind-kubara-platform-engineering"
     "poc.kubara.test kind-kubara-poc"
     "dev.kubara.test kind-kubara-dev"
     "staging.kubara.test kind-kubara-staging"

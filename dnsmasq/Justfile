@@ -109,7 +109,7 @@ status-dnsmasq:
     fi
 
 # Rewrite the address=/<cluster>.kubara.test lines from the live cilium-ingress
-# LoadBalancer IPs (plus the forgejo SSH LB on spoke-1) and reload dnsmasq.
+# LoadBalancer IPs (plus the forgejo SSH LB on platform-engineering) and reload dnsmasq.
 # Run after rebuilding/restarting clusters.
 refresh-lb-hosts:
     #!/usr/bin/env bash
@@ -128,7 +128,7 @@ refresh-lb-hosts:
 
     ROWS=(
         "hub.kubara.test kind-hub"
-        "spoke-1.kubara.test kind-kubara-spoke-1"
+        "platform-engineering.kubara.test kind-kubara-platform-engineering"
         "poc.kubara.test kind-kubara-poc"
         "dev.kubara.test kind-kubara-dev"
         "staging.kubara.test kind-kubara-staging"
@@ -163,20 +163,20 @@ refresh-lb-hosts:
         fi
     done
 
-    spoke1_ip=""
+    platform_engineering_ip=""
     for i in "${!DIMS[@]}"; do
-        if [ "${DIMS[$i]}" = "spoke-1.kubara.test" ]; then
-            spoke1_ip="${IPS[$i]}"
+        if [ "${DIMS[$i]}" = "platform-engineering.kubara.test" ]; then
+            platform_engineering_ip="${IPS[$i]}"
             break
         fi
     done
 
     FORGEJO_SSH_HOST="forgejo-ssh.me"
-    forgejo_ip=$(kubectl --kubeconfig "$KCFG" --context kind-kubara-spoke-1 \
+    forgejo_ip=$(kubectl --kubeconfig "$KCFG" --context kind-kubara-platform-engineering \
         -n forgejo get svc forgejo-ssh -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
     if [ -z "$forgejo_ip" ]; then
         for _ in $(seq 1 "$RESOLVE_ATTEMPTS"); do
-            forgejo_ip=$(kubectl --kubeconfig "$KCFG" --context kind-kubara-spoke-1 \
+            forgejo_ip=$(kubectl --kubeconfig "$KCFG" --context kind-kubara-platform-engineering \
                 -n forgejo get svc forgejo-ssh -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
             [ -n "$forgejo_ip" ] && break
             sleep 4
@@ -195,10 +195,10 @@ refresh-lb-hosts:
 
     if [ -z "$forgejo_ip" ]; then
         # forgejo-ssh is an extra LoadBalancer that only exists once forgejo is
-        # deployed on spoke-1. It is not part of the wildcard *.kubara.test
+        # deployed on platform-engineering. It is not part of the wildcard *.kubara.test
         # map, so a missing one must not block the refresh - drop the entry
         # instead of leaving a stale IP behind.
-        echo "WARN: no forgejo-ssh LoadBalancer on kind-kubara-spoke-1; dropping ${FORGEJO_SSH_HOST} from the map" >&2
+        echo "WARN: no forgejo-ssh LoadBalancer on kind-kubara-platform-engineering; dropping ${FORGEJO_SSH_HOST} from the map" >&2
     fi
 
     for i in "${!DIMS[@]}"; do
@@ -218,9 +218,9 @@ refresh-lb-hosts:
     done
 
     if grep -q '^address=/my\.nexus\.me/' "$tmp"; then
-        sed -i.bak "s#^address=/my\.nexus\.me/.*#address=/my.nexus.me/$spoke1_ip#" "$tmp"
+        sed -i.bak "s#^address=/my\.nexus\.me/.*#address=/my.nexus.me/$platform_engineering_ip#" "$tmp"
     else
-        printf 'address=/my.nexus.me/%s\n' "$spoke1_ip" >> "$tmp"
+        printf 'address=/my.nexus.me/%s\n' "$platform_engineering_ip" >> "$tmp"
     fi
 
     if [ -n "$forgejo_ip" ]; then

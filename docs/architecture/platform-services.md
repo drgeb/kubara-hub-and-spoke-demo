@@ -18,14 +18,14 @@ state is declared per service in `config.yaml`; rendered Helm values live under
 | Homer dashboard | `homer-dashboard` | Service dashboard |
 | Traefik | `traefik` | Entrypoint + ingress controller |
 
-## kubara-spoke-1 — platform engineering
+## kubara-platform-engineering — platform engineering
 
 This spoke hosts the "platform" the dev/staging/prod spokes consume.
 
 | Service | Namespace | Role |
 | --- | --- | --- |
 | Forgejo | `forgejo` | Git hosting + Actions CI |
-| Harbor | `harbor` | Container registry (hostname `harbor.spoke-1.kubara.test` + `my.harbor.me`) |
+| Harbor | `harbor` | Container registry (hostname `harbor.platform-engineering.kubara.test` + `my.harbor.me`) |
 | Kargo | `kargo` | Progressive delivery / freight promotion (Argo CD + Rollouts integrations) |
 | Nexus | `nexus` | Repository manager (Maven proxy; `my.nexus.me`) |
 | Keycloak | `keycloak` | IAM / SSO (realm, clients for the platform tools) |
@@ -62,7 +62,7 @@ These are the environments that Kargo promotes workloads into.
 ## Notable configuration facts
 
 - **Harbor** (`config.yaml`): `adminPassword: Harbor12345`,
-  `databasePassword: changeit`, hostname `harbor.spoke-1.kubara.test` with
+  `databasePassword: changeit`, hostname `harbor.platform-engineering.kubara.test` with
   additional host `my.harbor.me`, storage 10Gi+1Gi+1Gi, TLS via local CA.
   See [Issues](../issues.md) about committed defaults.
 - **Forgejo**: admin `gitea_admin`, DB `forgejo` on the shared postgres with
@@ -83,7 +83,7 @@ These are the environments that Kargo promotes workloads into.
 | Argo CD | `https://argocd.hub.kubara.test/argocd` |
 | Grafana / Prometheus / Alertmanager | `https://*.hub.kubara.test` |
 | OpenBao | `https://openbao.hub.kubara.test` |
-| Forgejo / Harbor / Kargo / Nexus / Keycloak | `https://*.spoke-1.kubara.test` |
+| Forgejo / Harbor / Kargo / Nexus / Keycloak | `https://*.platform-engineering.kubara.test` |
 | Uptime Kuma | `https://uptime-kuma.poc.kubara.test` |
 
 The `open-*` recipes in the `Justfile` open each UI and copy the password to

@@ -1540,10 +1540,11 @@ EOF
 
 Topology:
 
-              hub =================================
-             /   \\.          \\      \\.         \\.     
-            /     \\.          \\.     \\.         \\.    
-       spoke-1   poc.     dev.     staging    prod.
+                         hub
+       +--------------+---+-------+---------+--------+
+       |              |           |         |        |
+  platform-         poc         dev     staging    prod
+  engineering
 
 test-cluster was not modified.
 

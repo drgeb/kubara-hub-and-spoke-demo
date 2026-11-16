@@ -1,0 +1,38 @@
+ingress:
+  enabled: true
+  host: homer.platform-engineering.kubara.test
+  annotations:
+    cert-manager.io/cluster-issuer: kubara-local-ca-issuer
+
+dashboardConfig:
+  services:
+    - name: "DevOps Links"
+      items:
+        - name: "forgejo"
+          url: "https://forgejo.platform-engineering.kubara.test/"
+          subtitle: "Source Control"
+          target: "_blank"
+        - name: "nexus"
+          url: "https://nexus.platform-engineering.kubara.test/"
+          subtitle: "Artifact Repository"
+          target: "_blank"
+        - name: "keycloak"
+          url: "https://keycloak.platform-engineering.kubara.test/"
+          subtitle: "Identity & Access Management"
+          target: "_blank"
+        - name: "harbor"
+          url: "https://harbor.platform-engineering.kubara.test/"
+          subtitle: "Container Registry"
+          target: "_blank"
+        - name: "kargo"
+          url: "https://kargo.platform-engineering.kubara.test/"
+          subtitle: "GitOps Promotion"
+          target: "_blank"
+        - name: "apicurio"
+          url: "https://apicurio.platform-engineering.kubara.test/"
+          subtitle: "API Design Studio"
+          target: "_blank"
+        - name: "openproject"
+          url: "https://openproject.platform-engineering.kubara.test/"
+          subtitle: "Project Management"
+          target: "_blank"

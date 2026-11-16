@@ -38,7 +38,7 @@ The chain that connects hub Argo CD to the five spoken clusters:
    `Secrets` in the `argocd` namespace (the IngressHost address of OpenBao is
    used so the request routes to the OpenBao ingress).
 4. Argo CD consumes those Secrets as cluster credentials, giving it the
-   `kind-kubara-spoke-1 ... kind-kubara-prod` destinations.
+   `kind-kubara-platform-engineering ... kind-kubara-prod` destinations.
 
 Verification recipes: `just setup-openbao-secrets`, `just verify-secrets`
 (secrets, ExternalSecrets status, `hub-argocd` application health).
@@ -50,7 +50,7 @@ Verification recipes: `just setup-openbao-secrets`, `just verify-secrets`
 - `create-platform-secrets.sh` writes Kubernetes Secrets from `.env` values on
   every spoke **and** best-effort publishes the same values to OpenBao under
   `kv/platform/<cluster>-<stage>/...`.
-- Tools here include `kv/platform/kubara-spoke-1-*/postgresql/postgresql`,
+- Tools here include `kv/platform/kubara-platform-engineering-*/postgresql/postgresql`,
   `kargo/kargo-admin`, `forgejo/forgejo-admin`, `harbor/harbor-credentials`,
   `keycloak/keycloak-credentials`, `openproject/*`, `apicurio/apicurio-credentials`.
 - External Secrets (deployed on every cluster) materialize these into
@@ -58,7 +58,7 @@ Verification recipes: `just setup-openbao-secrets`, `just verify-secrets`
   credentials.
 
 > Stage labels used in the OpenBao path vs `config.yaml` stages can drift
-> (e.g. `create-platform-secrets.sh` labels spoke-1 "dev" while `config.yaml`
+> (e.g. `create-platform-secrets.sh` labels platform-engineering "dev" while `config.yaml`
 > says `platform-engineering`, and poc "prod" while `config.yaml` says
 > `poc`). See [Issues](../issues.md).
 
@@ -86,7 +86,7 @@ setup.
 
 - `postgresql/postgresql` — postgres superuser + app user passwords (on all 5
   spokes).
-- spoke-1: `kargo/kargo-admin` (bcrypt hash), `forgejo/*`,
+- platform-engineering: `kargo/kargo-admin` (bcrypt hash), `forgejo/*`,
   `harbor/harbor-credentials`, `keycloak/keycloak-credentials`,
   `openproject/*`, `apicurio/apicurio-credentials`.
 - `image-pull-secret` (empty registry auth) in several namespaces because

@@ -50,7 +50,7 @@ open-forgejo:
     @echo user: ${FORGEJO_ADMIN_USER}
     @echo passwd: ${FORGEJO_ADMIN_PASSWORD}
     @echo $FORGEJO_ADMIN_PASSWORD | pbcopy
-    @open https://forgejo.{{SPOKE1_DNS_NAME}}/
+    @open https://forgejo.{{PLATFORM_ENGINEERING_DNS_NAME}}/
 
 # Open Bao (Vault) UI
 open-bao:
@@ -63,27 +63,27 @@ open-harbor:
     @echo user: ${HARBOR_ADMIN_USER}
     @echo passwd: ${HARBOR_ADMIN_PASSWORD} 
     @echo ${HARBOR_ADMIN_PASSWORD} | pbcopy
-    @open https://harbor.{{SPOKE1_DNS_NAME}}/
+    @open https://harbor.{{PLATFORM_ENGINEERING_DNS_NAME}}/
 
 # Open Kargo
 open-kargo:
     @echo user: ${KARGO_ADMIN_USER}
     @echo passwd: ${KARGO_ADMIN_PASSWORD}
     @echo ${KARGO_ADMIN_PASSWORD} | pbcopy
-    @open https://kargo.{{SPOKE1_DNS_NAME}}/
+    @open https://kargo.{{PLATFORM_ENGINEERING_DNS_NAME}}/
 
 # Open Nexus
 open-nexus:
     @echo user: ${NEXUS_ADMIN_USER}
     @echo passwd: ${NEXUS_ADMIN_PASSWORD}
     @echo ${NEXUS_ADMIN_PASSWORD} | pbcopy
-    @open https://nexus.{{SPOKE1_DNS_NAME}}/
+    @open https://nexus.{{PLATFORM_ENGINEERING_DNS_NAME}}/
 
 open-keycloak:
     @echo user: ${KEYCLOAK_ADMIN_USER}
     @echo passwd: ${KEYCLOAK_ADMIN_PASSWORD}
     @echo ${KEYCLOAK_ADMIN_PASSWORD} | pbcopy
-    @open https://keycloak.{{SPOKE1_DNS_NAME}}/
+    @open https://keycloak.{{PLATFORM_ENGINEERING_DNS_NAME}}/
 
 # Exec into the running postgres pod and open a psql shell
 open-postgres-shell:
@@ -104,7 +104,7 @@ open-kargo-simple env="dev":
     @open http://guestbook-simple-{{env}}.{{DEV_DNS_NAME}}/
 
 # Open the Homer dashboard. Accepts a cluster: the DNS slug (hub|dev|staging|
-# prod|spoke-1|poc) or the kind cluster name (kubara-hub|kubara-dev|...).
+# prod|platform-engineering|poc) or the kind cluster name (kubara-hub|kubara-dev|...).
 # Default: hub.
 open-homer-dashboard cluster="hub":
     #!/usr/bin/env bash

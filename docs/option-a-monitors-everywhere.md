@@ -6,7 +6,7 @@ Date: 2026-09-15
 ## Goal
 
 Make `kubara generate --helm` / `kubara bootstrap hub --local` pass again (it currently
-fails: `clusters "hub" and "kubara-spoke-1" generate conflicting content for
+fails: `clusters "hub" and "kubara-platform-engineering" generate conflicting content for
 platform-components/helm/cert-manager/values.yaml`) while fixing the original spoke
 issue at its root: spokes fail to render traefik/cert-manager/external-secrets
 ServiceMonitors because `monitoring.coreos.com/v1` CRDs are missing.
@@ -43,7 +43,7 @@ KEEP the catalog source and the generated copy in sync (catalog is authoritative
 
 ## Step 2 – Install monitoring CRDs on the 5 spokes (runtime, no repo change)
 
-`monitoring.coreos.com/v1` CRDs are missing on spoke-1, poc, dev, staging, prod.
+`monitoring.coreos.com/v1` CRDs are missing on platform-engineering, poc, dev, staging, prod.
 
 Minimal install (CRDs only, no operator/namespace): fetch prometheus-operator CRDs:
 
@@ -52,7 +52,7 @@ KUBE=.local/kind.kubeconfig
 CRD_BASE=https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.79.2/example/prometheus-operator-crd
 CRDS=(alertmanagerconfigs alertmanagers podmonitors prometheuses prometheusrules
       servicemonitors scrapeconfigs thanosrulers)
-for ctx in kind-kubara-spoke-1 kind-kubara-poc kind-kubara-dev kind-kubara-staging kind-kubara-prod; do
+for ctx in kind-kubara-platform-engineering kind-kubara-poc kind-kubara-dev kind-kubara-staging kind-kubara-prod; do
   for crd in "${CRDS[@]}"; do
     kubectl --context "$ctx" --kubeconfig "$KUBE" apply -f \
       "${CRD_BASE}/monitoring.coreos.com_${crd}.yaml"
@@ -63,7 +63,7 @@ done
 Verify on each spoke:
 
 ```bash
-kubectl --context kind-kubara-spoke-1 --kubeconfig .local/kind.kubeconfig get crd servicemonitors.monitoring.coreos.com
+kubectl --context kind-kubara-platform-engineering --kubeconfig .local/kind.kubeconfig get crd servicemonitors.monitoring.coreos.com
 ```
 
 (minimum needed to unblock the 3 charts: `servicemonitors` + `prometheusrules`; the rest
@@ -98,7 +98,7 @@ kubectl --kubeconfig .local/kind.kubeconfig --context kind-hub get application -
   | grep -v "Synced  *Healthy"
 
 # ServiceMonitors now render on a spoke (was the original bug)
-kubectl --kubeconfig .local/kind.kubeconfig --context kind-kubara-spoke-1 get servicemonitors -A | grep -E "traefik|cert-manager|external-secrets"
+kubectl --kubeconfig .local/kind.kubeconfig --context kind-kubara-platform-engineering get servicemonitors -A | grep -E "traefik|cert-manager|external-secrets"
 
 # DBs/roles unaffected
 just verify-liquibase

@@ -65,7 +65,7 @@ Fixes 1.4 in practice; guardrails for future rotation belong in 4.2.
 ### 3.1 Single source for stage labels
 Derive the OpenBao secret-path stage labels from `config.yaml` (reuse
 `get_cluster_stage` from `build-mesh.sh` in `create-platform-secrets.sh`)
-instead of the hardcoded `dev`/`prod` for spoke-1/poc.
+instead of the hardcoded `dev`/`prod` for platform-engineering/poc.
 - Fixes: 3.1
 - Check: OpenBao paths and `build-mesh.sh` kubeconfig paths use identical stage
   labels for every cluster.

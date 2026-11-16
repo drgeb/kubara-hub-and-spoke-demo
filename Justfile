@@ -2,7 +2,7 @@
 # instead of relying on the current kubectl context. Hub apps (argocd, homer,
 # grafana, prometheus, alertmanager, openbao) live on the "hub" kind cluster;
 # PLTFME (platform engineering: forgejo, kargo, harbor, nexus, keycloak, ...)
-# on kubara-spoke-1; DEV apps on kubara-poc.
+# on kubara-platform-engineering; DEV apps on kubara-poc.
 
 # z-demo-setup/bin holds a sudo shim that fires a cmux/macOS notification
 # before any sudo password prompt (see z-demo-setup/bin/sudo).
@@ -29,28 +29,28 @@ MESH_DOCKER_GATEWAY:="172.19.0.1"
 MESH_DOCKER_IP_RANGE:="172.19.0.0/24"
 
 HUB_KIND:="hub"
-SPOKE1_KIND:="kubara-spoke-1"
+PLATFORM_ENGINEERING_KIND:="kubara-platform-engineering"
 POC_KIND:="kubara-poc"
 DEV_KIND:="kubara-dev"
 STAGING_KIND:="kubara-staging"
 PROD_KIND:="kubara-prod"
 
 HUB_CONTEXT:="kind-hub"
-SPOKE1_CONTEXT:="kind-kubara-spoke-1"
+PLATFORM_ENGINEERING_CONTEXT:="kind-kubara-platform-engineering"
 POC_CONTEXT:="kind-kubara-poc"
 DEV_CONTEXT:="kind-kubara-dev"
 STAGING_CONTEXT:="kind-kubara-staging"
 PROD_CONTEXT:="kind-kubara-prod"
 
 HUB_ID:="1"
-SPOKE1_ID:="2"
+PLATFORM_ENGINEERING_ID:="2"
 POC_ID:="3"
 DEV_ID:="4"
 STAGING_ID:="5"
 PROD_ID:="6"
 
 HUB_NAME:="hub"
-SPOKE1_NAME:="kubara-spoke-1"
+PLATFORM_ENGINEERING_NAME:="kubara-platform-engineering"
 POC_NAME:="kubara-poc"
 DEV_NAME:="kubara-dev"
 STAGING_NAME:="kubara-staging"
@@ -60,7 +60,7 @@ PROD_NAME:="kubara-prod"
 # in ./dnsmasq: <any>.<cluster>.kubara.test -> that cluster's cilium-ingress LB IP.
 # Refresh the dnsmasq address= lines with `just refresh-lb-hosts`.
 HUB_DNS_NAME := "hub.kubara.test"
-SPOKE1_DNS_NAME := "spoke-1.kubara.test"
+PLATFORM_ENGINEERING_DNS_NAME := "platform-engineering.kubara.test"
 POC_DNS_NAME := "poc.kubara.test"
 DEV_DNS_NAME := "dev.kubara.test"
 STAGING_DNS_NAME := "staging.kubara.test"
@@ -207,7 +207,7 @@ cilium-hubble-ui:
     #!/usr/bin/env bash
     set -euo pipefail
     port=12100
-    for cluster in {{HUB_KIND}} {{SPOKE1_NAME}} {{POC_NAME}}; do
+    for cluster in {{HUB_KIND}} {{PLATFORM_ENGINEERING_NAME}} {{POC_NAME}}; do
         echo "Opening Hubble UI for kind-$cluster on :$port"
         cilium hubble ui --context "kind-$cluster" --port-forward "$port" &
         port=$((port + 1))
@@ -258,7 +258,7 @@ bring-up *args:
     echo "Waiting for all six cilium-ingress LoadBalancer IPs..."
     for _ in $(seq 1 120); do
         missing=""
-        for ctx in {{HUB_CONTEXT}} {{SPOKE1_CONTEXT}} {{POC_CONTEXT}} {{DEV_CONTEXT}} {{STAGING_CONTEXT}} {{PROD_CONTEXT}}; do
+        for ctx in {{HUB_CONTEXT}} {{PLATFORM_ENGINEERING_CONTEXT}} {{POC_CONTEXT}} {{DEV_CONTEXT}} {{STAGING_CONTEXT}} {{PROD_CONTEXT}}; do
             ip=$(kubectl --kubeconfig "$KCFG" --context "$ctx" get svc/cilium-ingress -n kube-system \
                 -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
             if [ -z "$ip" ]; then
@@ -301,7 +301,7 @@ kind-restart:
 
 kargo-cli-login:
     @: "${KARGO_ADMIN_PASSWORD:?not set - run 'direnv allow' to load .env}"
-    @kargo login http://kargo.{{SPOKE1_DNS_NAME}} --admin --password "$KARGO_ADMIN_PASSWORD"
+    @kargo login http://kargo.{{PLATFORM_ENGINEERING_DNS_NAME}} --admin --password "$KARGO_ADMIN_PASSWORD"
 
 # Seed the go-hello delivery pipeline (Forgejo repo/CI, Harbor robot, Argo CD + Kargo)
 # Safe to re-run; required again after `bring-up` recreates the cluster.
@@ -359,7 +359,7 @@ push-forgejo-build-image:
     REPO_DIR="forgejo-build-image"
     REPO_NAME="$(basename "$REPO_DIR")"
     OWNER="$FORGEJO_ADMIN_USER"
-    FORGEJO_URL="https://forgejo.{{SPOKE1_DNS_NAME}}"
+    FORGEJO_URL="https://forgejo.{{PLATFORM_ENGINEERING_DNS_NAME}}"
 
     # "Push to create" is disabled for users on Forgejo, so create the repo first.
     status="$(curl -sk -o /dev/null -w '%{http_code}' \
@@ -387,7 +387,7 @@ set-forgejo-harbor-secrets:
 
     REPO_NAME="forgejo-build-image"
     OWNER="$FORGEJO_ADMIN_USER"
-    FORGEJO_URL="https://forgejo.{{SPOKE1_DNS_NAME}}"
+    FORGEJO_URL="https://forgejo.{{PLATFORM_ENGINEERING_DNS_NAME}}"
     AUTH=(-u "$FORGEJO_ADMIN_USER:$FORGEJO_ADMIN_PASSWORD" -H "Content-Type: application/json")
 
     api() {
@@ -403,8 +403,8 @@ set-forgejo-harbor-secrets:
 inspect-what-certificate-cilium-is-serving:
     @echo "Cilium is serving the following certificate:"
     echo | openssl s_client \
-        -connect forgejo.{{SPOKE1_DNS_NAME}}:443 \
-        -servername forgejo.{{SPOKE1_DNS_NAME}} \
+        -connect forgejo.{{PLATFORM_ENGINEERING_DNS_NAME}}:443 \
+        -servername forgejo.{{PLATFORM_ENGINEERING_DNS_NAME}} \
         2>/dev/null | openssl x509 -noout -subject -issuer -dates -ext subjectAltName
 
 get-harbor-credentials:

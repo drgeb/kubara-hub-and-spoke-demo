@@ -47,7 +47,7 @@ idempotent DNS/LB bring-up for an already-built mesh. Repeated runs are safe.
 - macOS, bash 3.2.57. No `mapfile`, no associative arrays, and guard empty
   arrays under `set -u` (see the patterns in `z-demo-setup/scripts/build-mesh.sh`).
 - kubectl/helm use `--kubeconfig .local/kind.kubeconfig --context kind-<name>`
-  (contexts: `kind-hub`, `kind-kubara-spoke-1` ... `kind-kubara-prod`).
+  (contexts: `kind-hub`, `kind-kubara-platform-engineering` ... `kind-kubara-prod`).
 - The agent cannot sudo; anything needing a password (dnsmasq install/reload,
   resolver setup) is left for the user to run.
 

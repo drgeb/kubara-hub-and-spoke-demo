@@ -128,12 +128,12 @@ check_dns_map() {
 
 if [[ -f "$KC" ]]; then
     check_dns_map "hub.kubara.test:kind-hub:cilium-ingress:kube-system \
-spoke-1.kubara.test:kind-kubara-spoke-1:cilium-ingress:kube-system \
+platform-engineering.kubara.test:kind-kubara-platform-engineering:cilium-ingress:kube-system \
 poc.kubara.test:kind-kubara-poc:cilium-ingress:kube-system \
 dev.kubara.test:kind-kubara-dev:cilium-ingress:kube-system \
 staging.kubara.test:kind-kubara-staging:cilium-ingress:kube-system \
 prod.kubara.test:kind-kubara-prod:cilium-ingress:kube-system \
-forgejo-ssh.me:kind-kubara-spoke-1:forgejo-ssh:forgejo"
+forgejo-ssh.me:kind-kubara-platform-engineering:forgejo-ssh:forgejo"
     if [[ -n "$DNS_STALE" ]]; then
         echo
         echo "==> DNS staleness detected: the local dnsmasq map does not match live LoadBalancer IPs" >&2
@@ -157,12 +157,12 @@ test_url alertmanager  https://alertmanager.hub.kubara.test/
 test_url openbao       https://openbao.hub.kubara.test/
 
 echo
-echo "platform-engineering (kubara-spoke-1)"
-test_url forgejo       https://forgejo.spoke-1.kubara.test/
-test_url harbor        https://harbor.spoke-1.kubara.test/
-test_url kargo         https://kargo.spoke-1.kubara.test/
-test_url nexus         https://nexus.spoke-1.kubara.test/
-test_url keycloak      https://keycloak.spoke-1.kubara.test/
+echo "platform-engineering (kubara-platform-engineering)"
+test_url forgejo       https://forgejo.platform-engineering.kubara.test/
+test_url harbor        https://harbor.platform-engineering.kubara.test/
+test_url kargo         https://kargo.platform-engineering.kubara.test/
+test_url nexus         https://nexus.platform-engineering.kubara.test/
+test_url keycloak      https://keycloak.platform-engineering.kubara.test/
 
 echo
 echo "dev"

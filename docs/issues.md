@@ -51,7 +51,7 @@ checkout and is git-ignored (`..gitignore:75`). `just go-hello-setup` and
 `just ebank-setup` fail immediately; the pipelines they seed therefore cannot
 be re-established after `bring-up`.
 - Evidence: `Justfile:465-471, 488-495`; directory listing of repo root.
-- Also referenced in comments: `platform-configs/kubara-spoke-1/helm/kargo/values-credentials.yaml:1`.
+- Also referenced in comments: `platform-configs/kubara-platform-engineering/helm/kargo/values-credentials.yaml:1`.
 
 ### 2.2 Missing CoreDNS patch manifest 🔴
 `just apply-coredns-patch` applies
@@ -67,7 +67,7 @@ directory is absent from the checkout.
 - Evidence: `Justfile:572-597`.
 
 ### 2.4 Traefik "inspect certificate" hardcodes a host 🟠
-`Justfile:666-671` bakes `forgejo.spoke-1.kubara.test` into
+`Justfile:666-671` bakes `forgejo.platform-engineering.kubara.test` into
 `inspect-what-certificate-Traefik-is-serving`. Brittle to cluster renames but
 works with the fixed host topology.
 
@@ -80,11 +80,11 @@ works with the fixed host topology.
 
 | Cluster | `config.yaml` stage | script label |
 | --- | --- | --- |
-| kubara-spoke-1 | `platform-engineering` | `dev` |
+| kubara-platform-engineering | `platform-engineering` | `dev` |
 | kubara-poc | `poc` | `prod` |
 
 - Evidence: `config.yaml:94, 260`; `create-platform-secrets.sh:32-41`.
-- Consequence: OpenBao secret paths (`kv/platform/kubara-spoke-1-dev/...`) and
+- Consequence: OpenBao secret paths (`kv/platform/kubara-platform-engineering-dev/...`) and
   the kubeconfig paths published by `build-mesh.sh`
   (`kv/hub/local/argocd/...` uses the *real* stage from
   `get_cluster_stage`) can disagree; tooling that looks up secrets by the
@@ -119,7 +119,7 @@ silently disappears on the next generate unless added to both restore lists.
 `config.yaml` disables cert-manager on `kubara-poc` (`config.yaml:272-277`)
 yet **Uptime Kuma** pins `cert-manager.io/cluster-issuer:
 kubara-local-ca-issuer` (`config.yaml:344-346`). Uptime Kuma's cert will not be
-issued; only the hub/spoke-1 have that ClusterIssuer.
+issued; only the hub/platform-engineering have that ClusterIssuer.
 - Evidence: `config.yaml:272-277, 343-346`.
 
 ---

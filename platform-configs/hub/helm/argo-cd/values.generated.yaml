@@ -26,13 +26,13 @@ bootstrapValues:
             name: cert-manager-webhook-ca
 
   cluster:
-    - name: kubara-spoke-1
+    - name: kubara-platform-engineering
       project: hub-local
       secretStoreRef:
         kind: ClusterSecretStore
         name: hub-local
       remoteRef:
-        remoteKey: hub/local/argocd/kubara-spoke-1-platform-engineering
+        remoteKey: hub/local/argocd/kubara-platform-engineering-platform-engineering
         remoteKeyProperty: kubeconfig
       additionalLabels:
         apicurio: "enabled"

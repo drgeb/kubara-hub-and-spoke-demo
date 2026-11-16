@@ -26,7 +26,7 @@ developer platform:
 * **OpenBao** (a fork of Vault) on the hub stores the spoke credentials. External
   Secrets turns those entries into Kubernetes Secrets: Argo CD cluster secrets
   and application passwords.
-* A set of **platform-engineering tools** runs on `kubara-spoke-1`: Forgejo,
+* A set of **platform-engineering tools** runs on `kubara-platform-engineering`: Forgejo,
   Harbor, Kargo, Nexus, Keycloak, OpenProject, Apicurio and OPA. They feed a
   delivery pipeline into the `dev`, `staging` and `prod` spokes.
 * **dnsmasq** on the host resolves `*.<cluster>.kubara.test` to each cluster's
@@ -42,7 +42,7 @@ delivery pipeline, without any cloud account.
 | Cluster | Stage | Cilium ID | Pod / Service CIDR | Role |
 | --- | --- | --- | --- | --- |
 | `hub` | `local` | 1 | 10.10/16, 10.96/16 | Argo CD (self-managed), OpenBao, kube-prometheus-stack, metrics-server, cert-manager, homer |
-| `kubara-spoke-1` | `platform-engineering` | 2 | 10.20/16, 10.97/16 | Forgejo, Harbor, Kargo, Nexus, Keycloak, OpenProject, Apicurio, OPA, PostgreSQL |
+| `kubara-platform-engineering` | `platform-engineering` | 2 | 10.20/16, 10.97/16 | Forgejo, Harbor, Kargo, Nexus, Keycloak, OpenProject, Apicurio, OPA, PostgreSQL |
 | `kubara-poc` | `poc` | 3 | (overlay) | Kafka, Ollama, Uptime Kuma, PostgreSQL, PostgreSQL 19 (CNPG) |
 | `kubara-dev` | `dev` | 4 | (overlay) | Workload target + PostgreSQL |
 | `kubara-staging` | `staging` | 5 | (overlay) | Workload target + PostgreSQL |
@@ -125,7 +125,7 @@ browser → macOS /etc/resolver/kubara.test → dnsmasq (host)
 | Fact | Defined in | Also hardcoded in |
 | --- | --- | --- |
 | Cluster names | `z-demo-setup/config/kind-demo.yaml` | `config.yaml`; `provision-platform.sh:25-37`; `create-platform-secrets.sh:15-41`; root `Justfile` (contexts and DNS names, ~line 45); `dnsmasq/Justfile` `ROWS`; `build-mesh.sh` closing banner (1464) |
-| Cluster stage | `kind-demo.yaml` **and** `config.yaml` (two copies) | `create-platform-secrets.sh` uses **different** values: spoke-1=`dev`, poc=`prod` (`config.yaml` says `platform-engineering`, `poc`) |
+| Cluster stage | `kind-demo.yaml` **and** `config.yaml` (two copies) | `create-platform-secrets.sh` uses **different** values: platform-engineering=`dev`, poc=`prod` (`config.yaml` says `platform-engineering`, `poc`) |
 | Cilium cluster ID | `kind-demo.yaml` **and** `config.yaml` `services.cilium.config.clusterId` | — |
 | Cilium Helm settings | `build-mesh.sh:495-542` (`--set` flags) | chart `platform-components/helm/cilium/values.yaml` and its catalog copy (the comment says these "must match") |
 | Enabled services per cluster | `config.yaml` | rendered into `platform-configs/<cluster>/helm/*/values.generated.yaml` by Kubara |

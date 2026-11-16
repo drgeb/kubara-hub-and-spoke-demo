@@ -22,10 +22,10 @@
     { "id": "argocd", "type": "backend", "label": "Argo CD", "sublabel": "self-managed", "pos": [180, 260], "size": [160, 60], "sources": [{ "path": "config.yaml", "line": 10, "end_line": 19, "label": "selfManaged + repo" }] },
     { "id": "openbao", "type": "security", "label": "OpenBao", "sublabel": "kubeconfigs + secrets", "pos": [180, 420], "size": [160, 60], "sources": [{ "path": "z-demo-setup/scripts/build-mesh.sh", "line": 1057, "end_line": 1083, "label": "waits for OpenBao" }] },
     { "id": "observability", "type": "backend", "label": "kube-prometheus-stack", "sublabel": "Grafana · Prometheus · Alertmanager", "pos": [180, 580], "size": [280, 56], "sources": [{ "path": "config.yaml", "line": 50, "end_line": 52, "label": "enabled on hub" }] },
-    { "id": "forgejo", "type": "backend", "label": "Forgejo", "sublabel": "git + Actions", "pos": [480, 260], "size": [150, 60], "sources": [{ "path": "config.yaml", "line": 129, "end_line": 143, "label": "enabled on spoke-1" }] },
-    { "id": "harbor", "type": "backend", "label": "Harbor", "sublabel": "registry", "pos": [480, 380], "size": [150, 60], "sources": [{ "path": "config.yaml", "line": 144, "end_line": 164, "label": "enabled on spoke-1" }] },
-    { "id": "kargo", "type": "backend", "label": "Kargo", "sublabel": "freight / promotion", "pos": [480, 500], "size": [150, 60], "sources": [{ "path": "config.yaml", "line": 169, "end_line": 179, "label": "enabled on spoke-1" }] },
-    { "id": "nexus", "type": "backend", "label": "Nexus", "sublabel": "repository manager", "pos": [480, 620], "size": [150, 56], "sources": [{ "path": "config.yaml", "line": 206, "end_line": 213, "label": "enabled on spoke-1" }] },
+    { "id": "forgejo", "type": "backend", "label": "Forgejo", "sublabel": "git + Actions", "pos": [480, 260], "size": [150, 60], "sources": [{ "path": "config.yaml", "line": 129, "end_line": 143, "label": "enabled on platform-engineering" }] },
+    { "id": "harbor", "type": "backend", "label": "Harbor", "sublabel": "registry", "pos": [480, 380], "size": [150, 60], "sources": [{ "path": "config.yaml", "line": 144, "end_line": 164, "label": "enabled on platform-engineering" }] },
+    { "id": "kargo", "type": "backend", "label": "Kargo", "sublabel": "freight / promotion", "pos": [480, 500], "size": [150, 60], "sources": [{ "path": "config.yaml", "line": 169, "end_line": 179, "label": "enabled on platform-engineering" }] },
+    { "id": "nexus", "type": "backend", "label": "Nexus", "sublabel": "repository manager", "pos": [480, 620], "size": [150, 56], "sources": [{ "path": "config.yaml", "line": 206, "end_line": 213, "label": "enabled on platform-engineering" }] },
     { "id": "ollama", "type": "backend", "label": "Ollama", "sublabel": "local LLM", "pos": [680, 260], "size": [150, 60], "sources": [{ "path": "config.yaml", "line": 311, "end_line": 316, "label": "enabled on poc" }] },
     { "id": "uptime-kuma", "type": "backend", "label": "Uptime Kuma", "sublabel": "monitoring", "pos": [670, 380], "size": [170, 60], "sources": [{ "path": "config.yaml", "line": 342, "end_line": 346, "label": "enabled on poc" }] },
     { "id": "workloads", "type": "backend", "label": "Workloads", "sublabel": "dev · staging · prod", "pos": [850, 260], "size": [200, 60], "sources": [{ "path": "config.yaml", "line": 354, "end_line": 424, "label": "dev cluster services" }] },
@@ -34,7 +34,7 @@
   "boundaries": [
     { "kind": "region", "label": "host — macOS · kubara-mesh 172.19.0.0/16", "wraps": ["dnsmasq", "cpk", "traefik-lbs"] },
     { "kind": "region", "label": "hub — control plane (cilium id 1)", "wraps": ["argocd", "openbao", "observability"], "pad": 18 },
-    { "kind": "region", "label": "kubara-spoke-1 — platform engineering (id 2)", "wraps": ["forgejo", "harbor", "kargo", "nexus"], "pad": 18 },
+    { "kind": "region", "label": "kubara-platform-engineering — platform engineering (id 2)", "wraps": ["forgejo", "harbor", "kargo", "nexus"], "pad": 18 },
     { "kind": "region", "label": "kubara-poc — POC (id 3)", "wraps": ["ollama", "uptime-kuma"], "pad": 18 },
     { "kind": "region", "label": "kubara-dev / staging / prod (ids 4–6)", "wraps": ["workloads", "postgres"], "pad": 18 }
   ],
@@ -54,7 +54,7 @@
   "cards": [
     { "dot": "cyan", "title": "Fabric", "items": ["All 6 kind clusters on kubara-mesh 172.19.0.0/16", "cloud-provider-kind assigns dynamic LB IPs", "Cilium ClusterMesh links hub ↔ spokes (ids 1–6)"] },
     { "dot": "emerald", "title": "Hub — control plane", "items": ["Argo CD self-managed from git main", "OpenBao stores spoke kubeconfigs + platform secrets", "kube-prometheus-stack + metrics-server"] },
-    { "dot": "violet", "title": "spoke-1 — platform engineering", "items": ["Forgejo, Harbor, Kargo, Nexus + Keycloak, OpenProject, Apicurio, OPA", "Shared bitnami postgres provisioned via Liquibase"] },
+    { "dot": "violet", "title": "platform-engineering — platform engineering", "items": ["Forgejo, Harbor, Kargo, Nexus + Keycloak, OpenProject, Apicurio, OPA", "Shared bitnami postgres provisioned via Liquibase"] },
     { "dot": "amber", "title": "poc / workloads", "items": ["poc POC: Kafka, Ollama, Uptime Kuma", "dev/staging/prod run workloads; each cluster fronts traffic with its own traefik"] }
   ]
 }
