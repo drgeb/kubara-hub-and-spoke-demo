@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# sudo shim: notify the user right before sudo would block on "Password:".
+# sudo shim: alert the user whenever sudo is about to block on "Password:".
 #
 # The demo's Justfiles and scripts prepend z-demo-setup/bin to PATH, so every
 # `sudo ...` they run lands here first. If sudo can run without prompting
-# (credentials cached, or the caller passed -n) this is a silent pass-through;
-# otherwise it fires notify-attention and then hands over to the real sudo,
-# which prompts as usual.
+# (credentials cached, or the caller passed -n) this is a silent pass-through.
+# Otherwise it alerts (notify-attention: cmux/macOS notification, pane flash,
+# terminal bell, sound), then hands over to the real sudo, which prompts as
+# usual. A single chime is easy to miss when you're in another app, so the
+# alert repeats every KUBARA_NOTIFY_REPEAT seconds (default 30, 0 = once)
+# until the password has been entered or the prompt is gone.
 
 REAL_SUDO=/usr/bin/sudo
 SHIM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -21,9 +24,25 @@ for arg in "$@"; do
 done
 
 if [ "$will_prompt" = 1 ] && ! "$REAL_SUDO" -n true 2>/dev/null; then
-    "$SHIM_DIR/notify-attention" \
-        "kubara demo: sudo password needed" \
-        "$(basename "$PWD"): sudo $*"
+    title="kubara demo: sudo password needed"
+    body="$(basename "$PWD"): sudo $*"
+    "$SHIM_DIR/notify-attention" "$title" "$body"
+
+    repeat="${KUBARA_NOTIFY_REPEAT:-30}"
+    if [ "$repeat" -gt 0 ] 2>/dev/null; then
+        # exec below keeps this PID, so it becomes the waiting sudo: stop
+        # reminding as soon as it exits (entered, cancelled or failed) or
+        # the credentials are cached. Capped at 20 reminders.
+        sudo_pid=$$
+        (
+            for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+                sleep "$repeat"
+                kill -0 "$sudo_pid" 2>/dev/null || exit 0
+                "$REAL_SUDO" -n true 2>/dev/null && exit 0
+                "$SHIM_DIR/notify-attention" "$title (still waiting)" "$body"
+            done
+        ) </dev/null >/dev/null 2>&1 &
+    fi
 fi
 
 exec "$REAL_SUDO" "$@"

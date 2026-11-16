@@ -238,10 +238,22 @@ diagnose *args:
 bring-up *args:
     #!/usr/bin/env bash
     set -euo pipefail
+    # Authenticate sudo up front, while you are still at the terminal, instead
+    # of minutes into the run (cloud-provider-kind start) and again at the end
+    # (dnsmasq refresh, after macOS's 5-minute sudo timeout has expired). The
+    # z-demo-setup/bin/sudo shim alerts (notification + sound, repeated) if a
+    # password is ever needed. The keep-alive refreshes the cached credentials
+    # without prompting until this recipe exits.
+    echo "==> bring-up needs sudo (cloud-provider-kind, dnsmasq); authenticate now:"
+    sudo -v
+    ( while kill -0 $$ 2>/dev/null; do sudo -n -v 2>/dev/null || true; sleep 60; done ) </dev/null >/dev/null 2>&1 &
+    SUDO_KEEPALIVE_PID=$!
+
     # Long, mostly unattended run. On failure, snapshot the mesh immediately
     # (events expire after ~1h) and then alert.
     on_exit() {
         rc=$?
+        kill "$SUDO_KEEPALIVE_PID" 2>/dev/null || true
         if [ "$rc" -eq 0 ]; then
             notify-attention "kubara bring-up finished" "Mesh is up; run just test-open-apps"
             return

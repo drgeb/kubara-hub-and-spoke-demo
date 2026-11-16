@@ -36,6 +36,9 @@ end run
 APPLESCRIPT
 fi
 
+# Terminal bell: cmux (and most terminals) mark the tab/pane that rang it.
+{ printf '\a' > /dev/tty; } 2>/dev/null || true
+
 sound="${KUBARA_NOTIFY_SOUND:-/System/Library/Sounds/Glass.aiff}"
 if [ "$sound" != "none" ] && [ -f "$sound" ] && command -v afplay >/dev/null 2>&1; then
     (afplay "$sound" >/dev/null 2>&1 &)
