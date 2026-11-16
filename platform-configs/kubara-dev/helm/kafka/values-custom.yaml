@@ -1,0 +1,34 @@
+# Kafka instance on kubara-dev, created by kubara's own kafka chart
+# (platform-components/helm/kafka, templates/kafka-instance.yaml) next to the
+# Strimzi operator in the `kafka` namespace.
+#
+# Used by OpenBank (Justfile.open-bank-oss): the name matches upstream's
+# openbank-cluster so its KafkaTopic strimzi.io/cluster labels apply as-is.
+# One KRaft node (controller + broker), plain internal listener on 9092.
+# Bootstrap: openbank-cluster-kafka-bootstrap.kafka.svc:9092
+#
+# Resources are explicit: without them the broker JVM sizes itself off the
+# node and gets OOM-killed (same lesson as the postgres values-custom.yaml).
+kafkaInstance:
+  enabled: true
+  name: openbank-cluster
+  replicas: 1
+  version: 4.2.1
+  storageSize: 5Gi
+  deleteClaim: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 1Gi
+    limits:
+      memory: 1536Mi
+  jvmOptions:
+    -Xms: 512m
+    -Xmx: 768m
+  entityOperator:
+    resources:
+      requests:
+        cpu: 25m
+        memory: 256Mi
+      limits:
+        memory: 384Mi

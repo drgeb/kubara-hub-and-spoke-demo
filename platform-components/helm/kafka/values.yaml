@@ -219,6 +219,16 @@ kafkaInstance:
   enabled: false
   name: demo
   replicas: 1
-  version: 3.9.0
+  # Must be a version this operator ships (see templates/_kafka_image_map.tpl);
+  # empty = the operator's default. 3.x is not supported by Strimzi 1.x.
+  version: ""
   storageSize: 1Gi
   storageClass: ""
+  deleteClaim: false
+  # Broker pod resources / heap, set on the KafkaNodePool. Leave empty only on
+  # roomy clusters: without them the JVM sizes itself off the node.
+  resources: {}
+  jvmOptions: {}
+  # Applied to both the topic and the user operator containers.
+  entityOperator:
+    resources: {}

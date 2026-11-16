@@ -424,7 +424,14 @@ clusters:
       homer-dashboard:
         status: enabled
       kafka:
-        status: disabled
+        status: enabled
+        config:
+          name: openbank-cluster
+          persistence:
+            size: 5Gi
+            storageClass: ""
+          replicas: 1
+          version: ""
       kube-prometheus-stack:
         status: disabled
       kyverno:

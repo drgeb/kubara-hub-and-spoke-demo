@@ -17,7 +17,15 @@ spec:
 {{- with .Values.kafkaInstance.storageClass }}
     class: {{ . }}
 {{- end }}
-    deleteClaim: false
+    deleteClaim: {{ .Values.kafkaInstance.deleteClaim }}
+{{- with .Values.kafkaInstance.resources }}
+  resources:
+    {{- toYaml . | nindent 4 }}
+{{- end }}
+{{- with .Values.kafkaInstance.jvmOptions }}
+  jvmOptions:
+    {{- toYaml . | nindent 4 }}
+{{- end }}
 ---
 apiVersion: kafka.strimzi.io/v1
 kind: Kafka
@@ -45,6 +53,16 @@ spec:
       default.replication.factor: 1
       min.insync.replicas: 1
   entityOperator:
-    topicOperator: {}
-    userOperator: {}
+    topicOperator:
+{{- with .Values.kafkaInstance.entityOperator.resources }}
+      resources:
+        {{- toYaml . | nindent 8 }}
+{{- else }} {}
+{{- end }}
+    userOperator:
+{{- with .Values.kafkaInstance.entityOperator.resources }}
+      resources:
+        {{- toYaml . | nindent 8 }}
+{{- else }} {}
+{{- end }}
 {{- end }}

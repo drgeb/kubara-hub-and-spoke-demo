@@ -108,7 +108,7 @@ bootstrapValues:
         external-dns: "disabled"
         external-secrets: "enabled"
         homer-dashboard: "enabled"
-        kafka: "disabled"
+        kafka: "enabled"
         kube-prometheus-stack: "disabled"
         kyverno: "disabled"
         kyverno-policies: "disabled"
