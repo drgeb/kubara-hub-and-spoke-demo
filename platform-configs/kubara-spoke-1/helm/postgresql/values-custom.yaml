@@ -11,8 +11,8 @@
 # created by the liquibase-bootstrap job, whose passwords also come from .env
 # at install time and are never committed. Provisioning is automated by
 # z-demo-setup/scripts/provision-platform.sh (invoked by build-mesh.sh after
-# the mesh is up and manually via `just provision-platform`); `just
-# liquibase-install` remains for a manual cluster-local run.
+# the mesh is up and manually via `just provision-platform`, which is safe to
+# re-run); `just verify-liquibase` checks the result.
 auth:
   existingSecret: postgresql
 

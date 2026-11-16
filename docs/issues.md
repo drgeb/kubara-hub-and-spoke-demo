@@ -81,7 +81,7 @@ works with the fixed host topology.
 | Cluster | `config.yaml` stage | script label |
 | --- | --- | --- |
 | kubara-spoke-1 | `platform-engineering` | `dev` |
-| kubara-spoke-2 | `poc` | `prod` |
+| kubara-poc | `poc` | `prod` |
 
 - Evidence: `config.yaml:94, 260`; `create-platform-secrets.sh:32-41`.
 - Consequence: OpenBao secret paths (`kv/platform/kubara-spoke-1-dev/...`) and
@@ -116,7 +116,7 @@ silently disappears on the next generate unless added to both restore lists.
 - Evidence: `generate-helm.sh:13-16, 42-52`; `bootstrap-kubara-hub.sh:110-129`.
 
 ### 3.5 Spoke-2 cert-manager intentionally missing 🟡
-`config.yaml` disables cert-manager on `kubara-spoke-2` (`config.yaml:272-277`)
+`config.yaml` disables cert-manager on `kubara-poc` (`config.yaml:272-277`)
 yet **Uptime Kuma** pins `cert-manager.io/cluster-issuer:
 kubara-local-ca-issuer` (`config.yaml:344-346`). Uptime Kuma's cert will not be
 issued; only the hub/spoke-1 have that ClusterIssuer.

@@ -1,12 +1,12 @@
 ingress:
   enabled: true
-  host: homer.spoke-2.kubara.test
+  host: homer.poc.kubara.test
 
 dashboardConfig:
   services:
     - name: "Uptime"
       items:
         - name: "uptime-kuma"
-          url: "https://uptime-kuma.spoke-2.kubara.test/"
+          url: "https://uptime-kuma.poc.kubara.test/"
           subtitle: "Uptime Monitoring"
           target: "_blank"

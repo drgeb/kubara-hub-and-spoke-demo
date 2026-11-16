@@ -1,0 +1,33 @@
+# Liquibase verification. Provisioning itself (role/database bootstrap chart +
+# per-service migration charts in z-demo-setup/liquibase/, on every cluster)
+# is `just provision-platform` in the root Justfile. Imported by the root
+# Justfile, so recipes share its variables (KUBARA_KUBECONFIG, *_CONTEXT).
+
+# Verify liquibase roles/databases exist on each spoke cluster
+verify-liquibase:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    KCFG="{{ KUBARA_KUBECONFIG }}"
+    ADMIN_PASS="${POSTGRES_PASSWORD:-}"
+    if [[ -z "$ADMIN_PASS" ]]; then
+        echo "POSTGRES_PASSWORD is not set — run 'direnv allow'" >&2
+        exit 1
+    fi
+    # context|services rows, same mapping as provision-platform.sh's
+    # services_for_cluster. just variables are interpolated, not exported to bash,
+    # and bash 3.2 has no associative arrays.
+    ROWS="{{ SPOKE1_CONTEXT }}|openproject keycloak apicurio
+    {{ POC_CONTEXT }}|app
+    {{ DEV_CONTEXT }}|app
+    {{ STAGING_CONTEXT }}|app
+    {{ PROD_CONTEXT }}|app"
+    while IFS='|' read -r ctx services; do
+        ctx="${ctx#"${ctx%%[![:space:]]*}"}"
+        for svc in $services; do
+            role="$(kubectl --kubeconfig "$KCFG" --context "$ctx" exec postgresql-0 -n postgresql -- \
+                bash -c "PGPASSWORD='$ADMIN_PASS' psql -U postgres -tAc \"SELECT rolname FROM pg_roles WHERE rolname='$svc'\"")" || true
+            db="$(kubectl --kubeconfig "$KCFG" --context "$ctx" exec postgresql-0 -n postgresql -- \
+                bash -c "PGPASSWORD='$ADMIN_PASS' psql -U postgres -tAc \"SELECT datname FROM pg_database WHERE datname='$svc'\"")" || true
+            printf '%s/%s  role=%s db=%s\n' "$ctx" "$svc" "${role:-MISSING}" "${db:-MISSING}"
+        done
+    done <<< "$ROWS"

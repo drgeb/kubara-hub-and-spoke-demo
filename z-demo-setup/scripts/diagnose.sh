@@ -30,7 +30,7 @@ REQ_TIMEOUT="10s"
 DNS_ROWS=(
     "hub.kubara.test kind-hub"
     "spoke-1.kubara.test kind-kubara-spoke-1"
-    "spoke-2.kubara.test kind-kubara-spoke-2"
+    "poc.kubara.test kind-kubara-poc"
     "dev.kubara.test kind-kubara-dev"
     "staging.kubara.test kind-kubara-staging"
     "prod.kubara.test kind-kubara-prod"
@@ -123,7 +123,7 @@ check_dns() {
     if ! dig +short +time=1 +tries=1 @127.0.0.1 hub.kubara.test >/dev/null 2>&1 \
         || [ -z "$(dig +short +time=1 +tries=1 @127.0.0.1 hub.kubara.test 2>/dev/null)" ]; then
         dnsmasq_up=0
-        finding ERROR DNS host dnsmasq "not answering on 127.0.0.1: every *.kubara.test URL fails (just refresh-dns-lb-hosts)"
+        finding ERROR DNS host dnsmasq "not answering on 127.0.0.1: every *.kubara.test URL fails (just refresh-lb-hosts)"
     else
         ok "dnsmasq answering on 127.0.0.1"
     fi
@@ -140,7 +140,7 @@ check_dns() {
         if [ -z "$live" ]; then
             finding ERROR LB "$ctx" cilium-ingress "${dom}: no LoadBalancer IP assigned"
         elif [ "$live" != "$conf" ]; then
-            finding ERROR DNS "$ctx" dnsmasq.conf "${dom}: map says '${conf:-none}' but live LB is ${live} (just refresh-dns-lb-hosts)"
+            finding ERROR DNS "$ctx" dnsmasq.conf "${dom}: map says '${conf:-none}' but live LB is ${live} (just refresh-lb-hosts)"
         elif [ "$dnsmasq_up" = 1 ] && [ "$answer" != "$live" ]; then
             finding ERROR DNS "$ctx" dnsmasq "${dom}: dnsmasq answers '${answer:-nothing}', live LB is ${live} (stale dnsmasq: restart it)"
         else
@@ -317,7 +317,7 @@ summarize() {
         echo "  - Workload errors (crash / missing secret / failed job / failed helm). See pod-*.log and *.describe.txt in the bundle."; said=1
     fi
     if has "DNS"; then
-        echo "  - DNS map is stale or dnsmasq is down: apps may be fine but unreachable by name (just refresh-dns-lb-hosts)."; said=1
+        echo "  - DNS map is stale or dnsmasq is down: apps may be fine but unreachable by name (just refresh-lb-hosts)."; said=1
     fi
     if has "MESH"; then
         echo "  - ClusterMesh not fully connected; cross-cluster services will fail."; said=1

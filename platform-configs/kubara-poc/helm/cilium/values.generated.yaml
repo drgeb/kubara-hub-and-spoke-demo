@@ -7,5 +7,5 @@ cilium:
   # z-demo-setup/config/kind-demo.yaml cilium_id. Static defaults (ingress
   # controller, hubble, ipam, ...) live in the chart's values.yaml.
   cluster:
-    name: "kubara-spoke-2"
+    name: "kubara-poc"
     id: 3

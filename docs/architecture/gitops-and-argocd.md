@@ -59,7 +59,7 @@ Verification recipes: `just setup-openbao-secrets`, `just verify-secrets`
 
 > Stage labels used in the OpenBao path vs `config.yaml` stages can drift
 > (e.g. `create-platform-secrets.sh` labels spoke-1 "dev" while `config.yaml`
-> says `platform-engineering`, and spoke-2 "prod" while `config.yaml` says
+> says `platform-engineering`, and poc "prod" while `config.yaml` says
 > `poc`). See [Issues](../issues.md).
 
 ## bootstrap-kubara-hub.sh workaround

@@ -29,16 +29,16 @@ LIQUIBASE_HELM_TIMEOUT="${LIQUIBASE_HELM_TIMEOUT:-15m}"
 # ── Cluster / context ────────────────────────────────────────────────────────
 HUB_CONTEXT="kind-hub"
 SPOKE1_CONTEXT="kind-kubara-spoke-1"
-SPOKE2_CONTEXT="kind-kubara-spoke-2"
+POC_CONTEXT="kind-kubara-poc"
 DEV_CONTEXT="kind-kubara-dev"
 STAGING_CONTEXT="kind-kubara-staging"
 PROD_CONTEXT="kind-kubara-prod"
 
-KIND_NAMES=(hub kubara-spoke-1 kubara-spoke-2 kubara-dev kubara-staging kubara-prod)
+KIND_NAMES=(hub kubara-spoke-1 kubara-poc kubara-dev kubara-staging kubara-prod)
 
 # Every cluster that runs the bitnami `postgresql` chart in the postgresql
 # namespace. Keep in sync with the Argo CD postgresql Applications.
-POSTGRES_CONTEXTS=("$SPOKE1_CONTEXT" "$SPOKE2_CONTEXT" "$DEV_CONTEXT" "$STAGING_CONTEXT" "$PROD_CONTEXT")
+POSTGRES_CONTEXTS=("$SPOKE1_CONTEXT" "$POC_CONTEXT" "$DEV_CONTEXT" "$STAGING_CONTEXT" "$PROD_CONTEXT")
 
 # ── Options ──────────────────────────────────────────────────────────────────
 KUBECONFIG="${KUBECONFIG:-${LOCAL_KUBECONFIG}}"

@@ -65,7 +65,7 @@ Fixes 1.4 in practice; guardrails for future rotation belong in 4.2.
 ### 3.1 Single source for stage labels
 Derive the OpenBao secret-path stage labels from `config.yaml` (reuse
 `get_cluster_stage` from `build-mesh.sh` in `create-platform-secrets.sh`)
-instead of the hardcoded `dev`/`prod` for spoke-1/spoke-2.
+instead of the hardcoded `dev`/`prod` for spoke-1/poc.
 - Fixes: 3.1
 - Check: OpenBao paths and `build-mesh.sh` kubeconfig paths use identical stage
   labels for every cluster.
@@ -92,8 +92,8 @@ restore list with a validation step that fails the run if any
 manifest of expected charts vs the post-generate tree).
 - Fixes: 3.4
 
-### 3.5 Fix spoke-2 cert-manager gap
-Either enable cert-manager on `kubara-spoke-2`, or drop the
+### 3.5 Fix poc cert-manager gap
+Either enable cert-manager on `kubara-poc`, or drop the
 `cert-manager.io/cluster-issuer` annotation from `uptime-kuma` in `config.yaml`.
 - Fixes: 3.5
 
@@ -140,7 +140,7 @@ without manual scrubbing.
 - Fixes: 5.1
 
 ### 5.3 Add an end-to-end readiness check
-Extend `test-open-apps.sh` (or `check-apps`) to assert the health of all
+Extend `test-open-apps.sh` to assert the health of all
 demo endpoints documented in the `Justfile` (`argocd`, `openbao`, `grafana`,
 `forgejo`, `harbor`, `kargo`, `nexus`, `keycloak`, `uptime-kuma`, and the three
 pipelines) rather than only opening them.

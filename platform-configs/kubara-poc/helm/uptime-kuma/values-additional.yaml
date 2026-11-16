@@ -1,6 +1,6 @@
 ingress:
   enabled: true
-  host: uptime-kuma.spoke-2.kubara.test
+  host: uptime-kuma.poc.kubara.test
   path: /
   ingressClassName: cilium
   annotations:

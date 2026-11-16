@@ -1,4 +1,4 @@
-# Local overrides for the shared backing postgres on kubara-spoke-2.
+# Local overrides for the shared backing postgres on kubara-poc.
 #
 # Credentials are NEVER stored in this repository; see
 # catalogs/backing-services/platform-configs/helm/postgresql/values.generated.yaml.tplt

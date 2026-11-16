@@ -80,7 +80,7 @@ CoreDNS ConfigMap from live service ClusterIPs.
   the LB controller (needs cached sudo credentials).
 - `just kind-stop` / `just kind-restart` — stop/start the cluster containers +
   LBs, wait for IPs, then refresh dnsmasq.
-- `just refresh-dns-lb-hosts` — rewrite the map from live IPs.
+- `just refresh-lb-hosts` — rewrite the map from live IPs.
 - `just start-dnsmasq` / `just stop-dnsmasq` — start/stop the host DNS.
 - `z-demo-setup/scripts/setup` — idempotent DNS + LB bring-up for an
   already-built mesh.
@@ -92,7 +92,7 @@ CoreDNS ConfigMap from live service ClusterIPs.
             O---------------------------- kubara-mesh 172.19.0.0/16
             |        kind clusters + cloud-provider-kind LBs
             |
-   hub(id1) <-ClusterMesh-> spoke-1(id2) spoke-2(id3) dev(id4) staging(id5) prod(id6)
+   hub(id1) <-ClusterMesh-> spoke-1(id2) poc(id3) dev(id4) staging(id5) prod(id6)
       │ LB IP                   │ LB IP       │ LB IP     ...
       │                         │
    dnsmasq (host) <── *.kubara.test, my.nexus.me, forgejo-ssh.me

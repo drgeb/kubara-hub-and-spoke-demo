@@ -9,9 +9,9 @@ clusters:
     stage: platform-engineering
     kind_config: kind-spoke1-overlay.yaml
     cilium_id: 2
-  - name: kubara-spoke-2
+  - name: kubara-poc
     stage: poc
-    kind_config: kind-spoke2-overlay.yaml
+    kind_config: kind-poc-overlay.yaml
     cilium_id: 3
   - name: kubara-dev
     stage: dev

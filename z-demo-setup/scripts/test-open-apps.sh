@@ -129,7 +129,7 @@ check_dns_map() {
 if [[ -f "$KC" ]]; then
     check_dns_map "hub.kubara.test:kind-hub:cilium-ingress:kube-system \
 spoke-1.kubara.test:kind-kubara-spoke-1:cilium-ingress:kube-system \
-spoke-2.kubara.test:kind-kubara-spoke-2:cilium-ingress:kube-system \
+poc.kubara.test:kind-kubara-poc:cilium-ingress:kube-system \
 dev.kubara.test:kind-kubara-dev:cilium-ingress:kube-system \
 staging.kubara.test:kind-kubara-staging:cilium-ingress:kube-system \
 prod.kubara.test:kind-kubara-prod:cilium-ingress:kube-system \
@@ -166,7 +166,7 @@ test_url keycloak      https://keycloak.spoke-1.kubara.test/
 
 echo
 echo "dev"
-test_url uptime-kuma   https://uptime-kuma.spoke-2.kubara.test/ '/setup(-database)?/?$' \
+test_url uptime-kuma   https://uptime-kuma.poc.kubara.test/ '/setup(-database)?/?$' \
     "no admin yet (or not restarted after seeding): run 'just setup-uptime-kuma'"
 # test_url go-hello      http://go-hello.dev.kubara.test/
 

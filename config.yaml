@@ -275,10 +275,10 @@ clusters:
           backupStorage:
             create: true
             region: eu01
-  - name: kubara-spoke-2
+  - name: kubara-poc
     stage: poc
     type: spoke
-    dnsName: spoke-2.kubara.test
+    dnsName: poc.kubara.test
     networking:
       type: ingress
       ingress:

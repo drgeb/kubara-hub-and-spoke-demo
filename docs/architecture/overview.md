@@ -26,7 +26,7 @@ Six kind clusters, one Docker network, one DNS zone:
 | --- | --- | --- | --- |
 | `hub` | `local` | 1 | Control plane + observability |
 | `kubara-spoke-1` | `platform-engineering` | 2 | Platform tools |
-| `kubara-spoke-2` | `poc` | 3 | POC / evaluation services |
+| `kubara-poc` | `poc` | 3 | POC / evaluation services |
 | `kubara-dev` | `dev` | 4 | Workload target (dev) |
 | `kubara-staging` | `staging` | 5 | Workload target (staging) |
 | `kubara-prod` | `prod` | 6 | Workload target (prod) |
@@ -55,7 +55,7 @@ git main ──────────► Argo CD (hub) ───────�
 
 ## What lives on which cluster
 
-| Component | Hub | spoke-1 | spoke-2 | dev | staging | prod |
+| Component | Hub | spoke-1 | poc | dev | staging | prod |
 | --- | :-: | :-: | :-: | :-: | :-: | :-: |
 | Argo CD | ✔ (self-managed) | managed | managed | managed | managed | managed |
 | Traefik ingress | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
@@ -80,7 +80,7 @@ Orchestrated by `just bring-up` (root `Justfile`), which runs:
    cloud-provider-kind is running, bootstrap the hub (Kubara), publish spoke
    kubeconfigs to OpenBao, provision platform DBs.
 2. Wait for all six traefik LoadBalancer IPs.
-3. `just refresh-dns-lb-hosts` — rewrite the dnsmasq map from live LB IPs.
+3. `just refresh-lb-hosts` — rewrite the dnsmasq map from live LB IPs.
 
 Because LB IPs are assigned dynamically by cloud-provider-kind, no address is
 ever pinned in chart values; the only place that records live IPs is

@@ -92,7 +92,7 @@ Every concept below depends on this answer, and the repo does not record it.
 
 * **Problem:** Cluster names, stages and IDs are written in seven places
   (analysis §3). Stages already disagree: `create-platform-secrets.sh` labels
-  spoke-1 `dev` and spoke-2 `prod`, while `config.yaml` says
+  spoke-1 `dev` and poc `prod`, while `config.yaml` says
   `platform-engineering` and `poc`. As a result, OpenBao paths written by
   `build-mesh.sh` (from `config.yaml`) and by `create-platform-secrets.sh` use
   different stage segments.

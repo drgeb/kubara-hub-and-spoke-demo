@@ -17,9 +17,9 @@ cert-manager:
     servicemonitor:
       enabled: false
       labels:
-        monitoring.instance: kubara-spoke-2-poc
+        monitoring.instance: kubara-poc-poc
 
 namespace:
   labels:
-    project-name: "kubara-spoke-2"
+    project-name: "kubara-poc"
     stage: "poc"

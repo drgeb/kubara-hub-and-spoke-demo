@@ -1543,7 +1543,7 @@ Topology:
               hub =================================
              /   \\.          \\      \\.         \\.     
             /     \\.          \\.     \\.         \\.    
-       spoke-1   spoke-2.     dev.     staging    prod.
+       spoke-1   poc.     dev.     staging    prod.
 
 test-cluster was not modified.
 

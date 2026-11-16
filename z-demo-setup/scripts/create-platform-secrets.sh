@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 # Create Kubernetes Secrets for platform services across the spoke clusters
-# (kubara-spoke-1, kubara-spoke-2, kubara-dev, kubara-staging, kubara-prod)
+# (kubara-spoke-1, kubara-poc, kubara-dev, kubara-staging, kubara-prod)
 # from environment variables (loaded from .env via direnv). Publishes the same
 # secrets to OpenBao (Vault) on a best-effort basis — warns if OpenBao is
 # unreachable (chicken-and-egg during initial bootstrap). Creating secrets with
@@ -13,7 +13,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # ── Cluster / context ────────────────────────────────────────────────────────
 SPOKE1_CONTEXT="kind-kubara-spoke-1"
-SPOKE2_CONTEXT="kind-kubara-spoke-2"
+POC_CONTEXT="kind-kubara-poc"
 DEV_CONTEXT="kind-kubara-dev"
 STAGING_CONTEXT="kind-kubara-staging"
 PROD_CONTEXT="kind-kubara-prod"
@@ -23,7 +23,7 @@ HUB_CONTEXT="kind-hub"
 # Each of these has a bitnami postgresql Deployment in the postgresql
 # namespace wired to auth.existingSecret=postgresql, so every cluster that
 # runs the chart needs the secret seeded before its pod initializes.
-POSTGRES_ONLY_CONTEXTS=("$SPOKE2_CONTEXT" "$DEV_CONTEXT" "$STAGING_CONTEXT" "$PROD_CONTEXT")
+POSTGRES_ONLY_CONTEXTS=("$POC_CONTEXT" "$DEV_CONTEXT" "$STAGING_CONTEXT" "$PROD_CONTEXT")
 
 OPENBAO_NAMESPACE="openbao"
 OPENBAO_MOUNT="kv"
@@ -31,7 +31,7 @@ HUB_NAME="hub"
 HUB_STAGE="local"
 CLUSTER_NAME="kubara-spoke-1"
 CLUSTER_STAGE="dev"
-CLUSTER2_NAME="kubara-spoke-2"
+CLUSTER2_NAME="kubara-poc"
 CLUSTER2_STAGE="prod"
 CLUSTER3_NAME="kubara-dev"
 CLUSTER3_STAGE="dev"
@@ -203,10 +203,10 @@ if is_cluster_reachable "$SPOKE1_CONTEXT"; then
     done
 fi
 
-if is_cluster_reachable "$SPOKE2_CONTEXT"; then
-    log "Ensuring image-pull-secret on ${SPOKE2_CONTEXT}"
+if is_cluster_reachable "$POC_CONTEXT"; then
+    log "Ensuring image-pull-secret on ${POC_CONTEXT}"
     for ns in external-secrets; do
-        ensure_image_pull_secret "$SPOKE2_CONTEXT" "$ns"
+        ensure_image_pull_secret "$POC_CONTEXT" "$ns"
     done
 fi
 

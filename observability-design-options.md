@@ -4,7 +4,7 @@ The demo runs three kind clusters on one Docker network (`kubara-mesh`):
 
 - `kind-hub` – control plane for ArgoCD, hosts `kube-prometheus-stack` (Prometheus + Grafana + Alertmanager)
 - `kind-kubara-spoke-1` – worker cluster (Forgejo, PostgreSQL, traefik, ...)
-- `kind-kubara-spoke-2` – worker cluster
+- `kind-kubara-poc` – worker cluster
 
 Prometheus and the Prometheus Operator CRDs exist **only on the hub**. Each spoke
 runs Cilium with its own agent/operator, plus Hubble (Cilium's network observability
@@ -39,7 +39,7 @@ Each spoke runs its own lightweight Prometheus (or thanos-sidecar) that writes
 metrics to the hub collectors via `remote_write`.
 
 ```
-   spoke-1                    spoke-2                      hub
+   spoke-1                    poc                      hub
 ┌──────────────┐          ┌──────────────┐          ┌───────────────────┐
 │ cilium-agent │──┐       │ cilium-agent │──┐       │ Prometheus        │
 │ hubble       │  │       │ hubble       │  │       │  remote_write API │
@@ -94,7 +94,7 @@ Cilium ServiceMonitors.
                                  │   │  hubble-metrics 9965 │
                                  │   └──────────────────────┘
                                  │   ┌──────────────────────┐
-                                 │   │  kind-kubara-spoke-2 │
+                                 │   │  kind-kubara-poc │
                                  │   │  172.19.0.4          │
                                  │   │  cilium-agent  9962  │
                                  │   │  cilium-operator 9963│
@@ -123,7 +123,7 @@ Hub Prometheus stores locally; each spoke optionally runs a Thanos sidecar whose
 TSDB is queried through a shared Thanos Querier (`--store` fan-out).
 
 ```
-   spoke-1             spoke-2                hub
+   spoke-1             poc                hub
 ┌────────────┐      ┌────────────┐     ┌────────────────────┐
 │ Prometheus │      │ Prometheus │     │ Prometheus (hub)   │
 │ └ thanos   │      │ └ thanos   │     │                    │
@@ -165,10 +165,10 @@ Status: documented, **not selected**.
    --set "operator.prometheus.serviceMonitor.labels.monitoring\.instance=hub-local"
    ```
 
-2. `z-demo-setup/config/cilium/values.yaml` mirrors the same settings.
+2. The chart values (`platform-components/helm/cilium/values.yaml`) mirror the same settings.
 
 3. On the live clusters the changes were applied with `helm upgrade ... --reuse-values`
-   for each context (`kind-hub`, `kind-kubara-spoke-1`, `kind-kubara-spoke-2`).
+   for each context (`kind-hub`, `kind-kubara-spoke-1`, `kind-kubara-poc`).
 
 4. The hub Prometheus now has three in-cluster targets from the Cilium
    ServiceMonitors (agent 9962, operator 9963, hubble 9965), all `state=up`.
@@ -177,7 +177,7 @@ Status: documented, **not selected**.
    adds `prometheus.prometheusSpec.additionalScrapeConfigs` for the two spokes:
 
    - job `cilium-spoke-1` → `172.19.0.3:{9962,9963,9965}`
-   - job `cilium-spoke-2` → `172.19.0.4:{9962,9963,9965}`
+   - job `cilium-poc` → `172.19.0.4:{9962,9963,9965}`
 
 ### Refreshing spoke IPs after a rebuild
 
@@ -186,7 +186,7 @@ After rebuilding the kind clusters:
 
 ```bash
 docker inspect kubara-spoke-1-control-plane | jq '.[0].NetworkSettings.Networks.kubara_mesh.IPAddress'
-docker inspect kubara-spoke-2-control-plane | jq '.[0].NetworkSettings.Networks.kubara_mesh.IPAddress'
+docker inspect kubara-poc-control-plane | jq '.[0].NetworkSettings.Networks.kubara_mesh.IPAddress'
 ```
 
 Update the `additionalScrapeConfigs` targets in

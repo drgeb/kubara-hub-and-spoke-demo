@@ -5,8 +5,8 @@
 #
 # The CNI itself is bootstrapped by build-mesh.sh on first boot; this chart lets
 # Argo CD adopt the same release for ongoing GitOps management. Keep these
-# values in sync with z-demo-setup/scripts/build-mesh.sh and
-# z-demo-setup/config/cilium/values.yaml or the two managers will fight.
+# values in sync with the `cilium install --set` flags in
+# z-demo-setup/scripts/build-mesh.sh, or the two managers will fight.
 cilium:
   kubeProxyReplacement: true
   ipam:

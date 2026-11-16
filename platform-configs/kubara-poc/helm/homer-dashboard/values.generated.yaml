@@ -3,14 +3,14 @@
 # To customize values, you can add additional files named values-*.yaml to this directory.
 
 ingress:
-  host: spoke-2.kubara.test
+  host: poc.kubara.test
   path: "/"
   ingressClassName: cilium
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-staging
 namespace:
   labels:
-    project-name: "kubara-spoke-2"
+    project-name: "kubara-poc"
     stage: "poc"
 imagePullSecrets:
   - name: image-pull-secret

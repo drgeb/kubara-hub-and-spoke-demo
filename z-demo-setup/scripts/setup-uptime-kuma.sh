@@ -8,7 +8,7 @@ set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 KC="${ROOT_DIR}/.local/kind.kubeconfig"
-CONTEXT="kind-kubara-spoke-2"
+CONTEXT="kind-kubara-poc"
 NS="uptime-kuma"
 
 RESET=false
@@ -73,4 +73,4 @@ echo "Created Uptime Kuma admin '${UPTIME_KUMA_ADMIN_USER}' (users in db: ${COUN
 echo ">> Restarting Uptime Kuma so it picks up the new admin..."
 kubectl --kubeconfig "$KC" --context "$CONTEXT" -n "$NS" rollout restart deploy/uptime-kuma >/dev/null
 kubectl --kubeconfig "$KC" --context "$CONTEXT" -n "$NS" rollout status deploy/uptime-kuma --timeout=180s >/dev/null
-echo "Refresh https://uptime-kuma.spoke-2.kubara.test/ — log in with UPTIME_KUMA_ADMIN_USER / UPTIME_KUMA_PASSWORD."
+echo "Refresh https://uptime-kuma.poc.kubara.test/ — log in with UPTIME_KUMA_ADMIN_USER / UPTIME_KUMA_PASSWORD."

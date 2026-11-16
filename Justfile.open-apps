@@ -1,0 +1,114 @@
+# App entry points: open-* recipes that open each demo app in the browser.
+# Imported by the root Justfile, so they share its variables (*_DNS_NAME,
+# KUBARA_KUBECONFIG) and run from the repo root. Test them all with
+# `just test-open-apps`.
+
+# Open the go-hello service
+open-go-hello:
+    @open http://go-hello.{{DEV_DNS_NAME}}/
+
+open-portal:
+    @echo "Opening Argo CD portal in the default browser..."
+    @kubectl port-forward svc/argocd-server -n argocd 8080:443 &
+    @sleep 5
+    @open http://localhost:8080
+
+open-argo-cd:
+    @echo user: ${ARGOCD_ADMIN_USER}
+    @echo passwd: $ARGOCD_WIZARD_ACCOUNT_PASSWORD
+    @echo $ARGOCD_WIZARD_ACCOUNT_PASSWORD | pbcopy
+    @open https://argocd.{{HUB_DNS_NAME}}
+
+# Open Grafana
+open-grafana:
+    @echo user: 
+    @echo passwd: 
+    @open https://grafana.{{HUB_DNS_NAME}}/
+
+# Open Prometheus
+open-prometheus:
+    @echo user: ${ARGOCD_ADMIN_USER}
+    @echo passwd: ${ARGOCD_WIZARD_ACCOUNT_PASSWORD}
+    @echo $ARGOCD_WIZARD_ACCOUNT_PASSWORD | pbcopy
+    @open https://prometheus.{{HUB_DNS_NAME}}/
+
+# Open Alertmanager
+open-alertmanager:
+    @echo user: 
+    @echo passwd: 
+    @open https://alertmanager.{{HUB_DNS_NAME}}/
+
+# Open Uptime Kuma
+open-uptime-kuma:
+    @echo user: ${UPTIME_KUMA_ADMIN_USER}
+    @echo passwd: ${UPTIME_KUMA_PASSWORD}
+    @echo $UPTIME_KUMA_PASSWORD | pbcopy
+    @open https://uptime-kuma.{{POC_DNS_NAME}}/
+
+# Open Forgejo
+open-forgejo:
+    @echo user: ${FORGEJO_ADMIN_USER}
+    @echo passwd: ${FORGEJO_ADMIN_PASSWORD}
+    @echo $FORGEJO_ADMIN_PASSWORD | pbcopy
+    @open https://forgejo.{{SPOKE1_DNS_NAME}}/
+
+# Open Bao (Vault) UI
+open-bao:
+    @echo user: 
+    @echo passwd: 
+    @open https://openbao.{{HUB_DNS_NAME}}/
+
+# Open Harbor registry
+open-harbor:
+    @echo user: ${HARBOR_ADMIN_USER}
+    @echo passwd: ${HARBOR_ADMIN_PASSWORD} 
+    @echo ${HARBOR_ADMIN_PASSWORD} | pbcopy
+    @open https://harbor.{{SPOKE1_DNS_NAME}}/
+
+# Open Kargo
+open-kargo:
+    @echo user: ${KARGO_ADMIN_USER}
+    @echo passwd: ${KARGO_ADMIN_PASSWORD}
+    @echo ${KARGO_ADMIN_PASSWORD} | pbcopy
+    @open https://kargo.{{SPOKE1_DNS_NAME}}/
+
+# Open Nexus
+open-nexus:
+    @echo user: ${NEXUS_ADMIN_USER}
+    @echo passwd: ${NEXUS_ADMIN_PASSWORD}
+    @echo ${NEXUS_ADMIN_PASSWORD} | pbcopy
+    @open https://nexus.{{SPOKE1_DNS_NAME}}/
+
+open-keycloak:
+    @echo user: ${KEYCLOAK_ADMIN_USER}
+    @echo passwd: ${KEYCLOAK_ADMIN_PASSWORD}
+    @echo ${KEYCLOAK_ADMIN_PASSWORD} | pbcopy
+    @open https://keycloak.{{SPOKE1_DNS_NAME}}/
+
+# Exec into the running postgres pod and open a psql shell
+open-postgres-shell:
+    @: "${APP_POSTGRES_PASSWORD:?not set - run 'direnv allow' to load .env}"
+    kubectl exec -it postgresql-0 -n postgresql -- env "PGPASSWORD=$APP_POSTGRES_PASSWORD" psql -U app -d app
+
+# Exec into the running postgres pod and open a psql shell
+open-postgres19-shell:
+    @: "${APP_POSTGRES_PASSWORD:?not set - run 'direnv allow' to load .env}"
+    kubectl exec -it postgresql19-1 -n postgresql19 -- env "PGPASSWORD=$APP_POSTGRES_PASSWORD" psql -h 127.0.0.1 -U app -d app
+
+# Open the ebank service (pass staging or prod, default: dev)
+open-ebank env="dev":
+    @open http://ebank-simple-{{env}}.{{DEV_DNS_NAME}}/
+
+# Open the kargo-simple guestbook app (pass staging or prod, default: dev)
+open-kargo-simple env="dev":
+    @open http://guestbook-simple-{{env}}.{{DEV_DNS_NAME}}/
+
+# Open the Homer dashboard. Accepts a cluster: the DNS slug (hub|dev|staging|
+# prod|spoke-1|poc) or the kind cluster name (kubara-hub|kubara-dev|...).
+# Default: hub.
+open-homer-dashboard cluster="hub":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    c="{{cluster}}"
+    c="${c#kubara-}"
+    open "https://homer.${c}.kubara.test/"

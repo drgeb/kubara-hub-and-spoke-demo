@@ -38,7 +38,7 @@ This spoke hosts the "platform" the dev/staging/prod spokes consume.
 DB schemas/roles are provisioned by Liquibase (`z-demo-setup/liquibase/`),
 bootstrapped via `provision-platform.sh`.
 
-## kubara-spoke-2 — POC / evaluation
+## kubara-poc — POC / evaluation
 
 | Service | Namespace | Role |
 | --- | --- | --- |
@@ -84,7 +84,7 @@ These are the environments that Kargo promotes workloads into.
 | Grafana / Prometheus / Alertmanager | `https://*.hub.kubara.test` |
 | OpenBao | `https://openbao.hub.kubara.test` |
 | Forgejo / Harbor / Kargo / Nexus / Keycloak | `https://*.spoke-1.kubara.test` |
-| Uptime Kuma | `https://uptime-kuma.spoke-2.kubara.test` |
+| Uptime Kuma | `https://uptime-kuma.poc.kubara.test` |
 
 The `open-*` recipes in the `Justfile` open each UI and copy the password to
 the clipboard.

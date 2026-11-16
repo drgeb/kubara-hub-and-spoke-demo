@@ -43,7 +43,7 @@ KEEP the catalog source and the generated copy in sync (catalog is authoritative
 
 ## Step 2 – Install monitoring CRDs on the 5 spokes (runtime, no repo change)
 
-`monitoring.coreos.com/v1` CRDs are missing on spoke-1, spoke-2, dev, staging, prod.
+`monitoring.coreos.com/v1` CRDs are missing on spoke-1, poc, dev, staging, prod.
 
 Minimal install (CRDs only, no operator/namespace): fetch prometheus-operator CRDs:
 
@@ -52,7 +52,7 @@ KUBE=.local/kind.kubeconfig
 CRD_BASE=https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.79.2/example/prometheus-operator-crd
 CRDS=(alertmanagerconfigs alertmanagers podmonitors prometheuses prometheusrules
       servicemonitors scrapeconfigs thanosrulers)
-for ctx in kind-kubara-spoke-1 kind-kubara-spoke-2 kind-kubara-dev kind-kubara-staging kind-kubara-prod; do
+for ctx in kind-kubara-spoke-1 kind-kubara-poc kind-kubara-dev kind-kubara-staging kind-kubara-prod; do
   for crd in "${CRDS[@]}"; do
     kubectl --context "$ctx" --kubeconfig "$KUBE" apply -f \
       "${CRD_BASE}/monitoring.coreos.com_${crd}.yaml"

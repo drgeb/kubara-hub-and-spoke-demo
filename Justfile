@@ -2,11 +2,24 @@
 # instead of relying on the current kubectl context. Hub apps (argocd, homer,
 # grafana, prometheus, alertmanager, openbao) live on the "hub" kind cluster;
 # PLTFME (platform engineering: forgejo, kargo, harbor, nexus, keycloak, ...)
-# on kubara-spoke-1; DEV apps on kubara-spoke-2.
+# on kubara-spoke-1; DEV apps on kubara-poc.
 
 # z-demo-setup/bin holds a sudo shim that fires a cmux/macOS notification
 # before any sudo password prompt (see z-demo-setup/bin/sudo).
 export PATH := justfile_directory() + "/z-demo-setup/bin:" + env_var("PATH")
+
+# open-* recipes (one per demo app UI) live in their own file.
+import 'Justfile.open-apps'
+
+# cloud-provider-kind start/stop recipes.
+import 'Justfile.cpk'
+
+# Liquibase bootstrap/migration/verify recipes.
+import 'Justfile.liquibase'
+
+# Local dnsmasq for *.kubara.test (start/stop/status-dnsmasq, setup-resolver,
+# refresh-lb-hosts). Still runnable on its own: just -f dnsmasq/Justfile ...
+import 'dnsmasq/Justfile'
 
 KUBARA_KUBECONFIG:=".local/kind.kubeconfig"
 
@@ -17,38 +30,38 @@ MESH_DOCKER_IP_RANGE:="172.19.0.0/24"
 
 HUB_KIND:="hub"
 SPOKE1_KIND:="kubara-spoke-1"
-SPOKE2_KIND:="kubara-spoke-2"
+POC_KIND:="kubara-poc"
 DEV_KIND:="kubara-dev"
 STAGING_KIND:="kubara-staging"
 PROD_KIND:="kubara-prod"
 
 HUB_CONTEXT:="kind-hub"
 SPOKE1_CONTEXT:="kind-kubara-spoke-1"
-SPOKE2_CONTEXT:="kind-kubara-spoke-2"
+POC_CONTEXT:="kind-kubara-poc"
 DEV_CONTEXT:="kind-kubara-dev"
 STAGING_CONTEXT:="kind-kubara-staging"
 PROD_CONTEXT:="kind-kubara-prod"
 
 HUB_ID:="1"
 SPOKE1_ID:="2"
-SPOKE2_ID:="3"
+POC_ID:="3"
 DEV_ID:="4"
 STAGING_ID:="5"
 PROD_ID:="6"
 
 HUB_NAME:="hub"
 SPOKE1_NAME:="kubara-spoke-1"
-SPOKE2_NAME:="kubara-spoke-2"
+POC_NAME:="kubara-poc"
 DEV_NAME:="kubara-dev"
 STAGING_NAME:="kubara-staging"
 PROD_NAME:="kubara-prod"
 
 # Stable per-cluster DNS names. Resolved by the local dnsmasq wildcard setup
 # in ./dnsmasq: <any>.<cluster>.kubara.test -> that cluster's cilium-ingress LB IP.
-# Refresh the dnsmasq address= lines with `just -f dnsmasq/Justfile refresh-lb-hosts`.
+# Refresh the dnsmasq address= lines with `just refresh-lb-hosts`.
 HUB_DNS_NAME := "hub.kubara.test"
 SPOKE1_DNS_NAME := "spoke-1.kubara.test"
-SPOKE2_DNS_NAME := "spoke-2.kubara.test"
+POC_DNS_NAME := "poc.kubara.test"
 DEV_DNS_NAME := "dev.kubara.test"
 STAGING_DNS_NAME := "staging.kubara.test"
 PROD_DNS_NAME := "prod.kubara.test"
@@ -112,17 +125,15 @@ refresh-coredns-hosts:
     kubectl rollout status deployment coredns -n kube-system --timeout=120s
     echo "CoreDNS hosts refreshed: my.nexus.me → ${NEXUS_IP} (svc/nexus), my.harbor.me → ${INGRESS_IP} (svc/cilium-ingress)"
 
-# Run the default recipe (list)
+# Run the default recipe (list). [default] pins it: otherwise a bare `just`
+# runs the first recipe in the file (apply-coredns-patch, a kubectl apply).
+[default]
 default:
     @just list
 
 # List all available recipes
 list:
     @just --list
-
-#You can check the image used by the current version of cloud-provider-kind running
-list-images-cloud-provider-kind:
-	@cloud-provider-kind list-images
 
 check-nodes-running:
     docker ps --format "table {{"{{.Names}}"}}\t{{"{{.Status}}"}}"
@@ -152,56 +163,17 @@ verify-secrets:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "==> Kubernetes secrets (argocd) =="
-    kubectl --kubeconfig ${KUBARA_KUBECONFIG} --context ${HUB_CONTEXT} \
+    kubectl --kubeconfig {{ KUBARA_KUBECONFIG }} --context {{ HUB_CONTEXT }} \
         get secrets -n argocd | grep -Ei 'spoke|dev|staging|prod' || echo "  (none found)"
     echo
     echo "==> ExternalSecrets status =="
-    kubectl --kubeconfig ${KUBARA_KUBECONFIG} --context ${HUB_CONTEXT} \
+    kubectl --kubeconfig {{ KUBARA_KUBECONFIG }} --context {{ HUB_CONTEXT }} \
         get externalsecret -n argocd
     echo
     echo "==> hub-argocd application =="
-    kubectl --kubeconfig ${KUBARA_KUBECONFIG} --context ${HUB_CONTEXT} \
+    kubectl --kubeconfig {{ KUBARA_KUBECONFIG }} --context {{ HUB_CONTEXT }} \
         get application hub-argocd -n argocd \
         -o custom-columns=NAME:.metadata.name,SYNC:.status.sync.status,HEALTH:.status.health.status
-
-# Build the custom Liquibase Docker image with PostgreSQL driver
-liquibase-build-image:
-    docker build -t liquibase-bootstrap:local z-demo-setup/liquibase/
-
-# Install bootstrap chart (creates PostgreSQL roles/databases)
-liquibase-bootstrap:
-    helm upgrade --install liquibase-bootstrap z-demo-setup/liquibase/bootstrap/ \
-        --namespace postgresql --create-namespace \
-        --kubeconfig {{ KUBARA_KUBECONFIG }} \
-        --kube-context {{ SPOKE2_CONTEXT }} \
-        --set "services[0].name=openproject" \
-        --set "services[0].database=openproject" \
-        --set "services[0].password=${OPENPROJECT_DB_PASSWORD}" \
-        --set "services[0].passwordSecretName=openproject-postgresql" \
-        --set "services[0].passwordSecretKey=password" \
-        --set "services[1].name=keycloak" \
-        --set "services[1].database=keycloak" \
-        --set "services[1].password=${KEYCLOAK_DB_PASSWORD}" \
-        --set "services[1].passwordSecretName=keycloak-credentials" \
-        --set "services[1].passwordSecretKey=db-password" \
-        --set "services[2].name=apicurio" \
-        --set "services[2].database=apicurio" \
-        --set "services[2].password=${APICURIO_DB_PASSWORD}" \
-        --set "services[2].passwordSecretName=apicurio-credentials" \
-        --set "services[2].passwordSecretKey=password" \
-        --wait --timeout 5m
-
-# Install all Liquibase migration charts (bootstrap + per-service)
-liquibase-install: liquibase-build-image liquibase-bootstrap
-    @for svc in openproject keycloak apicurio; do \
-        echo "==> Installing liquibase-$${svc}"; \
-        helm upgrade --install "liquibase-$${svc}" "z-demo-setup/liquibase/$${svc}/" \
-            --namespace "$${svc}" --create-namespace \
-            --kubeconfig {{ KUBARA_KUBECONFIG }} \
-            --kube-context {{ SPOKE2_CONTEXT }} \
-            --wait --timeout 5m; \
-    done
-    @echo "All Liquibase charts installed."
 
 # Idempotent platform provisioning: seed secrets on all spokes, wait for
 # postgres, then run liquibase bootstrap + per-service migrations per cluster.
@@ -213,33 +185,6 @@ provision-platform:
 refresh-kind-kubeconfig:
     ./z-demo-setup/scripts/provision-platform.sh --refresh-only
 
-# Verify liquibase roles/databases exist on each spoke cluster
-verify-liquibase:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    KCFG="{{ KUBARA_KUBECONFIG }}"
-    ADMIN_PASS="${POSTGRES_PASSWORD:-}"
-    if [[ -z "$ADMIN_PASS" ]]; then
-        echo "POSTGRES_PASSWORD is not set — run 'direnv allow'" >&2
-        exit 1
-    fi
-    declare -A SVC=(
-        [${SPOKE1_CONTEXT}]="openproject keycloak apicurio"
-        [${SPOKE2_CONTEXT}]="app"
-        [${DEV_CONTEXT}]="app"
-        [${STAGING_CONTEXT}]="app"
-        [${PROD_CONTEXT}]="app"
-    )
-    for ctx in "${!SVC[@]}"; do
-        for svc in ${SVC[$ctx]}; do
-            role="$(kubectl --kubeconfig "$KCFG" --context "$ctx" exec postgresql-0 -n postgresql -- \
-                bash -c "PGPASSWORD='$ADMIN_PASS' psql -U postgres -tAc \"SELECT rolname FROM pg_roles WHERE rolname='$svc'\"")" || true
-            db="$(kubectl --kubeconfig "$KCFG" --context "$ctx" exec postgresql-0 -n postgresql -- \
-                bash -c "PGPASSWORD='$ADMIN_PASS' psql -U postgres -tAc \"SELECT datname FROM pg_database WHERE datname='$svc'\"")" || true
-            printf '%s/%s  role=%s db=%s\n' "$ctx" "$svc" "${role:-MISSING}" "${db:-MISSING}"
-        done
-    done
-
 # Test the Kubernetes cluster connection and list namespaces
 kubara-test-connection:
     kubara --test-connection
@@ -249,100 +194,6 @@ kubara-test-connection:
 # Use `bootstrap-kubara-hub -- --skip-bootstrap` to only re-pin an existing setup.
 bootstrap-kubara-hub:
     ./z-demo-setup/scripts/bootstrap-kubara-hub.sh
-
-# Start the cloud-provider-kind (LBs are placed on the kubara-mesh network)
-start-cloud-provider-kind:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    PID_FILE="$PWD/.cloud-provider-kind"
-
-    is_running() {
-        { [ -f "$PID_FILE" ] && ps -p "$(cat "$PID_FILE")" >/dev/null 2>&1; } || \
-            pgrep -x cloud-provider-kind >/dev/null 2>&1
-    }
-
-    if is_running; then
-        echo "cloud-provider-kind already running (pid $(cat "$PID_FILE" 2>/dev/null || pgrep -x cloud-provider-kind | head -1))"
-        exit 0
-    fi
-
-    if pgrep -x cloud-provider-kind >/dev/null 2>&1; then
-        echo "waiting for cloud-provider-kind to exit (pid $(pgrep -x cloud-provider-kind | head -1))"
-        for _ in 1 2 3 4 5 6 7 8 9 10; do
-            pgrep -x cloud-provider-kind >/dev/null 2>&1 || break
-            sleep 1
-        done
-        if pgrep -x cloud-provider-kind >/dev/null 2>&1; then
-            echo "cloud-provider-kind still running; refusing to double-start" >&2
-            exit 1
-        fi
-        echo "cloud-provider-kind exited"
-    fi
-
-    echo "removing stale hub load balancers not attached to the kubara-mesh network"
-    stale=$(comm -23 \
-        <(docker ps -aq --filter label=io.x-k8s.cloud-provider-kind.cluster=hub | sort) \
-        <(docker ps -aq --filter network=kubara-mesh --filter label=io.x-k8s.cloud-provider-kind.cluster=hub | sort))
-    for cid in $stale; do
-        echo "  removing $cid"
-        docker rm -f "$cid" 2>/dev/null || true
-    done
-    sudo -n env KIND_EXPERIMENTAL_DOCKER_NETWORK=kubara-mesh \
-        nohup cloud-provider-kind > .cloud-provider-kind.log 2>&1 &
-    pid=$!
-    echo "$pid" > "$PID_FILE"
-    sleep 1
-    if ! ps -p "$pid" >/dev/null 2>&1; then
-        rm -f "$PID_FILE"
-        echo "cloud-provider-kind failed to start (see .cloud-provider-kind.log; 'sudo -n' needs cached credentials)" >&2
-        exit 1
-    fi
-    echo "started cloud-provider-kind (pid $pid), logs in .cloud-provider-kind.log"
-
-# Stop cloud-provider-kind
-stop-cloud-provider-kind:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    PID_FILE="$PWD/.cloud-provider-kind"
-    stopped=false
-
-    if { [ -f "$PID_FILE" ] && ps -p "$(cat "$PID_FILE")" >/dev/null 2>&1; }; then
-        pid="$(cat "$PID_FILE")"
-        echo "Stopping cloud-provider-kind (pid $pid)..."
-        sudo kill "$pid" 2>/dev/null || true
-        for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do
-            ps -p "$pid" >/dev/null 2>&1 || break
-            sleep 1
-        done
-        if ps -p "$pid" >/dev/null 2>&1; then
-            echo "failed to stop cloud-provider-kind (pid $pid)" >&2
-            exit 1
-        fi
-        rm -f "$PID_FILE"
-        echo "stopped cloud-provider-kind (pid $pid)"
-        stopped=true
-    fi
-
-    if pgrep -x cloud-provider-kind >/dev/null 2>&1; then
-        pids="$(pgrep -x cloud-provider-kind | tr '\n' ' ')"
-        echo "Stopping cloud-provider-kind (pids $pids)..."
-        sudo kill $pids 2>/dev/null || true
-        for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do
-            pgrep -x cloud-provider-kind >/dev/null 2>&1 || break
-            sleep 1
-        done
-        if pgrep -x cloud-provider-kind >/dev/null 2>&1; then
-            echo "failed to stop cloud-provider-kind (pids $pids)" >&2
-            exit 1
-        fi
-        rm -f "$PID_FILE"
-        echo "stopped cloud-provider-kind (pids $pids)"
-        stopped=true
-    fi
-
-    if ! "$stopped"; then
-        echo "cloud-provider-kind is not running"
-    fi
 
 # Verify Argo CD is deployed and running after bootstrap
 verify-argocd:
@@ -356,7 +207,7 @@ cilium-hubble-ui:
     #!/usr/bin/env bash
     set -euo pipefail
     port=12100
-    for cluster in {{HUB_KIND}} {{SPOKE1_NAME}} {{SPOKE2_NAME}}; do
+    for cluster in {{HUB_KIND}} {{SPOKE1_NAME}} {{POC_NAME}}; do
         echo "Opening Hubble UI for kind-$cluster on :$port"
         cilium hubble ui --context "kind-$cluster" --port-forward "$port" &
         port=$((port + 1))
@@ -367,15 +218,6 @@ cilium-hubble-ui:
 docker-prune-images:
     docker container prune -f && docker network prune -f && docker volume prune -f && docker builder prune -f
 
-start-dnsmasq:
-    just -f dnsmasq/Justfile start-dnsmasq
-
-stop-dnsmasq:
-    just -f dnsmasq/Justfile stop-dnsmasq
-
-# Refresh the per-cluster dnsmasq address= map from the live cilium-ingress
-# LoadBalancer IPs (plus the forgejo-ssh LB on spoke-1) and restart dnsmasq.
-# Refuses to write a partial/stale map if any LB IP is missing.
 # Local pull-through image caches for the kind nodes (up | configure-nodes |
 # detach | status | purge). bring-up runs `up` + `configure-nodes` itself.
 registry-cache *args:
@@ -386,10 +228,6 @@ registry-cache *args:
 # Read-only; runs automatically when bring-up fails.
 diagnose *args:
     ./z-demo-setup/scripts/diagnose.sh {{args}}
-
-# Needs the user's sudo password for the dnsmasq restart.
-refresh-dns-lb-hosts:
-    just -f dnsmasq/Justfile refresh-lb-hosts
 
 # Full demo bring-up from scratch: build the Cilium hub-and-spoke mesh (creates
 # clusters, starts cloud-provider-kind before bootstrap, boots the hub and
@@ -420,7 +258,7 @@ bring-up *args:
     echo "Waiting for all six cilium-ingress LoadBalancer IPs..."
     for _ in $(seq 1 120); do
         missing=""
-        for ctx in {{HUB_CONTEXT}} {{SPOKE1_CONTEXT}} {{SPOKE2_CONTEXT}} {{DEV_CONTEXT}} {{STAGING_CONTEXT}} {{PROD_CONTEXT}}; do
+        for ctx in {{HUB_CONTEXT}} {{SPOKE1_CONTEXT}} {{POC_CONTEXT}} {{DEV_CONTEXT}} {{STAGING_CONTEXT}} {{PROD_CONTEXT}}; do
             ip=$(kubectl --kubeconfig "$KCFG" --context "$ctx" get svc/cilium-ingress -n kube-system \
                 -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
             if [ -z "$ip" ]; then
@@ -434,54 +272,32 @@ bring-up *args:
         sleep 5
     done
     if [ -n "${missing:-}" ]; then
-        echo "WARN: still no LoadBalancer IP for:$missing (refresh-dns-lb-hosts will fail until they appear)" >&2
+        echo "WARN: still no LoadBalancer IP for:$missing (refresh-lb-hosts will fail until they appear)" >&2
     fi
 
-    just refresh-dns-lb-hosts
+    just refresh-lb-hosts
 
     echo
     echo "Post-bring-up steps:"
     echo "  just setup-uptime-kuma"
     echo "  just test-open-apps"
 
-# Stop all kind clusters (and their cloud-provider-kind load balancers) without deleting them
-kind-stop:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    for cluster in {{HUB_KIND}} {{SPOKE1_NAME}} {{SPOKE2_NAME}}; do
-        docker stop $(docker ps -qa --filter "label=io.x-k8s.kind.cluster=$cluster") $(docker ps -qa --filter "label=io.x-k8s.cloud-provider-kind.cluster=$cluster")
-    done
+# Show every demo kind cluster: node containers running, nodes Ready,
+# cilium-ingress LoadBalancer IP (read-only)
+kind-status:
+    ./z-demo-setup/scripts/kind-power.sh status
 
-# Restart all stopped kind clusters (containers, load balancers, and services
-# come back), wait for the cilium-ingress LoadBalancer IPs to be (re)assigned by
-# cloud-provider-kind, then refresh the dnsmasq map so DNS never goes stale.
-# The refresh needs sudo (first prompt after a restart).
+# Stop every demo kind cluster (all six, from kind-demo.yaml) and its
+# cloud-provider-kind LoadBalancer containers, without deleting anything.
+kind-stop:
+    ./z-demo-setup/scripts/kind-power.sh stop
+
+# Start all stopped demo kind clusters (hub first), wait for every
+# cilium-ingress LoadBalancer IP and for ClusterMesh to reconnect, then refresh
+# the dnsmasq map so DNS never goes stale. The refresh needs sudo.
 kind-restart:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    for cluster in {{HUB_KIND}} {{SPOKE1_NAME}} {{SPOKE2_NAME}}; do
-        docker start $(docker ps -aq --filter "label=io.x-k8s.kind.cluster=$cluster") $(docker ps -aq --filter "label=io.x-k8s.cloud-provider-kind.cluster=$cluster")
-    done
-    KCFG="{{ KUBARA_KUBECONFIG }}"
-    for _ in $(seq 1 30); do
-        missing=""
-        for ctx in {{HUB_CONTEXT}} {{SPOKE1_CONTEXT}} {{SPOKE2_CONTEXT}}; do
-            ip=$(kubectl --kubeconfig "$KCFG" --context "$ctx" get svc/cilium-ingress -n kube-system \
-                -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
-            if [ -z "$ip" ]; then
-                missing="$missing $ctx"
-            fi
-        done
-        if [ -z "$missing" ]; then
-            echo "All cilium-ingress LoadBalancer IPs reassigned"
-            break
-        fi
-        sleep 5
-    done
-    if [ -n "${missing:-}" ]; then
-        echo "WARN: no LoadBalancer IP yet for:$missing (refresh-dns-lb-hosts will fail until they appear)" >&2
-    fi
-    just refresh-dns-lb-hosts
+    ./z-demo-setup/scripts/kind-power.sh start || echo "WARN: continuing to DNS refresh despite the problems above" >&2
+    just refresh-lb-hosts
 
 kargo-cli-login:
     @: "${KARGO_ADMIN_PASSWORD:?not set - run 'direnv allow' to load .env}"
@@ -494,13 +310,9 @@ go-hello-setup:
 
 # Show go-hello pipeline status (Kargo freight/promotions + Argo CD app + deployment)
 go-hello-verify:
-    kubectl --kubeconfig ${KUBARA_KUBECONFIG} -n go-hello get warehouses,stages,freight,promotions
-    kubectl --kubeconfig ${KUBARA_KUBECONFIG} -n argocd get application go-hello -o wide
-    kubectl --kubeconfig ${KUBARA_KUBECONFIG} -n go-hello get deploy,pods
-
-# Open the go-hello service
-open-go-hello:
-    @open http://go-hello.{{DEV_DNS_NAME}}/
+    kubectl --kubeconfig {{ KUBARA_KUBECONFIG }} -n go-hello get warehouses,stages,freight,promotions
+    kubectl --kubeconfig {{ KUBARA_KUBECONFIG }} -n argocd get application go-hello -o wide
+    kubectl --kubeconfig {{ KUBARA_KUBECONFIG }} -n go-hello get deploy,pods
 
 # Curl the go-hello endpoint
 go-hello-test:
@@ -521,23 +333,9 @@ ebank-setup:
 
 # Show ebank pipeline status (Kargo freight/promotions + Argo CD apps + deployment)
 ebank-verify:
-    kubectl --kubeconfig ${KUBARA_KUBECONFIG} -n ebank get warehouses,stages,freight,promotions
-    kubectl --kubeconfig ${KUBARA_KUBECONFIG} -n argocd get application ebank-kargo ebank-dev ebank-staging ebank-prod -o wide
-    kubectl --kubeconfig ${KUBARA_KUBECONFIG} -n ebank-simple-dev get deploy,pods
-
-# Open the ebank service (pass staging or prod, default: dev)
-open-ebank env="dev":
-    @open http://ebank-simple-{{env}}.{{DEV_DNS_NAME}}/
-
-# Open the kargo-simple guestbook app (pass staging or prod, default: dev)
-open-kargo-simple env="dev":
-    @open http://guestbook-simple-{{env}}.{{DEV_DNS_NAME}}/
-
-open-portal:
-    @echo "Opening Argo CD portal in the default browser..."
-    @kubectl port-forward svc/argocd-server -n argocd 8080:443 &
-    @sleep 5
-    @open http://localhost:8080
+    kubectl --kubeconfig {{ KUBARA_KUBECONFIG }} -n ebank get warehouses,stages,freight,promotions
+    kubectl --kubeconfig {{ KUBARA_KUBECONFIG }} -n argocd get application ebank-kargo ebank-dev ebank-staging ebank-prod -o wide
+    kubectl --kubeconfig {{ KUBARA_KUBECONFIG }} -n ebank-simple-dev get deploy,pods
 
 # Open Argo CD UI
 login-argo-cd:
@@ -546,59 +344,10 @@ login-argo-cd:
     @echo $ARGOCD_WIZARD_ACCOUNT_PASSWORD | pbcopy
     argocd login argocd.{{HUB_DNS_NAME}} --insecure
 
-open-argo-cd:
-    @echo user: ${ARGOCD_ADMIN_USER}
-    @echo passwd: $ARGOCD_WIZARD_ACCOUNT_PASSWORD
-    @echo $ARGOCD_WIZARD_ACCOUNT_PASSWORD | pbcopy
-    @open https://argocd.{{HUB_DNS_NAME}}
-
-# Open the Homer dashboard. Accepts a cluster: the DNS slug (hub|dev|staging|
-# prod|spoke-1|spoke-2) or the kind cluster name (kubara-hub|kubara-dev|...).
-# Default: hub.
-open-homer-dashboard cluster="hub":
-    #!/usr/bin/env bash
-    set -euo pipefail
-    c="{{cluster}}"
-    c="${c#kubara-}"
-    open "https://homer.${c}.kubara.test/"
-
-# Open Grafana
-open-grafana:
-    @echo user: 
-    @echo passwd: 
-    @open https://grafana.{{HUB_DNS_NAME}}/
-
-# Open Prometheus
-open-prometheus:
-    @echo user: ${ARGOCD_ADMIN_USER}
-    @echo passwd: ${ARGOCD_WIZARD_ACCOUNT_PASSWORD}
-    @echo $ARGOCD_WIZARD_ACCOUNT_PASSWORD | pbcopy
-    @open https://prometheus.{{HUB_DNS_NAME}}/
-
-# Open Alertmanager
-open-alertmanager:
-    @echo user: 
-    @echo passwd: 
-    @open https://alertmanager.{{HUB_DNS_NAME}}/
-
 # Create the Uptime Kuma admin from .env (UPTIME_KUMA_ADMIN_USER / UPTIME_KUMA_PASSWORD)
 # Safe to re-run; required again after `bring-up` recreates the cluster.
 setup-uptime-kuma:
     ./z-demo-setup/scripts/setup-uptime-kuma.sh
-
-# Open Uptime Kuma
-open-uptime-kuma:
-    @echo user: ${UPTIME_KUMA_ADMIN_USER}
-    @echo passwd: ${UPTIME_KUMA_PASSWORD}
-    @echo $UPTIME_KUMA_PASSWORD | pbcopy
-    @open https://uptime-kuma.{{SPOKE2_DNS_NAME}}/
-
-# Open Forgejo
-open-forgejo:
-    @echo user: ${FORGEJO_ADMIN_USER}
-    @echo passwd: ${FORGEJO_ADMIN_PASSWORD}
-    @echo $FORGEJO_ADMIN_PASSWORD | pbcopy
-    @open https://forgejo.{{SPOKE1_DNS_NAME}}/
 
 # Create the Forgejo repo for forgejo-build-image if missing, then push it
 push-forgejo-build-image:
@@ -651,49 +400,6 @@ set-forgejo-harbor-secrets:
     api HARBOR_USERNAME "$HARBOR_ADMIN_USER"
     api HARBOR_PASSWORD "$HARBOR_ADMIN_PASSWORD"
 
-# Open Bao (Vault) UI
-open-bao:
-    @echo user: 
-    @echo passwd: 
-    @open https://openbao.{{HUB_DNS_NAME}}/
-
-# Open Harbor registry
-open-harbor:
-    @echo user: ${HARBOR_ADMIN_USER}
-    @echo passwd: ${HARBOR_ADMIN_PASSWORD} 
-    @echo ${HARBOR_ADMIN_PASSWORD} | pbcopy
-    @open https://harbor.{{SPOKE1_DNS_NAME}}/
-
-# Open Kargo
-open-kargo:
-    @echo user: ${KARGO_ADMIN_USER}
-    @echo passwd: ${KARGO_ADMIN_PASSWORD}
-    @echo ${KARGO_ADMIN_PASSWORD} | pbcopy
-    @open https://kargo.{{SPOKE1_DNS_NAME}}/
-
-# Open Nexus
-open-nexus:
-    @echo user: ${NEXUS_ADMIN_USER}
-    @echo passwd: ${NEXUS_ADMIN_PASSWORD}
-    @echo ${NEXUS_ADMIN_PASSWORD} | pbcopy
-    @open https://nexus.{{SPOKE1_DNS_NAME}}/
-
-open-keycloak:
-    @echo user: ${KEYCLOAK_ADMIN_USER}
-    @echo passwd: ${KEYCLOAK_ADMIN_PASSWORD}
-    @echo ${KEYCLOAK_ADMIN_PASSWORD} | pbcopy
-    @open https://keycloak.{{SPOKE1_DNS_NAME}}/
-
-# Exec into the running postgres pod and open a psql shell
-open-postgres-shell:
-    @: "${APP_POSTGRES_PASSWORD:?not set - run 'direnv allow' to load .env}"
-    kubectl exec -it postgresql-0 -n postgresql -- env "PGPASSWORD=$APP_POSTGRES_PASSWORD" psql -U app -d app
-
-# Exec into the running postgres pod and open a psql shell
-open-postgres19-shell:
-    @: "${APP_POSTGRES_PASSWORD:?not set - run 'direnv allow' to load .env}"
-    kubectl exec -it postgresql19-1 -n postgresql19 -- env "PGPASSWORD=$APP_POSTGRES_PASSWORD" psql -h 127.0.0.1 -U app -d app
-
 inspect-what-certificate-cilium-is-serving:
     @echo "Cilium is serving the following certificate:"
     echo | openssl s_client \
@@ -709,5 +415,4 @@ pause-cluster:
 
 un-pause-cluster:
     docker unpause $(docker ps -q --filter label=io.x-k8s.kind.cluster=$PROJECT_NAME)
-
 

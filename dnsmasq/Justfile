@@ -2,18 +2,24 @@
 # Resolves <svc>.<cluster>.kubara.test -> that cluster's cilium-ingress LoadBalancer
 # and installs macOS /etc/resolver overrides for kubara.test and my.nexus.me.
 
-# sudo shim: notify (cmux/macOS) before any password prompt.
-export PATH := parent_directory(justfile_directory()) + "/z-demo-setup/bin:" + env_var("PATH")
+# Imported by the root Justfile (recipes share one namespace there) and still
+# runnable on its own with `just -f dnsmasq/Justfile <recipe>`. Paths use
+# source_directory(), which is this folder in both cases (justfile_directory()
+# would be the repo root when imported). Recipe and variable names must not
+# collide with the root Justfile. PATH (with the sudo-notify shim in
+# z-demo-setup/bin) is exported by the root Justfile; standalone callers in
+# z-demo-setup/scripts prepend it themselves.
 
-KUBECONFIG := parent_directory(justfile_directory()) + "/.local/kind.kubeconfig"
-CONF := justfile_directory() + "/config/dnsmasq.conf"
-RESOLVER_DIR := justfile_directory() + "/resolver"
+DNSMASQ_KUBECONFIG := parent_directory(source_directory()) + "/.local/kind.kubeconfig"
+CONF := source_directory() + "/config/dnsmasq.conf"
+RESOLVER_DIR := source_directory() + "/resolver"
 ETC_RESOLVER_DIR := "/etc/resolver"
-PID_FILE := justfile_directory() + "/.dnsmasq.pid"
+PID_FILE := source_directory() + "/.dnsmasq.pid"
 RESOLVER_DOMAINS := "kubara.test me"
 
-default:
-    @just --list
+# List the dnsmasq recipes (first recipe = what a bare `just -f dnsmasq/Justfile` runs)
+dnsmasq-help:
+    @just --justfile "{{ source_file() }}" --list
 
 # Install ./resolver/* into /etc/resolver/ and flush the DNS cache (sudo)
 setup-resolver:
@@ -108,7 +114,7 @@ status-dnsmasq:
 refresh-lb-hosts:
     #!/usr/bin/env bash
     set -euo pipefail
-    KCFG="{{ KUBECONFIG }}"
+    KCFG="{{ DNSMASQ_KUBECONFIG }}"
     CONF="{{ CONF }}"
     [ -f "$KCFG" ] || { echo "kubeconfig not found: $KCFG" >&2; exit 1; }
 
@@ -123,7 +129,7 @@ refresh-lb-hosts:
     ROWS=(
         "hub.kubara.test kind-hub"
         "spoke-1.kubara.test kind-kubara-spoke-1"
-        "spoke-2.kubara.test kind-kubara-spoke-2"
+        "poc.kubara.test kind-kubara-poc"
         "dev.kubara.test kind-kubara-dev"
         "staging.kubara.test kind-kubara-staging"
         "prod.kubara.test kind-kubara-prod"

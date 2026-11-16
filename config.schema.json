@@ -4213,7 +4213,7 @@
               "type": "string"
             },
             "name": {
-              "const": "kubara-spoke-2",
+              "const": "kubara-poc",
               "description": "The unique name for the cluster.",
               "examples": [
                 "my-prod-cluster"

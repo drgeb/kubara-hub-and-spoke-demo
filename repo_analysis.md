@@ -43,7 +43,7 @@ delivery pipeline, without any cloud account.
 | --- | --- | --- | --- | --- |
 | `hub` | `local` | 1 | 10.10/16, 10.96/16 | Argo CD (self-managed), OpenBao, kube-prometheus-stack, metrics-server, cert-manager, homer |
 | `kubara-spoke-1` | `platform-engineering` | 2 | 10.20/16, 10.97/16 | Forgejo, Harbor, Kargo, Nexus, Keycloak, OpenProject, Apicurio, OPA, PostgreSQL |
-| `kubara-spoke-2` | `poc` | 3 | (overlay) | Kafka, Ollama, Uptime Kuma, PostgreSQL, PostgreSQL 19 (CNPG) |
+| `kubara-poc` | `poc` | 3 | (overlay) | Kafka, Ollama, Uptime Kuma, PostgreSQL, PostgreSQL 19 (CNPG) |
 | `kubara-dev` | `dev` | 4 | (overlay) | Workload target + PostgreSQL |
 | `kubara-staging` | `staging` | 5 | (overlay) | Workload target + PostgreSQL |
 | `kubara-prod` | `prod` | 6 | (overlay) | Workload target + PostgreSQL |
@@ -56,7 +56,7 @@ Every cluster is a single node. Nothing is highly available.
 
 Entry point: `just bring-up [-- --rebuild] [-- -t]` (`Justfile:385`). It runs
 `z-demo-setup/scripts/build-mesh.sh`, waits for six `cilium-ingress`
-LoadBalancer IPs, and then runs `just refresh-dns-lb-hosts`.
+LoadBalancer IPs, and then runs `just refresh-lb-hosts`.
 
 `build-mesh.sh` `main()` (`build-mesh.sh:1396`) runs these phases in order.
 Every phase runs **serially across all six clusters**.
@@ -125,12 +125,12 @@ browser → macOS /etc/resolver/kubara.test → dnsmasq (host)
 | Fact | Defined in | Also hardcoded in |
 | --- | --- | --- |
 | Cluster names | `z-demo-setup/config/kind-demo.yaml` | `config.yaml`; `provision-platform.sh:25-37`; `create-platform-secrets.sh:15-41`; root `Justfile` (contexts and DNS names, ~line 45); `dnsmasq/Justfile` `ROWS`; `build-mesh.sh` closing banner (1464) |
-| Cluster stage | `kind-demo.yaml` **and** `config.yaml` (two copies) | `create-platform-secrets.sh` uses **different** values: spoke-1=`dev`, spoke-2=`prod` (`config.yaml` says `platform-engineering`, `poc`) |
+| Cluster stage | `kind-demo.yaml` **and** `config.yaml` (two copies) | `create-platform-secrets.sh` uses **different** values: spoke-1=`dev`, poc=`prod` (`config.yaml` says `platform-engineering`, `poc`) |
 | Cilium cluster ID | `kind-demo.yaml` **and** `config.yaml` `services.cilium.config.clusterId` | — |
-| Cilium Helm settings | `build-mesh.sh:495-542` (`--set` flags) | `z-demo-setup/config/cilium/values.yaml`; catalog `cilium.values.yaml` (the comment says these "must match") |
+| Cilium Helm settings | `build-mesh.sh:495-542` (`--set` flags) | chart `platform-components/helm/cilium/values.yaml` and its catalog copy (the comment says these "must match") |
 | Enabled services per cluster | `config.yaml` | rendered into `platform-configs/<cluster>/helm/*/values.generated.yaml` by Kubara |
 | Durable value overrides | `platform-configs/<cluster>/helm/<app>/values-additional.yaml` / `values-custom.yaml` | Kubara's bootstrap rewrites some of these files, and `bootstrap-kubara-hub.sh` puts them back from git |
-| Live LB IPs | `dnsmasq/config/dnsmasq.conf` (generated, the one allowed IP file per `AGENTS.md`) | `db-issue-investigation.sh:22` (hardcoded `172.19.0.5.traefik.me`, which breaks the rule); `observability-design-options.md` (node IPs in prose) |
+| Live LB IPs | `dnsmasq/config/dnsmasq.conf` (generated, the one allowed IP file per `AGENTS.md`) | `observability-design-options.md` (node IPs in prose, which AGENTS.md allows for architecture docs) |
 | Desired cluster state | git `main` on GitHub | Local edits do nothing until pushed, and Argo CD `selfHeal` reverts live patches |
 
 ---
