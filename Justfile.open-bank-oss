@@ -73,3 +73,83 @@ openbank-deploy-dev: openbank-ca openbank-trust-nodes openbank-harbor openbank-b
 # Ship a new version: build + push; Kargo auto-promotes it to dev
 openbank-release: openbank-build openbank-image
     @echo "Pushed. Kargo's Warehouse polls every 2m, then dev is promoted: just openbank-status"
+
+# ── OpenBank domain services (engagement, incentive, account, party) ─────────
+#
+# Same Harbor -> Kargo -> Argo CD flow as the catalog, one Warehouse + Stage
+# (<svc>-dev) and one Argo CD app (openbank-<svc>-dev) per service, all from one
+# generic chart (z-demo-setup/open-bank-oss/service-chart) in openbank-gitops.
+# Each service gets its own database on the shared postgres, kubara-dev's Kafka
+# and the mesh Keycloak realm `openbank`. campaign (Temporal + ClickHouse) and
+# billing (OpenBao) are not included: the mesh does not run those.
+#
+# Prereq: the catalog flow (just openbank-deploy-dev) has set up the CA, Harbor,
+# the gitops repo, the Argo CD project and the Kargo project.
+#
+# One service:        just openbank-svc-deploy engagement
+# All services:       just openbank-services-deploy
+# New version:        just openbank-svc-release engagement   (Kargo promotes it)
+# Test:               just openbank-svc-test engagement | just openbank-services-test
+
+[private]
+_openbank_svc step svc="":
+    @KCFG="{{ justfile_directory() }}/{{ KUBARA_KUBECONFIG }}" OBO_SRC="{{ OBO_SRC }}" \
+    PE_DNS="{{ PLATFORM_ENGINEERING_DNS_NAME }}" DEV_DNS="{{ DEV_DNS_NAME }}" \
+    PE_CTX="{{ PLATFORM_ENGINEERING_CONTEXT }}" DEV_CTX="{{ DEV_CONTEXT }}" HUB_CTX="{{ HUB_CONTEXT }}" \
+    ARGO_DEST_CLUSTER="{{ DEV_NAME }}" \
+        ./z-demo-setup/scripts/open-bank-oss-services.sh {{ step }} {{ svc }}
+
+# List the OpenBank services the svc recipes know
+openbank-svc-list: (_openbank_svc "list")
+
+# Keycloak realm `openbank` + client `openbank-services` (secret -> openbank/openbank-oidc)
+openbank-svc-keycloak: (_openbank_svc "keycloak")
+
+# Commit the generic openbank-service chart to openbank-gitops
+openbank-svc-chart: (_openbank_svc "chart")
+
+# Gradle fast-jar of one service
+openbank-svc-build svc: (_openbank_svc "build" svc)
+
+# Bake + push one service image to Harbor (Kargo's Warehouse picks it up)
+openbank-svc-image svc: (_openbank_svc "image" svc)
+
+# Database + credentials Secret for one service on kubara-dev
+openbank-svc-db svc: (_openbank_svc "db" svc)
+
+# Write stages/dev/<svc>/values.yaml (+ seed image.yaml) in openbank-gitops
+openbank-svc-gitops svc: (_openbank_svc "gitops" svc)
+
+# Hub Argo CD Application openbank-<svc>-dev
+openbank-svc-argocd svc: (_openbank_svc "argocd" svc)
+
+# Kargo Warehouse <svc>-service + Stage <svc>-dev (auto-promotion)
+openbank-svc-kargo svc: (_openbank_svc "kargo" svc)
+
+# Test one service: Argo healthy, pod ready, Flyway, Kafka group, OIDC via ingress
+openbank-svc-test svc: (_openbank_svc "test" svc)
+
+# Deploy one service end to end (build, image, db, gitops, argocd, kargo, test)
+openbank-svc-deploy svc: openbank-svc-keycloak openbank-svc-chart (_openbank_svc "deploy" svc)
+
+# Ship a new version of one service: build + push; Kargo auto-promotes <svc>-dev
+openbank-svc-release svc: (openbank-svc-build svc) (openbank-svc-image svc)
+    @echo "Pushed. Warehouse {{ svc }}-service polls every 2m, then {{ svc }}-dev is promoted: just openbank-services-status"
+
+# Deploy every registered service, one after another
+openbank-services-deploy: openbank-svc-keycloak openbank-svc-chart
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for s in $(just openbank-svc-list); do just _openbank_svc deploy "$s"; done
+
+# Test every registered service; reports all failures, exits non-zero if any
+openbank-services-test:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    failed=""
+    for s in $(just openbank-svc-list); do just _openbank_svc test "$s" || failed="$failed $s"; done
+    if [ -n "$failed" ]; then echo "FAILED:$failed" >&2; exit 1; fi
+    echo "All OpenBank services passed."
+
+# Kargo stages, Argo CD apps and pods for every service
+openbank-services-status: (_openbank_svc "status")

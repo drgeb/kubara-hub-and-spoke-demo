@@ -159,8 +159,13 @@ cmd_harbor() {
 }
 
 # ── build ────────────────────────────────────────────────────────────────────
-cmd_build() {
+cmd_build() { build_module "$OBO_MODULE"; }
+
+# Gradle fast-jar of one open-bank-oss module: build_module <module>
+build_module() {
+    local OBO_MODULE="$1"
     [ -x "${OBO_SRC}/gradlew" ] || die "open-bank-oss checkout not found at ${OBO_SRC} (set OBO_SRC)"
+    [ -f "${OBO_SRC}/${OBO_MODULE}/build.gradle.kts" ] || die "no Gradle module ${OBO_MODULE} in ${OBO_SRC}"
     log "Gradle fast-jar: ${OBO_MODULE} (in ${OBO_SRC})"
     # Upstream's own laptop path (openbank-infra/scripts/build-push-service.sh):
     # build quarkus-app/ on the host, never the in-image Gradle build.
@@ -181,9 +186,23 @@ cmd_build() {
 
 # ── image ────────────────────────────────────────────────────────────────────
 cmd_image() {
+    push_image "$OBO_MODULE" product-catalog "${SETUP}/kubara-image/application.yaml" "${STATE}/last-tag"
+}
+
+# Bake a module's fast-jar into its upstream runtime image (plus the kubara CA
+# layer) and push it to Harbor:
+#   push_image <module> <harbor-repo-name> <application.yaml overlay> <tag-file>
+push_image() {
+    local OBO_MODULE="$1" repo_name="$2" overlay="$3" tag_file="$4"
+    local IMAGE_REPO="${HARBOR}/${HARBOR_PROJECT}/${repo_name}"
     need HARBOR_ADMIN_USER HARBOR_ADMIN_PASSWORD; need_ca
     local qa="${OBO_SRC}/${OBO_MODULE}/build/quarkus-app"
-    [ -f "${qa}/quarkus-run.jar" ] || die "no fast-jar; run: just openbank-build"
+    [ -f "${qa}/quarkus-run.jar" ] || die "no fast-jar for ${OBO_MODULE}; build it first"
+    # The module's Dockerfile mirrors upstream's shared .github/workflows/
+    # Dockerfile.deploy; modules without one are built from that file directly.
+    local dockerfile="${OBO_SRC}/${OBO_MODULE}/Dockerfile"
+    [ -f "$dockerfile" ] || dockerfile="${OBO_SRC}/.github/workflows/Dockerfile.deploy"
+    [ -f "$dockerfile" ] || die "no Dockerfile for ${OBO_MODULE}"
 
     local sha tag ctx arch host
     sha="$(git -C "$OBO_SRC" rev-parse --short HEAD)"
@@ -195,12 +214,13 @@ cmd_image() {
     ctx="${STATE}/image-context"
     rm -rf "$ctx"; mkdir -p "${ctx}/kubara"
     cp -R "$qa" "${ctx}/quarkus-app"
-    cp "${SETUP}/kubara-image/application.yaml" "$CA" "${ctx}/kubara/"
+    cp "$overlay" "${ctx}/kubara/application.yaml"
+    cp "$CA" "${ctx}/kubara/"
     # Gradle writes quarkus-app with 600 perms; the image runs as non-root.
     chmod -R a+r "$ctx"
     # Upstream runtime recipe unchanged, plus one appended layer (same approach
     # as upstream's build-push-service.sh: copy their Dockerfile, append).
-    { cat "${OBO_SRC}/${OBO_MODULE}/Dockerfile"; printf '\n# kubara: trust the mesh CA for OIDC\nCOPY kubara/ /app/config/\n'; } \
+    { cat "$dockerfile"; printf '\n# kubara: trust the mesh CA for OIDC\nCOPY kubara/ /app/config/\n'; } \
         > "${ctx}/Dockerfile"
 
     log "Building ${IMAGE_REPO}:${tag} (linux/${arch})"
@@ -228,9 +248,9 @@ cmd_image() {
         "docker-archive:/work/image.tar" "docker://${IMAGE_REPO}:${tag}"
 
     curl -fsS --cacert "$CA" -o /dev/null \
-        "https://${HARBOR}/api/v2.0/projects/${HARBOR_PROJECT}/repositories/product-catalog/artifacts/${tag}" \
+        "https://${HARBOR}/api/v2.0/projects/${HARBOR_PROJECT}/repositories/${repo_name}/artifacts/${tag}" \
         || die "push not visible in Harbor"
-    printf '%s\n' "$tag" > "${STATE}/last-tag"
+    printf '%s\n' "$tag" > "$tag_file"
     info "pushed ${IMAGE_REPO}:${tag}"
 }
 
@@ -516,6 +536,32 @@ EOF
 }
 
 # ── kargo (platform-engineering) ─────────────────────────────────────────────
+# Services deployed by open-bank-oss-services.sh (each gets a Stage <svc>-dev).
+OPENBANK_SERVICES="${OPENBANK_SERVICES:-engagement incentive account party}"
+
+# Auto-promotion for the catalog's `dev` Stage and every service Stage. Shared
+# with open-bank-oss-services.sh so neither script switches the other's off.
+kargo_project_config() {
+    local s
+    {
+        cat <<EOF
+apiVersion: kargo.akuity.io/v1alpha1
+kind: ProjectConfig
+metadata:
+  name: ${KARGO_PROJECT}
+  namespace: ${KARGO_PROJECT}
+spec:
+  promotionPolicies:
+    - stageSelector:
+        name: dev
+      autoPromotionEnabled: true
+EOF
+        for s in $OPENBANK_SERVICES; do
+            printf '    - stageSelector:\n        name: %s-dev\n      autoPromotionEnabled: true\n' "$s"
+        done
+    } | kc "$PE_CTX" apply -f - >/dev/null
+}
+
 cmd_kargo() {
     need FORGEJO_ADMIN_USER FORGEJO_ADMIN_PASSWORD
     local repo="https://${FORGEJO}/${FORGEJO_ADMIN_USER}/${GITOPS_REPO}.git"
@@ -529,18 +575,8 @@ EOF
     # The Project controller creates the namespace asynchronously.
     local i
     for i in $(seq 1 30); do kc "$PE_CTX" get ns "$KARGO_PROJECT" >/dev/null 2>&1 && break; sleep 2; done
+    kargo_project_config
     kc "$PE_CTX" apply -f - >/dev/null <<EOF
-apiVersion: kargo.akuity.io/v1alpha1
-kind: ProjectConfig
-metadata:
-  name: ${KARGO_PROJECT}
-  namespace: ${KARGO_PROJECT}
-spec:
-  promotionPolicies:
-    - stageSelector:
-        name: dev
-      autoPromotionEnabled: true
----
 apiVersion: v1
 kind: Secret
 metadata:
@@ -645,6 +681,9 @@ cmd_test() {
     done
     die "no answer from http://${APP_HOST}/ (last code ${code}); see: just openbank-status"
 }
+
+# Sourced by open-bank-oss-services.sh for its helpers: no dispatch then.
+[ "${BASH_SOURCE[0]}" = "$0" ] || return 0
 
 case "${1:-}" in
     ca) cmd_ca ;;

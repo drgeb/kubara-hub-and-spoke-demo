@@ -1,0 +1,10 @@
+apiVersion: v2
+name: openbank-service
+description: >-
+  Generic kubara chart for one OpenBank Quarkus service on kubara-dev (Justfile.open-bank-oss).
+  Replaces upstream's per-service manifests (CNPG, Argo Rollouts, Kafka mTLS, OPA sidecar,
+  ExternalSecrets) with the mesh's shared postgres, kubara's plain Kafka listener and the
+  mesh Keycloak.
+type: application
+version: 0.1.0
+appVersion: "kubara"

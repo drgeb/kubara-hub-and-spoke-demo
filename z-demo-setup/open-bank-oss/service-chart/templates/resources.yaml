@@ -1,0 +1,120 @@
+{{- $name := include "svc.name" . -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "svc.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "svc.selector" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.port }}
+      targetPort: http
+    - name: management
+      port: {{ .Values.managementPort }}
+      targetPort: management
+---
+# Runtime Quarkus config, loaded via QUARKUS_CONFIG_LOCATIONS with a high
+# config_ordinal so it outranks the baked application.yaml.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-overrides
+  labels:
+    {{- include "svc.labels" . | nindent 4 }}
+data:
+  override.properties: |
+    config_ordinal=500
+    # Trust the mesh CA (baked into the image at oidc.caFile) for Keycloak.
+    # Quarkus OIDC tenants/clients do not fall back to the default TLS config,
+    # so every one is pointed at the named kubara-ca config explicitly. Keys for
+    # an extension a service lacks are ignored with a warning.
+    quarkus.tls.kubara-ca.trust-store.pem.certs={{ .Values.oidc.caFile }}
+    quarkus.oidc.tls.tls-configuration-name=kubara-ca
+    quarkus.oidc-client.tls.tls-configuration-name=kubara-ca
+    {{- range .Values.oidc.namedClients }}
+    quarkus.oidc-client.{{ . }}.tls.tls-configuration-name=kubara-ca
+    {{- end }}
+    {{- range $k, $v := .Values.configOverrides }}
+    {{ $k }}={{ $v }}
+    {{- end }}
+{{- if .Values.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "svc.labels" . | nindent 4 }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+    - host: {{ required "ingress.host is required" .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $name }}
+                port:
+                  name: http
+{{- end }}
+{{- if .Values.redis.enabled }}
+---
+# Ephemeral Redis for the service's approval/idempotency store (demo only: no
+# persistence, no auth, reachable only inside the namespace via its Service).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}-redis
+  labels:
+    app.kubernetes.io/name: {{ $name }}-redis
+    app.kubernetes.io/part-of: openbank
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $name }}-redis
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ $name }}-redis
+        app.kubernetes.io/part-of: openbank
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: redis
+          image: {{ .Values.redis.image }}
+          args: ["--save", "", "--appendonly", "no"]
+          ports:
+            - {name: redis, containerPort: 6379}
+          readinessProbe:
+            exec: {command: [redis-cli, ping]}
+            periodSeconds: 10
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 128Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}-redis
+  labels:
+    app.kubernetes.io/name: {{ $name }}-redis
+    app.kubernetes.io/part-of: openbank
+spec:
+  selector:
+    app.kubernetes.io/name: {{ $name }}-redis
+  ports:
+    - {name: redis, port: 6379, targetPort: redis}
+{{- end }}

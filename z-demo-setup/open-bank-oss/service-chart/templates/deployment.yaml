@@ -1,0 +1,131 @@
+{{- $name := include "svc.name" . -}}
+{{- $db := .Values.database -}}
+{{- $issuer := printf "%s/realms/%s" (required "oidc.keycloakUrl is required" .Values.oidc.keycloakUrl) .Values.oidc.realm -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "svc.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "svc.selector" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "svc.labels" . | nindent 8 }}
+      annotations:
+        checksum/overrides: {{ toYaml (list .Values.configOverrides .Values.oidc) | sha256sum }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 100
+        runAsGroup: 101
+        fsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: {{ $name }}
+          image: "{{ required "image.repository is required" .Values.image.repository }}:{{ required "image.tag is required" .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.port }}
+            - name: management
+              containerPort: {{ .Values.managementPort }}
+          env:
+            - name: JAVA_TOOL_OPTIONS
+              value: {{ .Values.javaOpts | quote }}
+            # Database: the shared kubara postgres, one database per service.
+            - name: DB_USER
+              valueFrom: {secretKeyRef: {name: {{ required "database.existingSecret is required" $db.existingSecret }}, key: username}}
+            - name: DB_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ $db.existingSecret }}, key: password}}
+            # account/party read POSTGRES_USER/POSTGRES_PASSWORD instead.
+            - name: POSTGRES_USER
+              valueFrom: {secretKeyRef: {name: {{ $db.existingSecret }}, key: username}}
+            - name: POSTGRES_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ $db.existingSecret }}, key: password}}
+            - name: QUARKUS_DATASOURCE_USERNAME
+              valueFrom: {secretKeyRef: {name: {{ $db.existingSecret }}, key: username}}
+            - name: QUARKUS_DATASOURCE_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ $db.existingSecret }}, key: password}}
+            - name: QUARKUS_DATASOURCE_JDBC_URL
+              value: "jdbc:postgresql://{{ $db.host }}:{{ $db.port }}/{{ required "database.name is required" $db.name }}"
+            - name: QUARKUS_DATASOURCE_REACTIVE_URL
+              value: "postgresql://{{ $db.host }}:{{ $db.port }}/{{ $db.name }}"
+            # Kafka: kubara's openbank-cluster, plain internal listener.
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: {{ .Values.kafka.bootstrapServers | quote }}
+            - name: QUARKUS_SMALLRYE_REACTIVE_MESSAGING_KAFKA_BOOTSTRAP_SERVERS
+              value: {{ .Values.kafka.bootstrapServers | quote }}
+            # OIDC: the mesh Keycloak (TLS trusted through the image's kubara CA).
+            # Services read either KEYCLOAK_URL or QUARKUS_OIDC_AUTH_SERVER_URL,
+            # and their oidc-client blocks derive from those plus the *_SECRET
+            # vars below. Never set QUARKUS_OIDC_CLIENT_* here: in a service
+            # without the oidc-client extension Quarkus maps those to a phantom
+            # OIDC tenant named "client" (seen on incentive).
+            - name: KEYCLOAK_URL
+              value: {{ .Values.oidc.keycloakUrl | quote }}
+            - name: QUARKUS_OIDC_AUTH_SERVER_URL
+              value: {{ $issuer | quote }}
+            - name: OIDC_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: {{ .Values.oidc.existingSecret }}, key: client-secret}}
+            # Named "m2m" OIDC client (account: openbank-account, party: openbank-party).
+            - name: OIDC_M2M_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: {{ .Values.oidc.m2mSecret | default .Values.oidc.existingSecret }}, key: client-secret}}
+            - name: AUTHZ_ENFORCE
+              value: {{ .Values.authzEnforce | quote }}
+            # No Tempo/OTel collector in the demo.
+            - name: QUARKUS_OTEL_SDK_DISABLED
+              value: "true"
+            {{- if .Values.redis.enabled }}
+            - name: QUARKUS_REDIS_HOSTS
+              value: "redis://{{ $name }}-redis:6379"
+            {{- end }}
+            - name: QUARKUS_CONFIG_LOCATIONS
+              value: /mnt/overrides/override.properties
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.appSecret }}
+          # Service-specific secrets (e.g. incentive's PROMO_CODE_PEPPER), generated
+          # by open-bank-oss-services.sh; every key becomes an env var.
+          envFrom:
+            - secretRef:
+                name: {{ . }}
+          {{- end }}
+          startupProbe:
+            httpGet: {path: /q/health/started, port: management}
+            periodSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            httpGet: {path: /q/health/live, port: management}
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: {path: /q/health/ready, port: management}
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+            - {name: overrides, mountPath: /mnt/overrides, readOnly: true}
+            {{- range .Values.tlsMounts }}
+            - {name: {{ .name }}, mountPath: {{ .mountPath }}, readOnly: true}
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        {{- range .Values.tlsMounts }}
+        - name: {{ .name }}
+          secret:
+            secretName: {{ .secretName }}
+        {{- end }}
+        - name: overrides
+          configMap:
+            name: {{ $name }}-overrides

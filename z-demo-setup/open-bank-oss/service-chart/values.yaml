@@ -1,0 +1,86 @@
+# Defaults for one OpenBank service. Per-service values live in the gitops repo at
+# stages/<stage>/<service>/values.yaml (written by open-bank-oss.sh) and
+# stages/<stage>/<service>/image.yaml (image.tag, owned by Kargo).
+
+# Short service name: engagement, incentive, account, party, ...
+name: ""
+
+replicaCount: 1
+
+image:
+  repository: ""
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# The service's HTTP port (upstream module Dockerfile EXPOSE). Health lives on
+# the management port (openbank-libs-runtime default 8085, /q/health/*; some
+# services override it, e.g. incentive 8087).
+port: 8080
+managementPort: 8085
+
+database:
+  host: postgresql.postgresql.svc.cluster.local
+  port: 5432
+  name: ""
+  # Secret with keys username/password, created by open-bank-oss.sh (never in git).
+  existingSecret: ""
+
+kafka:
+  bootstrapServers: openbank-cluster-kafka-bootstrap.kafka.svc:9092
+
+oidc:
+  # Base URL of Keycloak; services append /realms/<realm>.
+  keycloakUrl: ""
+  realm: openbank
+  clientId: openbank-services
+  # Secret with key client-secret, created by open-bank-oss.sh (never in git).
+  existingSecret: openbank-oidc
+  # Secret (key client-secret) of the service's own named "m2m" OIDC client,
+  # if it has one (account, party); empty = reuse existingSecret.
+  m2mSecret: ""
+  # The mesh CA inside the image (z-demo-setup/open-bank-oss/kubara-image).
+  caFile: /app/config/kubara-ca.crt
+  # Named oidc-client entries the module defines (account/party: [m2m]); each
+  # is pointed at the kubara-ca TLS config.
+  namedClients: []
+
+# OpenBank enforces authz through an OPA sidecar upstream. The demo runs without
+# it, so authz is advisory (the AuthorizeInterceptor fails closed otherwise).
+authzEnforce: false
+
+# Optional per-service Redis (account and party need one for their approval store).
+redis:
+  enabled: false
+  image: docker.io/library/redis:7.4-alpine
+
+# Extra Quarkus config written to an override.properties ConfigMap with a high
+# config_ordinal (upstream's msg-override pattern: dotted Kafka channel keys).
+configOverrides: {}
+
+extraEnv: []
+
+# Name of a Secret whose keys are all injected as env vars (service-specific
+# secrets such as PROMO_CODE_PEPPER). Created by open-bank-oss-services.sh.
+appSecret: ""
+
+# East-west mTLS client keypairs some services load at startup (account:
+# sca-tls, party-tls). Each Secret holds tls.crt, tls.key and ca.crt, generated
+# by open-bank-oss-services.sh from a demo CA (upstream: cert-manager).
+#   - {name: sca-tls, mountPath: /mnt/sca-tls, secretName: account-sca-tls}
+tlsMounts: []
+
+ingress:
+  enabled: false
+  className: cilium
+  host: ""
+
+# Upstream images run ZGC, whose off-heap overhead is large: keep the heap well
+# under the limit (70% of 768Mi was OOM-killed at startup).
+javaOpts: "-XX:MaxRAMPercentage=40"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 512Mi
+  limits:
+    memory: 1Gi

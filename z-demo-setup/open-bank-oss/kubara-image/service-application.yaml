@@ -1,0 +1,20 @@
+# Added on top of every OpenBank service image (not the product catalog, which
+# has its own application.yaml) by z-demo-setup/scripts/open-bank-oss.sh.
+#
+# Services run the prod profile and talk to the mesh Keycloak over HTTPS. Its
+# certificate is issued by the mesh's own kubara-local-ca, so trust exactly that
+# CA instead of disabling verification. kubara-ca.crt is copied next to this
+# file at image build time (it changes with every mesh rebuild; the image is
+# rebuilt with it).
+#
+# The default TLS config below covers clients that use it (REST clients without
+# a named config). OIDC tenants and clients do NOT fall back to it in Quarkus
+# 3.40, so the chart's runtime override.properties points each of them at a
+# named "kubara-ca" config built from the same file
+# (z-demo-setup/open-bank-oss/service-chart/templates/resources.yaml).
+"%prod":
+  quarkus:
+    tls:
+      trust-store:
+        pem:
+          certs: /app/config/kubara-ca.crt
