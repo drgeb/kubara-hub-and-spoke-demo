@@ -1,0 +1,31 @@
+{{- /*
+  Added by kubara-hub-and-spoke-demo (Justfile.open-bank-oss): the upstream
+  product-catalog chart ships no Ingress. Purely additive - no upstream
+  template is modified. Host DNS comes from the mesh's dnsmasq wildcard
+  (*.<cluster>.kubara.test -> that cluster's cilium-ingress LoadBalancer).
+*/ -}}
+{{- if and .Values.ingress .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "product-catalog.name" . }}
+  labels:
+    {{- include "product-catalog.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className | default "cilium" }}
+  rules:
+    - host: {{ required "ingress.host is required" .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "product-catalog.name" . }}
+                port:
+                  name: http
+{{- end }}

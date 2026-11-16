@@ -20,6 +20,9 @@ import 'Justfile.liquibase'
 # Docker container helpers (list, pause/unpause, prune).
 import 'Justfile.docker'
 
+# OpenBank product catalog -> kubara-dev via Harbor, Kargo, Argo CD.
+import 'Justfile.open-bank-oss'
+
 # Local dnsmasq for *.kubara.test (start/stop/status-dnsmasq, setup-resolver,
 # refresh-lb-hosts). Still runnable on its own: just -f dnsmasq/Justfile ...
 import 'dnsmasq/Justfile'

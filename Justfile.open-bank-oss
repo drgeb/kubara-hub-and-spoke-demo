@@ -1,0 +1,75 @@
+# OpenBank (../apps/open-bank-oss) -> kubara-dev via Harbor, Kargo and Argo CD.
+#
+# What gets deployed: openbank-product-catalog, the one OpenBank module upstream
+# ships for standalone use (PostgreSQL + any OIDC issuer, own Helm chart). The
+# full platform in the README is 74 services on Kafka/Temporal/CNPG/... and does
+# not fit a single-node kind cluster.
+#
+# Flow (all on the mesh, no public registry or git host):
+#
+#   ../apps/open-bank-oss --gradle--> fast-jar --buildx--> Harbor (platform-engineering)
+#     Kargo Warehouse sees the new tag -> Freight -> Stage "dev" (auto-promote)
+#     Stage commits stages/dev/values.yaml in Forgejo repo openbank-gitops
+#     hub Argo CD (automated sync) renders the chart -> kubara-dev, namespace openbank
+#
+# First deploy:      just openbank-deploy-dev
+# New version:       just openbank-release      (build + push; Kargo does the rest)
+# Inspect / check:   just openbank-status | just openbank-test
+#
+# Needs in .env: HARBOR_ADMIN_*, FORGEJO_ADMIN_*, POSTGRES_PASSWORD and
+# OPENBANK_CATALOG_DB_PASSWORD. Imported by the root Justfile, so it shares its
+# variables. Implementation: z-demo-setup/scripts/open-bank-oss.sh.
+
+# Path to the open-bank-oss checkout (sibling of this repo by default)
+OBO_SRC := env_var_or_default("OBO_SRC", parent_directory(justfile_directory()) + "/apps/open-bank-oss")
+
+[private]
+_openbank step:
+    @KCFG="{{ justfile_directory() }}/{{ KUBARA_KUBECONFIG }}" OBO_SRC="{{ OBO_SRC }}" \
+    PE_DNS="{{ PLATFORM_ENGINEERING_DNS_NAME }}" DEV_DNS="{{ DEV_DNS_NAME }}" \
+    PE_CTX="{{ PLATFORM_ENGINEERING_CONTEXT }}" DEV_CTX="{{ DEV_CONTEXT }}" HUB_CTX="{{ HUB_CONTEXT }}" \
+    ARGO_DEST_CLUSTER="{{ DEV_NAME }}" \
+        ./z-demo-setup/scripts/open-bank-oss.sh {{ step }}
+
+# 1. Fetch the mesh CA (issuer of the Harbor/Forgejo/Keycloak certificates)
+openbank-ca: (_openbank "ca")
+
+# 2. Let containerd on every kind node pull from Harbor (trusts the mesh CA)
+openbank-trust-nodes: (_openbank "trust-nodes")
+
+# 3. Create the public Harbor project `openbank`
+openbank-harbor: (_openbank "harbor")
+
+# 4. Build the product-catalog fast-jar with Gradle (host JDK 25)
+openbank-build: (_openbank "build")
+
+# 5. Bake the image and push it to Harbor as kubara-<utc>-<git sha>
+openbank-image: (_openbank "image")
+
+# 6. Create the product_catalog role/database on kubara-dev and its Secret
+openbank-db: (_openbank "db")
+
+# 7. Seed the Forgejo repo openbank-gitops (chart + stages/dev/values.yaml)
+openbank-gitops: (_openbank "gitops")
+
+# 8. Register the repo and the dev Application in the hub's Argo CD
+openbank-argocd: (_openbank "argocd")
+
+# 9. Create the Kargo Project, git credentials, Warehouse and dev Stage
+openbank-kargo: (_openbank "kargo")
+
+# 10. OpenBank topics on kubara-dev's openbank-cluster (kubara kafka chart)
+openbank-kafka: (_openbank "kafka")
+
+# Show Kargo freight/promotions, the Argo CD apps, Kafka and the dev pods
+openbank-status: (_openbank "status")
+
+# Wait until the catalog answers on http://product-catalog.dev.kubara.test/
+openbank-test: (_openbank "test")
+
+# First deploy to kubara-dev: catalog (steps 1-9 + test), then Kafka (step 10)
+openbank-deploy-dev: openbank-ca openbank-trust-nodes openbank-harbor openbank-build openbank-image openbank-db openbank-gitops openbank-argocd openbank-kargo openbank-test openbank-kafka
+
+# Ship a new version: build + push; Kargo auto-promotes it to dev
+openbank-release: openbank-build openbank-image
+    @echo "Pushed. Kargo's Warehouse polls every 2m, then dev is promoted: just openbank-status"

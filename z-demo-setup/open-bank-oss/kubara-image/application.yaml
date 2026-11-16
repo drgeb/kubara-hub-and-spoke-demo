@@ -1,0 +1,18 @@
+# Added on top of the upstream product-catalog image by Justfile.open-bank-oss.
+#
+# Quarkus reads /app/config/application.yaml at runtime (config ordinal 265,
+# above the packaged application.yaml). The standalone profile insists on an
+# HTTPS OIDC issuer with verified TLS; the demo's Keycloak certificate is issued
+# by the mesh's own kubara-local-ca, so trust exactly that CA for the OIDC
+# client instead of turning verification off. kubara-ca.crt is copied next to
+# this file at image build time (it changes with every mesh rebuild).
+"%standalone":
+  quarkus:
+    tls:
+      kubara-ca:
+        trust-store:
+          pem:
+            certs: /app/config/kubara-ca.crt
+    oidc:
+      tls:
+        tls-configuration-name: kubara-ca
