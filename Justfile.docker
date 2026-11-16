@@ -1,0 +1,18 @@
+# Docker-level helpers for the demo: list/pause/unpause the kind node
+# containers and prune unused Docker resources. Imported by the root
+# Justfile, so recipes share its variables and run from the repo root.
+# Stopping/starting whole clusters (incl. their LoadBalancer containers) is
+# `just kind-stop` / `just kind-restart` (z-demo-setup/scripts/kind-power.sh).
+
+check-nodes-running:
+    docker ps --format "table {{"{{.Names}}"}}\t{{"{{.Status}}"}}"
+
+# Prune all Docker resources except images
+docker-prune-resources:
+    docker container prune -f && docker network prune -f && docker volume prune -f && docker builder prune -f
+
+pause-cluster:
+    docker pause $(docker ps -q --filter label=io.x-k8s.kind.cluster=$PROJECT_NAME)
+
+un-pause-cluster:
+    docker unpause $(docker ps -q --filter label=io.x-k8s.kind.cluster=$PROJECT_NAME)

@@ -17,6 +17,9 @@ import 'Justfile.cpk'
 # Liquibase bootstrap/migration/verify recipes.
 import 'Justfile.liquibase'
 
+# Docker container helpers (list, pause/unpause, prune).
+import 'Justfile.docker'
+
 # Local dnsmasq for *.kubara.test (start/stop/status-dnsmasq, setup-resolver,
 # refresh-lb-hosts). Still runnable on its own: just -f dnsmasq/Justfile ...
 import 'dnsmasq/Justfile'
@@ -135,9 +138,6 @@ default:
 list:
     @just --list
 
-check-nodes-running:
-    docker ps --format "table {{"{{.Names}}"}}\t{{"{{.Status}}"}}"
-
 export-loadbalancer-ip:
     @echo "LoadBalancer service was assigned an EXTERNAL-IP by cloud-provider-kind"
     @kubectl get svc/cilium-ingress -n kube-system -o=jsonpath='{.status.loadBalancer.ingress[0].ip}'
@@ -213,10 +213,6 @@ cilium-hubble-ui:
         port=$((port + 1))
     done
     wait
-
-# Prune all Docker resources except images
-docker-prune-images:
-    docker container prune -f && docker network prune -f && docker volume prune -f && docker builder prune -f
 
 # Local pull-through image caches for the kind nodes (up | configure-nodes |
 # detach | status | purge). bring-up runs `up` + `configure-nodes` itself.
@@ -421,10 +417,4 @@ inspect-what-certificate-cilium-is-serving:
 
 get-harbor-credentials:
     @kubectl get secret -n ebank harbor-creds -o jsonpath='{.data.\.dockerconfigjson}' | base64 -d
-
-pause-cluster:
-    docker pause $(docker ps -q --filter label=io.x-k8s.kind.cluster=$PROJECT_NAME)
-
-un-pause-cluster:
-    docker unpause $(docker ps -q --filter label=io.x-k8s.kind.cluster=$PROJECT_NAME)
 
