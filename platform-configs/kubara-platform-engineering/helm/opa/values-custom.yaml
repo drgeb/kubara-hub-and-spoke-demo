@@ -1,0 +1,23 @@
+# Local overrides for OPA's admission webhook on kubara-platform-engineering.
+#
+# The webhook sees every write in the cluster (failurePolicy Ignore). After a
+# Docker restart its Service pointed at dead pod IPs, so each write waited the
+# full webhook timeout (default 10s) before failing open. kube-controller-
+# manager's lease renewals in kube-system give up after 5s, so it lost
+# leadership and never refreshed the stale Service endpoints (OPA's and
+# CoreDNS's) that would have fixed it: a self-sustaining deadlock that took
+# Keycloak, Harbor and Forgejo down.
+#
+# - Never call the webhook for the control plane (kube-system) or for OPA's own
+#   namespace (it cannot admit the writes that bring it back). Uses the
+#   automatic kubernetes.io/metadata.name label, so no namespace needs labelling;
+#   the chart's opt-out label still works for other namespaces.
+# - A short timeout keeps any other write well inside client timeouts while the
+#   webhook is unreachable.
+admissionController:
+  namespaceSelector:
+    matchExpressions:
+      - {key: openpolicyagent.org/webhook, operator: NotIn, values: [ignore]}
+      - {key: kubernetes.io/metadata.name, operator: NotIn, values: [kube-system, opa]}
+
+timeoutSeconds: 3
