@@ -1,0 +1,5 @@
+apiVersion: v2
+name: openbank-web
+description: Generic chart for OpenBank web front-ends (admin-ui, developer-portal) on kubara
+type: application
+version: 0.1.0

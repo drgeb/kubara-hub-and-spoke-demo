@@ -216,6 +216,14 @@ push_image() {
     cp -R "$qa" "${ctx}/quarkus-app"
     cp "$overlay" "${ctx}/kubara/application.yaml"
     cp "$CA" "${ctx}/kubara/"
+    # Some module Dockerfiles COPY sbom/bom.json (served at /q/openbank/sbom).
+    # Upstream CI stages build/reports/bom.json from Gradle's cyclonedxBom.
+    if grep -q 'sbom/bom.json' "$dockerfile"; then
+        local bom="${OBO_SRC}/${OBO_MODULE}/build/reports/bom.json"
+        [ -f "$bom" ] || (cd "$OBO_SRC" && ./gradlew ":${OBO_MODULE}:cyclonedxBom" --console=plain -q)
+        [ -f "$bom" ] || die "${OBO_MODULE}: cyclonedxBom did not produce ${bom}"
+        mkdir -p "${ctx}/sbom"; cp "$bom" "${ctx}/sbom/bom.json"
+    fi
     # Gradle writes quarkus-app with 600 perms; the image runs as non-root.
     chmod -R a+r "$ctx"
     # Upstream runtime recipe unchanged, plus one appended layer (same approach
@@ -230,6 +238,13 @@ push_image() {
     log "Building ${IMAGE_REPO}:${tag} (linux/${arch})"
     docker build -q --platform "linux/${arch}" -t "${IMAGE_REPO}:${tag}" "$ctx" >/dev/null
 
+    push_to_harbor "$IMAGE_REPO" "$repo_name" "$tag" "$tag_file"
+}
+
+# Push a locally built image to Harbor and record its tag:
+#   push_to_harbor <image-repo> <harbor-repo-name> <tag> <tag-file>
+push_to_harbor() {
+    local IMAGE_REPO="$1" repo_name="$2" tag="$3" tag_file="$4"
     # Push from inside a container with skopeo. Harbor's certificate comes from
     # the mesh's kubara-local-ca: Docker Desktop's daemon does not trust it (and
     # changing its insecure-registry list restarts Docker and every kind
@@ -256,6 +271,27 @@ push_image() {
         || die "push not visible in Harbor"
     printf '%s\n' "$tag" > "$tag_file"
     info "pushed ${IMAGE_REPO}:${tag}"
+}
+
+# Build a module from its own Dockerfile (web front-ends: Next.js, nginx) and
+# push it: build_push_dockerfile <module> <harbor-repo-name> <context-dir> <tag-file>
+build_push_dockerfile() {
+    local OBO_MODULE="$1" repo_name="$2" ctx="$3" tag_file="$4"
+    local IMAGE_REPO="${HARBOR}/${HARBOR_PROJECT}/${repo_name}"
+    need HARBOR_ADMIN_USER HARBOR_ADMIN_PASSWORD; need_ca
+    local dockerfile="${OBO_SRC}/${OBO_MODULE}/Dockerfile" sha full tag arch
+    [ -f "$dockerfile" ] || die "no Dockerfile for ${OBO_MODULE}"
+    full="$(git -C "$OBO_SRC" rev-parse HEAD)"
+    sha="$(git -C "$OBO_SRC" rev-parse --short HEAD)"
+    git -C "$OBO_SRC" diff --quiet HEAD -- "$OBO_MODULE" 2>/dev/null || sha="${sha}-dirty"
+    tag="kubara-$(date -u +%Y%m%d%H%M%S)-${sha}"
+    arch="$(docker version -f '{{.Server.Arch}}')"
+    log "Building ${IMAGE_REPO}:${tag} from ${OBO_MODULE}/Dockerfile (linux/${arch})"
+    DOCKER_BUILDKIT=1 docker build -q --platform "linux/${arch}" -f "$dockerfile" \
+        --build-arg BUILD_VERSION="$tag" --build-arg BUILD_GIT_SHA="$full" \
+        --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        -t "${IMAGE_REPO}:${tag}" "$ctx" >/dev/null || die "docker build failed for ${OBO_MODULE}"
+    push_to_harbor "$IMAGE_REPO" "$repo_name" "$tag" "$tag_file"
 }
 
 # ── db ───────────────────────────────────────────────────────────────────────
@@ -544,7 +580,7 @@ EOF
 
 # ── kargo (platform-engineering) ─────────────────────────────────────────────
 # Services deployed by open-bank-oss-services.sh (each gets a Stage <svc>-dev).
-OPENBANK_SERVICES="${OPENBANK_SERVICES:-engagement incentive account party campaign billing consent ledger balance sca referral transaction sepa-payment clearing settlement swift clearing-simulator sepa-instant sdd vop standing-order ap2 card-issuance card-processing kyc onboarding pid delegation customer-edge context communication notification aml sanctions fraud risk-engine audit dispute anacredit finrep tax-reporting psd2 tpp-registry loyalty wealth treasury pension-fund mcp security-scanner}"
+OPENBANK_SERVICES="${OPENBANK_SERVICES:-engagement incentive account party campaign billing consent ledger balance sca referral transaction sepa-payment clearing settlement swift clearing-simulator sepa-instant sdd vop standing-order ap2 card-issuance card-processing kyc onboarding pid delegation customer-edge context communication notification aml sanctions fraud risk-engine audit dispute anacredit finrep tax-reporting psd2 tpp-registry loyalty wealth treasury pension-fund mcp security-scanner domestic-payment fx statement lending kyb pension developer-portal admin-ui}"
 
 # Auto-promotion for the catalog's `dev` Stage and every service Stage. Shared
 # with open-bank-oss-services.sh so neither script switches the other's off.

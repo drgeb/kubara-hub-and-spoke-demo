@@ -40,13 +40,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/open-bank-oss.sh"
 
 SERVICE_CHART="${SETUP}/service-chart"
+WEB_CHART="${SETUP}/web-chart"        # SVC_KIND=web front-ends (admin-ui, developer-portal)
 SERVICE_OVERLAY="${SETUP}/kubara-image/service-application.yaml"
 OIDC_SECRET="openbank-oidc"
 OIDC_REALM="openbank"
 OIDC_CLIENT="openbank-services"
 # Realm roles OpenBank's @RolesAllowed checks use; granted to the client's
 # service account (the identity the smoke tests call with).
-OIDC_ROLES="ROLE_OPERATOR ROLE_API ROLE_ADMIN"
+OIDC_ROLES="ROLE_OPERATOR ROLE_API ROLE_ADMIN ROLE_COMPLIANCE"
 
 # ── service registry (bash 3.2: no associative arrays) ───────────────────────
 # Sets SVC_* for one service; dies on an unknown name.
@@ -55,11 +56,17 @@ svc_def() {
     [ -n "$SVC" ] || die "missing service name; one of: ${OPENBANK_SERVICES}"
     SVC_REDIS=false
     SVC_MGMT_PORT=8085          # openbank-libs-runtime default; some modules override
-    SVC_SECRET_KEYS=""          # env vars generated once into Secret <svc>-app
+    SVC_SECRET_KEYS=""          # env vars generated once into Secret <svc>-app (KEY or KEY:b64)
     SVC_M2M_CLIENT=""           # the module's named "m2m" OIDC client id, if any
     SVC_TLS_MOUNTS=""           # <name>:<mountPath> mTLS client keypairs loaded at startup
     SVC_ENV=""                  # extra KEY=value env vars (no spaces in values)
     SVC_AUTH_PATH=""            # path for the no-token 401 check (default SVC_TEST_PATH)
+    SVC_TOKEN_EXPECT=""         # extra pass code with the operator token (e.g. 403: customer-only API)
+    SVC_KIND=quarkus            # quarkus: fast-jar + openbank-service chart; web: own Dockerfile + openbank-web chart
+    SVC_WEB_CTX=module          # web: docker build context, module dir or repo root
+    SVC_PROBE=/                 # web: readiness/liveness path
+    SVC_TLS=false               # web: HTTPS ingress with a kubara-local-ca certificate
+    SVC_UID=101                 # web: container user/group id
     SVC_TEMPORAL=false          # point the service at the demo Temporal (openbank-temporal)
     case "$SVC" in
         engagement)
@@ -84,8 +91,7 @@ svc_def() {
             SVC_DB=openbank_parties; SVC_TEST_PATH=/api/v1/parties/approvals
             SVC_REDIS=true; SVC_M2M_CLIENT=openbank-party ;;
         campaign)
-            # Temporal (openbank.temporal.enabled) and the ClickHouse analytics
-            # reads default off/lazy upstream, so neither is deployed here.
+            # ClickHouse analytics reads are lazy upstream; ClickHouse is not deployed.
             SVC_MODULE=openbank-campaign-service; SVC_PORT=8128
             SVC_DB=openbank_campaigns; SVC_TEST_PATH=/api/v1/segments
             # /segments is gated only by @Authorize (OPA, advisory here), so the
@@ -94,8 +100,10 @@ svc_def() {
             SVC_REDIS=true; SVC_M2M_CLIENT=openbank-campaign
             # %prod's named TLS config "referral-service" reads ca.crt at startup.
             SVC_TLS_MOUNTS="campaign-tls:/mnt/campaign-tls"
-            # No Temporal server: the worker registrar connects to it at startup.
-            SVC_ENV="CAMPAIGN_WORKER_ENABLED=false INCENTIVE_SERVICE_URL=http://incentive-service:8156 CONSENT_SERVICE_URL=http://consent-service:8106 REFERRAL_SERVICE_URL=http://referral-service:8155" ;;
+            # Journeys run on the demo Temporal, namespace openbank-campaign (upstream
+            # notes the bare default "openbank" is wrong for campaign).
+            SVC_TEMPORAL=true
+            SVC_ENV="OPENBANK_TEMPORAL_NAMESPACE=openbank-campaign LENDING_SERVICE_URL=http://lending-service:8126 INCENTIVE_SERVICE_URL=http://incentive-service:8156 CONSENT_SERVICE_URL=http://consent-service:8106 REFERRAL_SERVICE_URL=http://referral-service:8155" ;;
         billing)
             # OpenBao is only used when product-shadow verification.mode=openbao
             # (default: disabled), so it is not deployed here.
@@ -133,7 +141,7 @@ svc_def() {
             # The payment worker refuses to poll unversioned (Temporal worker
             # deployment versioning): build id = the image's full source SHA,
             # baked in as OPENBANK_BUILD_SHA by push_image, expanded by Quarkus.
-            SVC_ENV='BALANCE_SERVICE_URL=http://balance-service:8103 LEDGER_SERVICE_URL=http://ledger-service:8101 OPENBANK_TRANSACTION_WORKER_VERSIONING_ENABLED=true OPENBANK_TRANSACTION_WORKER_VERSIONING_DEPLOYMENT_NAME=transaction-service OPENBANK_TRANSACTION_WORKER_VERSIONING_BUILD_ID=${OPENBANK_BUILD_SHA}' ;;
+            SVC_ENV='BALANCE_SERVICE_URL=http://balance-service:8103 LEDGER_SERVICE_URL=http://ledger-service:8101 FX_SERVICE_URL=http://fx-service:8119 OPENBANK_TRANSACTION_WORKER_VERSIONING_ENABLED=true OPENBANK_TRANSACTION_WORKER_VERSIONING_DEPLOYMENT_NAME=transaction-service OPENBANK_TRANSACTION_WORKER_VERSIONING_BUILD_ID=${OPENBANK_BUILD_SHA}' ;;
         sepa-payment)
             SVC_MODULE=openbank-sepa-payment; SVC_PORT=8115
             SVC_DB=openbank_sepa_payments; SVC_TEST_PATH=/api/v1/sepa-payments/approvals
@@ -186,7 +194,9 @@ svc_def() {
         card-issuance)
             SVC_MODULE=openbank-card-issuance-service; SVC_PORT=8118
             SVC_DB=openbank_cards; SVC_TEST_PATH=/api/v1/cards
-            SVC_REDIS=true; SVC_M2M_CLIENT=openbank-card-issuance ;;
+            SVC_REDIS=true; SVC_M2M_CLIENT=openbank-card-issuance
+            # Refuses to start without its synthetic-PAN encryption key.
+            SVC_SECRET_KEYS="OPENBANK_CARD_PAN_ENCRYPTION_KEY:b64" ;;
         card-processing)
             SVC_MODULE=openbank-card-processing-service; SVC_PORT=8157
             SVC_DB=openbank_card_processing; SVC_TEST_PATH=/api/v1/card-authorizations/00000000-0000-0000-0000-000000000000 ;;
@@ -209,7 +219,15 @@ svc_def() {
             SVC_DB=; SVC_TEST_PATH=/customer/v1/business/company
             SVC_REDIS=true
             SVC_TLS_MOUNTS="upstream-tls:/mnt/upstream-tls"
-            SVC_ENV="OPENBANK_UPSTREAM_TLS_CLIENT_CERTIFICATE_FILE=/mnt/upstream-tls/tls.crt OPENBANK_UPSTREAM_TLS_CLIENT_KEY_FILE=/mnt/upstream-tls/tls.key OPENBANK_UPSTREAM_TLS_TRUST_CERTIFICATE_FILE=/mnt/upstream-tls/ca.crt" ;;
+            # Customer API: every endpoint is ROLE_CUSTOMER, so the operator test
+            # token must be refused with 403 (validated token, role enforced).
+            SVC_TOKEN_EXPECT=403
+            # Boot-time secrets (no defaults). Random here: the Keycloak clients they
+            # belong to (openbank-edge, webauthn, admin) are not set up in the demo.
+            SVC_SECRET_KEYS="OPENBANK_EDGE_KEYCLOAK_ADMIN_CLIENT_SECRET OPENBANK_UPSTREAM_CLIENT_SECRET OPENBANK_WEBAUTHN_ENROLLMENT_TICKET_SECRET OPENBANK_WEBAUTHN_KC_CLIENT_SECRET"
+            # Upstream pins the issuer to its public customer realm; the demo has
+            # one realm, so accept the mesh Keycloak's openbank-realm tokens.
+            SVC_ENV="QUARKUS_OIDC_TOKEN_ISSUER=https://${KEYCLOAK}/realms/${OIDC_REALM} OPENBANK_UPSTREAM_TLS_CLIENT_CERTIFICATE_FILE=/mnt/upstream-tls/tls.crt OPENBANK_UPSTREAM_TLS_CLIENT_KEY_FILE=/mnt/upstream-tls/tls.key OPENBANK_UPSTREAM_TLS_TRUST_CERTIFICATE_FILE=/mnt/upstream-tls/ca.crt" ;;
         context)
             SVC_MODULE=openbank-context-service; SVC_PORT=8149
             SVC_DB=openbank_context; SVC_TEST_PATH=/api/v1/context/assignment-proposals
@@ -262,7 +280,9 @@ svc_def() {
         psd2)
             SVC_MODULE=openbank-psd2-service; SVC_PORT=8107
             SVC_DB=openbank_psd2; SVC_TEST_PATH=
-            SVC_REDIS=true ;;
+            SVC_REDIS=true
+            # Prod profile does not migrate; upstream GitOps injects this env.
+            SVC_ENV="QUARKUS_FLYWAY_MIGRATE_AT_START=true" ;;
         tpp-registry)
             SVC_MODULE=openbank-tpp-registry-service; SVC_PORT=8108
             SVC_DB=openbank_tpp_registry; SVC_TEST_PATH=/api/v1/tpp-registry
@@ -272,7 +292,7 @@ svc_def() {
             SVC_DB=openbank_loyalty; SVC_TEST_PATH=/api/v1/loyalty/benefits ;;
         wealth)
             SVC_MODULE=openbank-wealth-service; SVC_PORT=8154; SVC_MGMT_PORT=8090
-            SVC_DB=openbank_wealth; SVC_TEST_PATH=/api/v1/holdings ;;
+            SVC_DB=openbank_wealth; SVC_TEST_PATH=/api/v1/holdings/00000000-0000-0000-0000-000000000000 ;;
         treasury)
             SVC_MODULE=openbank-treasury-service; SVC_PORT=8160; SVC_MGMT_PORT=8090
             SVC_DB=openbank_treasury; SVC_TEST_PATH=/api/v1/treasury/deals
@@ -289,9 +309,59 @@ svc_def() {
         security-scanner)
             SVC_MODULE=openbank-security-scanner; SVC_PORT=8120
             SVC_DB=openbank_security; SVC_TEST_PATH=/api/v1/ict-incidents ;;
+        # ── Temporal services (demo Temporal: `temporal` step) ─────────────────
+        domestic-payment)
+            SVC_MODULE=openbank-domestic-payment; SVC_PORT=8116
+            SVC_DB=openbank_domestic_payments; SVC_TEST_PATH=/api/v1/domestic-payments/approvals
+            SVC_REDIS=true; SVC_M2M_CLIENT=openbank-domestic-payment; SVC_TEMPORAL=true
+            SVC_TLS_MOUNTS="aml-tls:/mnt/aml-tls document-tls:/mnt/document-tls"
+            SVC_ENV="ACCOUNT_SERVICE_URL=http://account-service:8100 TRANSACTION_SERVICE_URL=http://transaction-service:8102 AML_SERVICE_URL=http://aml-service:8117 SANCTIONS_SERVICE_URL=http://sanctions-service:8123 FRAUD_SERVICE_URL=http://fraud-service:8133 CLEARING_SIMULATOR_URL=http://clearing-simulator-service:8139" ;;
+        fx)
+            SVC_MODULE=openbank-fx-service; SVC_PORT=8119
+            SVC_DB=openbank_fx; SVC_TEST_PATH=/api/v1/fx/approvals
+            SVC_REDIS=true; SVC_M2M_CLIENT=openbank-fx; SVC_TEMPORAL=true
+            SVC_TLS_MOUNTS="aml-tls:/mnt/aml-tls party-tls:/mnt/party-tls" ;;
+        statement)
+            SVC_MODULE=openbank-statement-service; SVC_PORT=8136
+            SVC_DB=openbank_statement; SVC_TEST_PATH=/api/v1/statements/close-runs
+            SVC_M2M_CLIENT=openbank-statement; SVC_TEMPORAL=true
+            SVC_TLS_MOUNTS="document-tls:/mnt/document-tls" ;;
+        lending)
+            SVC_MODULE=openbank-lending-service; SVC_PORT=8126; SVC_MGMT_PORT=8086
+            SVC_DB=openbank_lending; SVC_TEST_PATH=/api/v1/lending/approvals
+            SVC_REDIS=true; SVC_M2M_CLIENT=openbank-lending; SVC_TEMPORAL=true
+            SVC_TLS_MOUNTS="audit-tls:/mnt/audit-tls catalog-tls:/mnt/catalog-tls consent-tls:/mnt/consent-tls" ;;
+        kyb)
+            SVC_MODULE=openbank-kyb-service; SVC_PORT=8157; SVC_MGMT_PORT=8090
+            SVC_DB=openbank_kyb; SVC_TEST_PATH=/api/v1/kyb/cases
+            SVC_M2M_CLIENT=openbank-kyb; SVC_TEMPORAL=true
+            SVC_TLS_MOUNTS="sanctions-tls:/mnt/sanctions-tls" ;;
+        pension)
+            SVC_MODULE=openbank-pension-service; SVC_PORT=8171; SVC_MGMT_PORT=8090
+            SVC_DB=openbank_pension; SVC_TEST_PATH=/api/v2/pension/transfers
+            SVC_TEMPORAL=true
+            SVC_TLS_MOUNTS="account-tls:/mnt/account-tls catalog-tls:/mnt/catalog-tls domestic-payment-tls:/mnt/domestic-payment-tls fund-tls:/mnt/fund-tls party-tls:/mnt/party-tls sca-tls:/mnt/sca-tls sdd-tls:/mnt/sdd-tls standing-order-tls:/mnt/standing-order-tls"
+            # Required (no default): the pension provider this deployment runs as;
+            # upstream's own dev/test value.
+            SVC_ENV="OPENBANK_PENSION_PROVIDER_ENTITY_ID=00000000-0000-4000-8000-000000000001" ;;
+        # ── web front-ends (SVC_KIND=web: module Dockerfile, chart openbank-web) ─
+        developer-portal)
+            SVC_KIND=web; SVC_MODULE=openbank-developer-portal; SVC_PORT=8080
+            SVC_DB=; SVC_TEST_PATH=/healthz; SVC_PROBE=/healthz ;;
+        admin-ui)
+            # Operator console (Next.js). Auth.js login against the mesh Keycloak
+            # (client openbank-admin-ui, user demo-admin); finds backends by listing
+            # Deployments in the openbank namespace. Production mode insists on
+            # https for its own URL and Keycloak's.
+            SVC_KIND=web; SVC_MODULE=openbank-admin-ui; SVC_PORT=3000; SVC_WEB_CTX=root
+            SVC_DB=; SVC_TEST_PATH=/api/auth/providers; SVC_PROBE=/api/auth/providers
+            SVC_TLS=true; SVC_UID=100
+            SVC_SECRET_KEYS="AUTH_SECRET NEXTAUTH_SECRET" ;;
         *) die "unknown service '${SVC}'; one of: ${OPENBANK_SERVICES}" ;;
     esac
     SVC_NAME="${SVC}-service"                    # k8s name + Harbor repo
+    SVC_CHART=openbank-service
+    if [ "$SVC_KIND" = web ]; then SVC_NAME="$SVC"; SVC_CHART=openbank-web; fi
     SVC_IMAGE="${HARBOR}/${HARBOR_PROJECT}/${SVC_NAME}"
     SVC_DB_USER="$SVC_DB"
     SVC_DB_SECRET="${SVC}-database"
@@ -413,23 +483,39 @@ cmd_keycloak() {
 }
 
 # ── chart ────────────────────────────────────────────────────────────────────
-_put_chart() { rm -rf "$1/charts/openbank-service"; mkdir -p "$1/charts"; cp -R "$SERVICE_CHART" "$1/charts/openbank-service"; }
+_put_chart() {
+    rm -rf "$1/charts/openbank-service" "$1/charts/openbank-web"; mkdir -p "$1/charts"
+    cp -R "$SERVICE_CHART" "$1/charts/openbank-service"
+    cp -R "$WEB_CHART" "$1/charts/openbank-web"
+}
 
 cmd_chart() {
     need FORGEJO_ADMIN_USER FORGEJO_ADMIN_PASSWORD; need_ca
     helm lint "$SERVICE_CHART" --set name=lint --set image.repository=x --set image.tag=x \
         --set database.name=x --set database.existingSecret=x --set oidc.keycloakUrl=https://x >/dev/null \
         || die "helm lint failed for ${SERVICE_CHART}"
+    helm lint "$WEB_CHART" --set name=lint --set image.repository=x --set image.tag=x --set ingress.host=x >/dev/null \
+        || die "helm lint failed for ${WEB_CHART}"
     log "Committing charts/openbank-service to ${GITOPS_REPO}"
     gitops_edit "openbank-service chart (kubara generic service chart)" _put_chart
 }
 
 # ── build / image ────────────────────────────────────────────────────────────
-cmd_svc_build() { svc_def "$1"; build_module "$SVC_MODULE"; }
+cmd_svc_build() {
+    svc_def "$1"
+    if [ "$SVC_KIND" = web ]; then info "${SVC} builds inside its Dockerfile (image step)"; return 0; fi
+    build_module "$SVC_MODULE"
+}
 
 cmd_svc_image() {
     svc_def "$1"
     cmd_harbor
+    if [ "$SVC_KIND" = web ]; then
+        local ctx="${OBO_SRC}/${SVC_MODULE}"
+        [ "$SVC_WEB_CTX" = module ] || ctx="$OBO_SRC"
+        build_push_dockerfile "$SVC_MODULE" "$SVC_NAME" "$ctx" "$SVC_TAG_FILE"
+        return 0
+    fi
     push_image "$SVC_MODULE" "$SVC_NAME" "$SERVICE_OVERLAY" "$SVC_TAG_FILE"
 }
 
@@ -479,15 +565,120 @@ SQL
     # Service-specific secrets: generated once, kept across re-runs.
     if [ -n "$SVC_SECRET_KEYS" ]; then
         local key val args=""
-        for key in $SVC_SECRET_KEYS; do
+        local spec fmt
+        for spec in $SVC_SECRET_KEYS; do
+            # <KEY> = 64 hex chars; <KEY>:b64 = base64 of 32 random bytes (AES-256 keys).
+            key="${spec%%:*}"; fmt=""; [ "$key" = "$spec" ] || fmt="${spec#*:}"
             val="$(kc "$DEV_CTX" -n "$NS" get secret "$SVC_APP_SECRET" -o jsonpath="{.data.${key}}" 2>/dev/null | base64 -d 2>/dev/null || true)"
-            [ -n "$val" ] || val="$(openssl rand -hex 32)"
+            if [ -z "$val" ]; then
+                if [ "$fmt" = b64 ]; then val="$(openssl rand -base64 32)"; else val="$(openssl rand -hex 32)"; fi
+            fi
             args="${args} --from-literal=${key}=${val}"
         done
         # shellcheck disable=SC2086  # args is a list of --from-literal flags
         kc "$DEV_CTX" -n "$NS" create secret generic "$SVC_APP_SECRET" $args \
             --dry-run=client -o yaml | kc "$DEV_CTX" apply -f - >/dev/null
         info "secret ${NS}/${SVC_APP_SECRET} applied (${SVC_SECRET_KEYS})"
+    fi
+    [ "$SVC_KIND" != web ] || web_setup
+}
+
+# ── web front-ends ───────────────────────────────────────────────────────────
+kc_login() {
+    need KEYCLOAK_ADMIN_USER KEYCLOAK_ADMIN_PASSWORD; need_ca
+    KC_TOKEN="$(curl -fsS --cacert "$CA" "https://${KEYCLOAK}/realms/master/protocol/openid-connect/token" \
+        --data-urlencode grant_type=password --data-urlencode client_id=admin-cli \
+        --data-urlencode "username=${KEYCLOAK_ADMIN_USER}" --data-urlencode "password=${KEYCLOAK_ADMIN_PASSWORD}" \
+        | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')" \
+        || die "Keycloak admin login failed"
+}
+
+# Confidential browser-login client (authorization-code flow); sets KC_CLIENT_SECRET.
+#   kc_ensure_web_client <clientId> <https-base-url>
+kc_ensure_web_client() {
+    local client="$1" url="$2" base="https://${KEYCLOAK}/admin/realms/${OIDC_REALM}" id rep
+    rep="{\"clientId\":\"${client}\",\"enabled\":true,\"publicClient\":false,
+        \"clientAuthenticatorType\":\"client-secret\",\"standardFlowEnabled\":true,
+        \"serviceAccountsEnabled\":false,\"directAccessGrantsEnabled\":false,
+        \"redirectUris\":[\"${url}/*\"],\"webOrigins\":[\"${url}\"],
+        \"attributes\":{\"post.logout.redirect.uris\":\"${url}/*\"}}"
+    id="$(kc_admin "${base}/clients?clientId=${client}" \
+        | python3 -c 'import json,sys; c=json.load(sys.stdin); print(c[0]["id"] if c else "")')"
+    if [ -z "$id" ]; then
+        kc_admin -f -o /dev/null -X POST "${base}/clients" -d "$rep"
+        id="$(kc_admin "${base}/clients?clientId=${client}" | python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["id"])')"
+        info "created client ${client} (redirect ${url}/*)"
+    else
+        kc_admin -f -o /dev/null -X PUT "${base}/clients/${id}" -d "$rep"
+        info "client ${client} exists (redirect ${url}/*)"
+    fi
+    KC_CLIENT_SECRET="$(kc_admin "${base}/clients/${id}/client-secret" | python3 -c 'import json,sys; print(json.load(sys.stdin)["value"])')"
+    [ -n "$KC_CLIENT_SECRET" ] || die "could not read the ${client} client secret"
+}
+
+# Demo console user with a generated password (Secret openbank/<svc>-login).
+#   kc_ensure_user <username> <secret> <roles...>
+kc_ensure_user() {
+    local user="$1" secret="$2" base="https://${KEYCLOAK}/admin/realms/${OIDC_REALM}" id pw role code
+    shift 2
+    pw="$(kc "$DEV_CTX" -n "$NS" get secret "$secret" -o jsonpath='{.data.password}' 2>/dev/null | base64 -d 2>/dev/null || true)"
+    [ -n "$pw" ] || pw="$(openssl rand -base64 18 | tr -d '/+=')"
+    id="$(kc_admin "${base}/users?username=${user}&exact=true" | python3 -c 'import json,sys; u=json.load(sys.stdin); print(u[0]["id"] if u else "")')"
+    if [ -z "$id" ]; then
+        kc_admin -f -o /dev/null -X POST "${base}/users" -d "{\"username\":\"${user}\",\"enabled\":true,
+            \"email\":\"${user}@${DEV_DNS}\",\"emailVerified\":true,\"firstName\":\"Demo\",\"lastName\":\"Admin\"}"
+        id="$(kc_admin "${base}/users?username=${user}&exact=true" | python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["id"])')"
+        info "created user ${user}"
+    fi
+    kc_admin -f -o /dev/null -X PUT "${base}/users/${id}/reset-password" \
+        -d "{\"type\":\"password\",\"value\":\"${pw}\",\"temporary\":false}"
+    for role in "$@"; do
+        code="$(kc_admin -o /dev/null -w '%{http_code}' "${base}/roles/${role}")"
+        [ "$code" = 200 ] || kc_admin -f -o /dev/null -X POST "${base}/roles" -d "{\"name\":\"${role}\"}"
+    done
+    kc_admin -f -o /dev/null -X POST "${base}/users/${id}/role-mappings/realm" -d "$(
+        for role in "$@"; do kc_admin "${base}/roles/${role}"; echo; done \
+            | python3 -c 'import json,sys; print(json.dumps([json.loads(l) for l in sys.stdin if l.strip()]))')"
+    kc "$DEV_CTX" -n "$NS" create secret generic "$secret" \
+        --from-literal=username="$user" --from-literal=password="$pw" \
+        --dry-run=client -o yaml | kc "$DEV_CTX" apply -f - >/dev/null
+    info "user ${user} (roles: $*); password in Secret ${NS}/${secret}"
+}
+
+# TLS certificate for <host> signed by the mesh's kubara-local-ca (the CA that
+# signs Keycloak/Harbor and that the browser already trusts). The CA key is
+# read from the platform-engineering cluster into a temp dir and removed.
+#   web_tls_secret <secret> <host>
+web_tls_secret() {
+    local secret="$1" host="$2" d end
+    end="$(kc "$DEV_CTX" -n "$NS" get secret "$secret" -o jsonpath='{.data.tls\.crt}' 2>/dev/null | base64 -d 2>/dev/null \
+        | openssl x509 -noout -checkend 2592000 >/dev/null 2>&1 && echo ok || true)"
+    if [ "$end" = ok ]; then info "TLS secret ${NS}/${secret} valid"; return 0; fi
+    d="$(mktemp -d "${STATE}/tls.XXXXXX")"; chmod 700 "$d"
+    kc "$PE_CTX" -n cert-manager get secret kubara-local-ca -o jsonpath='{.data.tls\.crt}' | base64 -d > "${d}/ca.crt"
+    kc "$PE_CTX" -n cert-manager get secret kubara-local-ca -o jsonpath='{.data.tls\.key}' | base64 -d > "${d}/ca.key"
+    [ -s "${d}/ca.key" ] || { rm -rf "$d"; die "cannot read kubara-local-ca from ${PE_CTX}"; }
+    openssl req -new -newkey rsa:2048 -nodes -keyout "${d}/tls.key" -subj "/CN=${host}" -out "${d}/tls.csr" 2>/dev/null
+    printf 'subjectAltName=DNS:%s\nextendedKeyUsage=serverAuth\n' "$host" > "${d}/ext"
+    openssl x509 -req -in "${d}/tls.csr" -CA "${d}/ca.crt" -CAkey "${d}/ca.key" -CAcreateserial \
+        -days 365 -sha256 -extfile "${d}/ext" -out "${d}/tls.crt" 2>/dev/null
+    kc "$DEV_CTX" -n "$NS" create secret tls "$secret" --cert="${d}/tls.crt" --key="${d}/tls.key" \
+        --dry-run=client -o yaml | kc "$DEV_CTX" apply -f - >/dev/null
+    rm -rf "$d"
+    info "TLS secret ${NS}/${secret} for ${host} (kubara-local-ca)"
+}
+
+web_setup() {
+    if [ "$SVC_TLS" = true ]; then
+        web_tls_secret "${SVC}-tls" "$SVC_HOST"
+        kc "$DEV_CTX" -n "$NS" create secret generic kubara-mesh-ca --from-file=ca.crt="$CA" \
+            --dry-run=client -o yaml | kc "$DEV_CTX" apply -f - >/dev/null
+    fi
+    if [ "$SVC" = admin-ui ]; then
+        kc_login
+        kc_ensure_web_client openbank-admin-ui "https://${SVC_HOST}"
+        put_client_secret "${SVC}-oidc" openbank-admin-ui "$KC_CLIENT_SECRET"
+        kc_ensure_user demo-admin "${SVC}-login" ROLE_ADMIN ROLE_OPERATOR ROLE_VIEWER
     fi
 }
 
@@ -536,11 +727,61 @@ svc_tls_secrets() {
 # ── gitops ───────────────────────────────────────────────────────────────────
 # values.yaml is owned by this script (rewritten on every run); image.yaml is
 # seeded once and then owned by Kargo (image.tag on every promotion).
+_put_web_stage() {
+    local d="$1/stages/dev/${SVC}" app_secret="" tls_secret="" ca_secret="" rbac=false
+    [ -z "$SVC_SECRET_KEYS" ] || app_secret="$SVC_APP_SECRET"
+    if [ "$SVC_TLS" = true ]; then tls_secret="${SVC}-tls"; ca_secret=kubara-mesh-ca; fi
+    [ "$SVC" != admin-ui ] || rbac=true
+    mkdir -p "$d"
+    cat > "${d}/values.yaml" <<EOF
+# kubara-dev values for the OpenBank ${SVC} front-end (chart: charts/openbank-web).
+# Written by z-demo-setup/scripts/open-bank-oss-services.sh; image.tag is in image.yaml (Kargo).
+name: ${SVC}
+port: ${SVC_PORT}
+probePath: ${SVC_PROBE}
+appSecret: "${app_secret}"
+caSecret: "${ca_secret}"
+image:
+  repository: ${SVC_IMAGE}
+rbac:
+  enabled: ${rbac}
+securityContext:
+  runAsNonRoot: true
+  runAsUser: ${SVC_UID}
+  runAsGroup: ${SVC_UID}
+ingress:
+  host: ${SVC_HOST}
+  tlsSecret: "${tls_secret}"
+EOF
+    if [ "$SVC" = admin-ui ]; then
+        cat >> "${d}/values.yaml" <<EOF
+env:
+  - {name: NEXTAUTH_URL, value: "https://${SVC_HOST}"}
+  - {name: AUTH_URL, value: "https://${SVC_HOST}"}
+  - {name: AUTH_TRUST_HOST, value: "true"}
+  - {name: KEYCLOAK_PUBLIC_URL, value: "https://${KEYCLOAK}"}
+  - {name: KEYCLOAK_URL, value: "https://${KEYCLOAK}"}
+  - {name: KEYCLOAK_REALM, value: "${OIDC_REALM}"}
+  - {name: KEYCLOAK_CLIENT_ID, value: openbank-admin-ui}
+  - name: KEYCLOAK_CLIENT_SECRET
+    valueFrom: {secretKeyRef: {name: ${SVC}-oidc, key: client-secret}}
+  - {name: NODE_EXTRA_CA_CERTS, value: /etc/kubara-ca/ca.crt}
+  - {name: OPENBANK_NAMESPACES, value: "${NS}"}
+resources:
+  requests: {cpu: 100m, memory: 256Mi}
+  limits: {memory: 1Gi}
+EOF
+    fi
+}
+
 _put_stage() {
     local w="$1" tag="$2" d="$1/stages/dev/${SVC}" app_secret="" named_clients=""
     [ -z "$SVC_M2M_CLIENT" ] || named_clients="m2m"
     [ -z "$SVC_SECRET_KEYS" ] || app_secret="$SVC_APP_SECRET"
     mkdir -p "$d"
+    if [ "$SVC_KIND" = web ]; then
+        _put_web_stage "$w"
+    else
     cat > "${d}/values.yaml" <<EOF
 # kubara-dev values for the OpenBank ${SVC} service (chart: charts/openbank-service).
 # Written by z-demo-setup/scripts/open-bank-oss-services.sh; image.tag is in image.yaml (Kargo).
@@ -582,6 +823,7 @@ EOF
         for e in $SVC_ENV; do
             printf '  - {name: %s, value: "%s"}\n' "${e%%=*}" "${e#*=}" >> "${d}/values.yaml"
         done
+    fi
     fi
     if [ ! -f "${d}/image.yaml" ]; then
         printf '# Owned by Kargo Stage %s (yaml-update image.tag on promotion).\nimage:\n  tag: %s\n' \
@@ -696,7 +938,7 @@ spec:
   source:
     repoURL: $(gitops_url)
     targetRevision: main
-    path: charts/openbank-service
+    path: charts/${SVC_CHART}
     helm:
       releaseName: ${SVC_NAME}
       valueFiles:
@@ -811,6 +1053,20 @@ cmd_svc_test() {
     if [ "${ready:-0}" -ge 1 ]; then pass "deployment ${SVC_NAME} ready (${ready}) - DB + Kafka health UP"
     else fail "deployment ${SVC_NAME} has no ready pod; see: kubectl -n ${NS} logs deploy/${SVC_NAME}"; fi
 
+    # Web front-ends: the page answers through the ingress (2xx/3xx).
+    if [ "$SVC_KIND" = web ]; then
+        local scheme=http curl_ca=""
+        [ "$SVC_TLS" != true ] || { scheme=https; curl_ca="--cacert ${CA}"; }
+        # shellcheck disable=SC2086  # curl_ca is empty or two words
+        code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 $curl_ca "${scheme}://${SVC_HOST}${SVC_TEST_PATH}" || true)"
+        case "$code" in
+            2??|3??) pass "GET ${scheme}://${SVC_HOST}${SVC_TEST_PATH} -> ${code}" ;;
+            *) fail "GET ${scheme}://${SVC_HOST}${SVC_TEST_PATH} -> ${code:-no answer}; see: kubectl -n ${NS} logs deploy/${SVC_NAME}" ;;
+        esac
+        [ "$FAILED" = 0 ] || die "${SVC}: ${FAILED} check(s) failed"
+        log "${SVC}: all checks passed"; return 0
+    fi
+
     # 3. Flyway migrated the service database.
     if [ -z "$SVC_DB" ]; then info "note: ${SVC} has no datasource (no Flyway check)"; else
     n="$(kc "$DEV_CTX" -n postgresql exec -i postgresql-0 -- env PGPASSWORD="${POSTGRES_PASSWORD:-}" \
@@ -844,6 +1100,9 @@ cmd_svc_test() {
     else
         code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
             -H "Authorization: Bearer ${token}" "http://${SVC_HOST}${SVC_TEST_PATH}" || true)"
+        if [ -n "$SVC_TOKEN_EXPECT" ] && [ "$code" = "$SVC_TOKEN_EXPECT" ]; then
+            pass "GET ${SVC_TEST_PATH} with operator token -> ${code} (expected: role-gated API)"
+        else
         case "$code" in
             2??) pass "GET ${SVC_TEST_PATH} with token -> ${code}" ;;
             # Paths with a placeholder id: the token was accepted, the handler ran.
@@ -851,6 +1110,7 @@ cmd_svc_test() {
             403) fail "GET ${SVC_TEST_PATH} with token -> 403 (token valid, role missing; re-run: just openbank-svc-keycloak)" ;;
             *)   fail "GET ${SVC_TEST_PATH} with token -> ${code}; see: kubectl -n ${NS} logs deploy/${SVC_NAME}" ;;
         esac
+        fi
     fi
 
     [ "$FAILED" = 0 ] || die "${SVC}: ${FAILED} check(s) failed"
