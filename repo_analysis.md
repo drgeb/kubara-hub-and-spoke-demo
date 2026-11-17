@@ -260,7 +260,7 @@ reverting Kubara's output from git.
 | `z-demo-setup/scripts/provision-platform.sh` | Secrets, PostgreSQL wait, Liquibase |
 | `z-demo-setup/scripts/create-platform-secrets.sh` | `.env` → Secrets + OpenBao (divergent stage labels) |
 | `z-demo-setup/scripts/lib/kind-demo-common.sh` | Shared helpers and the inventory parser |
-| `z-demo-setup/scripts/setup` | Idempotent DNS + LB layer for an already built mesh |
+| `z-demo-setup/scripts/sync-lb-dns.sh` | Idempotent DNS + LB layer for an already built mesh |
 | `z-demo-setup/config/kind-demo.yaml` | Cluster inventory |
 | `config.yaml` | Kubara desired state |
 | `Justfile` (`bring-up`, line 385) | Top-level entry point |

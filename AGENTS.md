@@ -29,7 +29,7 @@ Workflow whenever a LoadBalancer IP matters:
 
 Bring-up is orchestrated by `just bring-up` (build-mesh.sh → wait for the six
 traefik LB IPs → dnsmasq refresh). `build-mesh.sh` ensures cloud-provider-kind
-is running before the hub bootstrap; `z-demo-setup/scripts/setup` is the
+is running before the hub bootstrap; `z-demo-setup/scripts/sync-lb-dns.sh` is the
 idempotent DNS/LB bring-up for an already-built mesh. Repeated runs are safe.
 
 ### Allowed exceptions

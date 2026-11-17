@@ -139,7 +139,7 @@ forgejo-ssh.me:kind-kubara-platform-engineering:forgejo-ssh:forgejo"
         echo "==> DNS staleness detected: the local dnsmasq map does not match live LoadBalancer IPs" >&2
         printf '%b' "$DNS_STALE" >&2
         echo "    Fix: run 'just -f dnsmasq/Justfile refresh-lb-hosts' (needs sudo)" >&2
-        echo "    or re-run './z-demo-setup/scripts/setup'" >&2
+        echo "    or re-run './z-demo-setup/scripts/sync-lb-dns.sh'" >&2
         echo "    then re-run this test." >&2
         exit 1
     fi

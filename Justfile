@@ -228,6 +228,13 @@ registry-cache *args:
 diagnose *args:
     ./z-demo-setup/scripts/diagnose.sh {{args}}
 
+# Ensures cloud-provider-kind runs, waits until every LB's status IP matches its
+# live container (restarting cpk once if stuck), rewrites the dnsmasq map and
+# verifies each zone resolves and answers. Idempotent; needs sudo.
+# Re-sync LoadBalancer IPs into DNS for a built mesh (e.g. after a Docker restart)
+sync-lb-dns:
+    ./z-demo-setup/scripts/sync-lb-dns.sh
+
 # Full demo bring-up from scratch: build the Cilium hub-and-spoke mesh (creates
 # clusters, starts cloud-provider-kind before bootstrap, boots the hub and
 # provisions platform services), wait until all six cilium-ingress LoadBalancer

@@ -82,7 +82,7 @@ CoreDNS ConfigMap from live service ClusterIPs.
   LBs, wait for IPs, then refresh dnsmasq.
 - `just refresh-lb-hosts` — rewrite the map from live IPs.
 - `just start-dnsmasq` / `just stop-dnsmasq` — start/stop the host DNS.
-- `z-demo-setup/scripts/setup` — idempotent DNS + LB bring-up for an
+- `z-demo-setup/scripts/sync-lb-dns.sh` — idempotent DNS + LB bring-up for an
   already-built mesh.
 - `just cilium-hubble-ui` — opens Hubble UI for hub + first two spokes.
 
