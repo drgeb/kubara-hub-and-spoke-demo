@@ -85,7 +85,9 @@ svc_def() {
     SVC_WEB_CTX=module          # web: docker build context, module dir or repo root
     SVC_PROBE=/                 # web: readiness/liveness path
     SVC_TLS=false               # web: HTTPS ingress with a kubara-local-ca certificate
-    SVC_UID=101                 # web: container user/group id
+    SVC_UID=101                 # web: container user id
+    SVC_GID=101                 # web: container group id
+    SVC_WRITABLE=""             # web: writable emptyDir paths in a root-owned image
     SVC_TEMPORAL=false          # point the service at the demo Temporal (openbank-temporal)
     case "$SVC" in
         engagement)
@@ -377,7 +379,9 @@ svc_def() {
             # https for its own URL and Keycloak's.
             SVC_KIND=web; SVC_MODULE=openbank-admin-ui; SVC_PORT=3000; SVC_WEB_CTX=root
             SVC_DB=; SVC_TEST_PATH=/api/auth/providers; SVC_PROBE=/api/auth/providers
-            SVC_TLS=true; SVC_UID=100
+            SVC_TLS=true; SVC_UID=100; SVC_GID=101
+            # /app is root-owned in the image; Next.js writes its image cache here.
+            SVC_WRITABLE="/app/.next/cache"
             SVC_SECRET_KEYS="AUTH_SECRET NEXTAUTH_SECRET" ;;
         *) die "unknown service '${SVC}'; one of: ${OPENBANK_SERVICES}" ;;
     esac
@@ -660,6 +664,29 @@ kc_ensure_web_client() {
     [ -n "$KC_CLIENT_SECRET" ] || die "could not read the ${client} client secret"
 }
 
+# Optional client scopes a browser client requests (Keycloak answers
+# invalid_scope for unknown ones). Creates each scope if missing and attaches it
+# to <clientId> as optional.   kc_ensure_optional_scopes <clientId> <scopes...>
+kc_ensure_optional_scopes() {
+    local client="$1" base="https://${KEYCLOAK}/admin/realms/${OIDC_REALM}" cid sid sc
+    shift
+    cid="$(kc_admin "${base}/clients?clientId=${client}" | python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["id"])')"
+    for sc in "$@"; do
+        sid="$(kc_admin "${base}/client-scopes" | python3 -c 'import json,sys
+n=sys.argv[1]
+print(next((c["id"] for c in json.load(sys.stdin) if c["name"]==n), ""))' "$sc")"
+        if [ -z "$sid" ]; then
+            kc_admin -f -o /dev/null -X POST "${base}/client-scopes" -d "{\"name\":\"${sc}\",\"protocol\":\"openid-connect\",
+                \"attributes\":{\"include.in.token.scope\":\"true\",\"display.on.consent.screen\":\"false\"}}"
+            sid="$(kc_admin "${base}/client-scopes" | python3 -c 'import json,sys
+n=sys.argv[1]
+print(next(c["id"] for c in json.load(sys.stdin) if c["name"]==n))' "$sc")"
+        fi
+        kc_admin -f -o /dev/null -X PUT "${base}/clients/${cid}/optional-client-scopes/${sid}"
+    done
+    info "client ${client}: optional scopes $*"
+}
+
 # Demo console user with a generated password (Secret openbank/<svc>-login).
 #   kc_ensure_user <username> <secret> <roles...>
 kc_ensure_user() {
@@ -722,6 +749,8 @@ web_setup() {
         kc_login
         kc_ensure_web_client openbank-admin-ui "https://${SVC_HOST}"
         put_client_secret "${SVC}-oidc" openbank-admin-ui "$KC_CLIENT_SECRET"
+        # admin-ui's Auth.js provider requests these (src/lib/auth/authOptions.ts).
+        kc_ensure_optional_scopes openbank-admin-ui catalog:read pension:legal-approve pension:product-approve
         kc_ensure_user demo-admin "${SVC}-login" ROLE_ADMIN ROLE_OPERATOR ROLE_VIEWER
     fi
 }
@@ -792,11 +821,16 @@ rbac:
 securityContext:
   runAsNonRoot: true
   runAsUser: ${SVC_UID}
-  runAsGroup: ${SVC_UID}
+  runAsGroup: ${SVC_GID}
 ingress:
   host: ${SVC_HOST}
   tlsSecret: "${tls_secret}"
 EOF
+    if [ -n "$SVC_WRITABLE" ]; then
+        local wd
+        echo "writableDirs:" >> "${d}/values.yaml"
+        for wd in $SVC_WRITABLE; do echo "  - ${wd}" >> "${d}/values.yaml"; done
+    fi
     if [ "$SVC" = admin-ui ]; then
         cat >> "${d}/values.yaml" <<EOF
 env:

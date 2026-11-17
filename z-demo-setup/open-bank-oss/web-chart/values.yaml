@@ -33,6 +33,10 @@ ingress:
   # TLS Secret (tls.crt/tls.key) for the host; empty = plain HTTP.
   tlsSecret: ""
 
+# Writable scratch directories (emptyDir) inside a read-only/root-owned image,
+# e.g. admin-ui's Next.js image cache /app/.next/cache.
+writableDirs: []
+
 securityContext:
   runAsNonRoot: true
   runAsUser: 101

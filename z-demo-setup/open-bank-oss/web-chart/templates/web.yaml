@@ -94,12 +94,19 @@ spec:
             capabilities: {drop: [ALL]}
           volumeMounts:
             - {name: tmp, mountPath: /tmp}
+            {{- range $i, $d := .Values.writableDirs }}
+            - {name: writable-{{ $i }}, mountPath: {{ $d }}}
+            {{- end }}
             {{- if .Values.caSecret }}
             - {name: kubara-ca, mountPath: /etc/kubara-ca, readOnly: true}
             {{- end }}
       volumes:
         - name: tmp
           emptyDir: {}
+        {{- range $i, $d := .Values.writableDirs }}
+        - name: writable-{{ $i }}
+          emptyDir: {}
+        {{- end }}
         {{- if .Values.caSecret }}
         - name: kubara-ca
           secret:
