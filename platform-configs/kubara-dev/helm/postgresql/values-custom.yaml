@@ -18,4 +18,9 @@ primary:
       memory: 512Mi
     limits:
       cpu: "2"
-      memory: 1Gi
+      memory: 1536Mi
+  # The OpenBank demo runs one database per service on this postgres (16+ Quarkus
+  # services, each with its own pools); the default 100 connections ran out
+  # ("remaining connection slots are reserved", SQLSTATE 53300).
+  extendedConfiguration: |
+    max_connections = 300
