@@ -1,0 +1,39 @@
+# Single-pod Temporal for the demo, the same server upstream's docker-compose runs
+# (openbank-infra/docker-compose.yml: `temporal server start-dev`). Upstream clusters
+# run the full Temporal Helm release on CNPG instead; that is four deployments plus
+# schema jobs, more than a kind spoke needs.
+image:
+  repository: docker.io/temporalio/temporal
+  tag: "1.7.3"
+  pullPolicy: IfNotPresent
+
+# Temporal namespaces registered at start-up (start-dev creates them if missing).
+# Mirrors upstream's temporal-namespace-config.yaml NAMESPACES, plus the bare
+# `openbank` default a few services fall back to.
+namespaces:
+  - openbank
+  - openbank-payments
+  - openbank-settlement
+  - openbank-fx
+  - openbank-statements
+  - openbank-campaign
+  - openbank-lending
+  - openbank-kyb
+  - openbank-pension
+  - openbank-casecoord
+
+persistence:
+  size: 2Gi
+
+ui:
+  ingress:
+    enabled: true
+    className: cilium
+    host: ""
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    memory: 1Gi

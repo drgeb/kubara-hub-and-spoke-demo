@@ -1,0 +1,6 @@
+apiVersion: v2
+name: openbank-temporal
+description: Single-pod Temporal dev server (temporal server start-dev, SQLite on a PVC) for the kubara OpenBank demo
+type: application
+version: 0.1.0
+appVersion: "1.7.3"

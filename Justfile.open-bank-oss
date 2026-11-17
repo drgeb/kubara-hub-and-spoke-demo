@@ -74,7 +74,7 @@ openbank-deploy-dev: openbank-ca openbank-trust-nodes openbank-harbor openbank-b
 openbank-release: openbank-build openbank-image
     @echo "Pushed. Kargo's Warehouse polls every 2m, then dev is promoted: just openbank-status"
 
-# ── OpenBank domain services (engagement, incentive, account, party, campaign, billing)
+# ── OpenBank domain services (see OPENBANK_SERVICES in z-demo-setup/scripts/open-bank-oss.sh)
 #
 # Same Harbor -> Kargo -> Argo CD flow as the catalog, one Warehouse + Stage
 # (<svc>-dev) and one Argo CD app (openbank-<svc>-dev) per service, all from one
@@ -108,6 +108,12 @@ openbank-svc-keycloak: (_openbank_svc "keycloak")
 # Commit the generic openbank-service chart to openbank-gitops
 openbank-svc-chart: (_openbank_svc "chart")
 
+# Demo Temporal dev server on kubara-dev (gitops chart + Argo CD app + namespace check)
+openbank-temporal: (_openbank_svc "temporal")
+
+# Test the demo Temporal: pod ready, every OpenBank namespace registered
+openbank-temporal-test: (_openbank_svc "temporal-test")
+
 # Gradle fast-jar of one service
 openbank-svc-build svc: (_openbank_svc "build" svc)
 
@@ -137,7 +143,7 @@ openbank-svc-release svc: (openbank-svc-build svc) (openbank-svc-image svc)
     @echo "Pushed. Warehouse {{ svc }}-service polls every 2m, then {{ svc }}-dev is promoted: just openbank-services-status"
 
 # Deploy every registered service, one after another
-openbank-services-deploy: openbank-svc-keycloak openbank-svc-chart
+openbank-services-deploy: openbank-svc-keycloak openbank-svc-chart openbank-temporal
     #!/usr/bin/env bash
     set -euo pipefail
     for s in $(just openbank-svc-list); do just _openbank_svc deploy "$s"; done

@@ -8,6 +8,7 @@
 #   keycloak         realm `openbank` + confidential client `openbank-services`
 #                    on the mesh Keycloak; client secret -> Secret openbank/openbank-oidc
 #   chart            commit the generic chart to openbank-gitops charts/openbank-service
+#   temporal         demo Temporal dev server (charts/openbank-temporal) + its test
 #   build   <svc>    Gradle fast-jar of the service module
 #   image   <svc>    bake + push harbor/openbank/<svc>-service:kubara-<utc>-<sha>
 #   db      <svc>    role/database on kubara-dev postgres + Secret openbank/<svc>-database
@@ -20,10 +21,10 @@
 #   status           every service's Kargo stage, Argo app and pods
 #   list             the services this script knows
 #
-# Services: engagement, incentive, account, party. They need only PostgreSQL,
-# Kafka, OIDC (+ Redis for account/party), which kubara-dev provides. campaign
-# (Temporal + ClickHouse) and billing (OpenBao) need platform pieces the mesh
-# does not run and are not registered here.
+# Services: see `list` (OPENBANK_SERVICES in open-bank-oss.sh). They use the
+# shared PostgreSQL, Kafka, OIDC, a per-service Redis where needed, and the demo
+# Temporal (`temporal` step) for workflow services. ClickHouse, OpenBao/Vault
+# and OPA are not deployed; the services' defaults keep those paths off.
 #
 # Upstream deploys each service with raw manifests on CNPG, Argo Rollouts,
 # Kafka mTLS, an OPA sidecar and ExternalSecrets. Here one generic chart
@@ -59,10 +60,12 @@ svc_def() {
     SVC_TLS_MOUNTS=""           # <name>:<mountPath> mTLS client keypairs loaded at startup
     SVC_ENV=""                  # extra KEY=value env vars (no spaces in values)
     SVC_AUTH_PATH=""            # path for the no-token 401 check (default SVC_TEST_PATH)
+    SVC_TEMPORAL=false          # point the service at the demo Temporal (openbank-temporal)
     case "$SVC" in
         engagement)
             SVC_MODULE=openbank-engagement-service; SVC_PORT=8153
-            SVC_DB=openbank_engagement; SVC_TEST_PATH=/api/v1/game/admin/catalog ;;
+            SVC_DB=openbank_engagement; SVC_TEST_PATH=/api/v1/game/admin/catalog
+            SVC_ENV="CONSENT_SERVICE_URL=http://consent-service:8106" ;;
         incentive)
             SVC_MODULE=openbank-incentive-service; SVC_PORT=8156; SVC_MGMT_PORT=8087
             SVC_DB=openbank_incentive; SVC_TEST_PATH=/api/v1/incentives/offers
@@ -73,7 +76,9 @@ svc_def() {
             SVC_REDIS=true; SVC_M2M_CLIENT=openbank-account
             # East-west mTLS to sca-service / party-service (named TLS configs
             # sca-authority / party-authority read these files at startup).
-            SVC_TLS_MOUNTS="sca-tls:/mnt/sca-tls party-tls:/mnt/party-tls" ;;
+            SVC_TLS_MOUNTS="sca-tls:/mnt/sca-tls party-tls:/mnt/party-tls"
+            # Plain HTTP in-cluster: the demo images are built without a TLS listener.
+            SVC_ENV="PARTY_SERVICE_URL=http://party-service:8111 SCA_SERVICE_URL=http://sca-service:8110" ;;
         party)
             SVC_MODULE=openbank-party-service; SVC_PORT=8111
             SVC_DB=openbank_parties; SVC_TEST_PATH=/api/v1/parties/approvals
@@ -90,14 +95,68 @@ svc_def() {
             # %prod's named TLS config "referral-service" reads ca.crt at startup.
             SVC_TLS_MOUNTS="campaign-tls:/mnt/campaign-tls"
             # No Temporal server: the worker registrar connects to it at startup.
-            SVC_ENV="CAMPAIGN_WORKER_ENABLED=false INCENTIVE_SERVICE_URL=http://incentive-service:8156" ;;
+            SVC_ENV="CAMPAIGN_WORKER_ENABLED=false INCENTIVE_SERVICE_URL=http://incentive-service:8156 CONSENT_SERVICE_URL=http://consent-service:8106 REFERRAL_SERVICE_URL=http://referral-service:8155" ;;
         billing)
             # OpenBao is only used when product-shadow verification.mode=openbao
             # (default: disabled), so it is not deployed here.
             SVC_MODULE=openbank-billing-service; SVC_PORT=8132
             SVC_DB=openbank_billing; SVC_TEST_PATH=/api/v1/fees/approvals
             SVC_REDIS=true; SVC_M2M_CLIENT=openbank-billing
-            SVC_ENV="ACCOUNT_SERVICE_URL=http://account-service:8100" ;;
+            SVC_ENV="ACCOUNT_SERVICE_URL=http://account-service:8100 LEDGER_SERVICE_URL=http://ledger-service:8101 BALANCE_SERVICE_URL=http://balance-service:8103" ;;
+        consent)
+            SVC_MODULE=openbank-consent-service; SVC_PORT=8106
+            SVC_DB=openbank_consents; SVC_TEST_PATH=/api/v1/consents/approvals
+            SVC_REDIS=true ;;
+        ledger)
+            SVC_MODULE=openbank-ledger-service; SVC_PORT=8101
+            SVC_DB=openbank_ledger; SVC_TEST_PATH=/api/v1/journals/approvals
+            SVC_REDIS=true ;;
+        balance)
+            SVC_MODULE=openbank-balance-service; SVC_PORT=8103
+            SVC_DB=openbank_balances; SVC_TEST_PATH=/api/v1/balances/approvals
+            SVC_REDIS=true ;;
+        sca)
+            SVC_MODULE=openbank-sca-service; SVC_PORT=8110
+            SVC_DB=openbank_sca; SVC_TEST_PATH=/api/v1/sca/approvals
+            SVC_REDIS=true
+            # %prod's named TLS config party-authority reads this pair at startup.
+            SVC_TLS_MOUNTS="party-tls:/mnt/party-tls"
+            SVC_ENV="PARTY_SERVICE_URL=http://party-service:8111" ;;
+        referral)
+            SVC_MODULE=openbank-referral-service; SVC_PORT=8155; SVC_MGMT_PORT=8086
+            SVC_DB=openbank_referral; SVC_TEST_PATH=/api/v1/referrals/programs ;;
+        transaction)
+            SVC_MODULE=openbank-transaction-service; SVC_PORT=8102
+            SVC_DB=openbank_transactions; SVC_TEST_PATH=/api/v1/transactions/approvals
+            SVC_REDIS=true; SVC_M2M_CLIENT=openbank-transaction; SVC_TEMPORAL=true
+            SVC_TLS_MOUNTS="fx-tls:/mnt/fx-tls"
+            # The payment worker refuses to poll unversioned (Temporal worker
+            # deployment versioning): build id = the image's full source SHA,
+            # baked in as OPENBANK_BUILD_SHA by push_image, expanded by Quarkus.
+            SVC_ENV='BALANCE_SERVICE_URL=http://balance-service:8103 LEDGER_SERVICE_URL=http://ledger-service:8101 OPENBANK_TRANSACTION_WORKER_VERSIONING_ENABLED=true OPENBANK_TRANSACTION_WORKER_VERSIONING_DEPLOYMENT_NAME=transaction-service OPENBANK_TRANSACTION_WORKER_VERSIONING_BUILD_ID=${OPENBANK_BUILD_SHA}' ;;
+        sepa-payment)
+            SVC_MODULE=openbank-sepa-payment; SVC_PORT=8115
+            SVC_DB=openbank_sepa_payments; SVC_TEST_PATH=/api/v1/sepa-payments/approvals
+            SVC_REDIS=true; SVC_M2M_CLIENT=openbank-sepa-payment; SVC_TEMPORAL=true
+            SVC_TLS_MOUNTS="aml-tls:/mnt/aml-tls document-tls:/mnt/document-tls"
+            SVC_ENV="ACCOUNT_SERVICE_URL=http://account-service:8100 TRANSACTION_SERVICE_URL=http://transaction-service:8102" ;;
+        clearing)
+            SVC_MODULE=openbank-clearing-service; SVC_PORT=8124
+            SVC_DB=openbank_clearing; SVC_TEST_PATH=/api/v1/clearing/approvals
+            SVC_REDIS=true; SVC_M2M_CLIENT=openbank-clearing
+            SVC_TLS_MOUNTS="ledger-tls:/mnt/ledger-tls"
+            SVC_ENV="LEDGER_SERVICE_URL=http://ledger-service:8101" ;;
+        settlement)
+            SVC_MODULE=openbank-settlement-service; SVC_PORT=8138
+            SVC_DB=openbank_settlement; SVC_TEST_PATH=/api/v1/settlements/approvals
+            SVC_M2M_CLIENT=openbank-settlement; SVC_TEMPORAL=true
+            SVC_ENV="BALANCE_SERVICE_URL=http://balance-service:8103 LEDGER_SERVICE_URL=http://ledger-service:8101" ;;
+        swift)
+            SVC_MODULE=openbank-swift-service; SVC_PORT=8122
+            SVC_DB=openbank_swift; SVC_TEST_PATH=/api/v1/swift/approvals
+            SVC_REDIS=true; SVC_M2M_CLIENT=openbank-swift
+            SVC_TLS_MOUNTS="aml-tls:/mnt/aml-tls"
+            SVC_ENV="TRANSACTION_SERVICE_URL=http://transaction-service:8102" ;;
         *) die "unknown service '${SVC}'; one of: ${OPENBANK_SERVICES}" ;;
     esac
     SVC_NAME="${SVC}-service"                    # k8s name + Harbor repo
@@ -366,6 +425,8 @@ oidc:
   namedClients: [${named_clients}]
 redis:
   enabled: ${SVC_REDIS}
+temporal:
+  enabled: ${SVC_TEMPORAL}
 ingress:
   enabled: true
   host: ${SVC_HOST}
@@ -398,6 +459,86 @@ cmd_svc_gitops() {
     [ -n "$tag" ] || die "no ${SVC} image pushed yet; run: just openbank-svc-image ${SVC}"
     log "Committing stages/dev/${SVC} to ${GITOPS_REPO}"
     gitops_edit "${SVC}: dev stage values" _put_stage "$tag"
+}
+
+# ── temporal ─────────────────────────────────────────────────────────────────
+# Single-pod Temporal dev server for the services' workflows (namespace temporal
+# on kubara-dev), delivered like the services: chart in openbank-gitops, hub
+# Argo CD Application. Services reach it at temporal.temporal.svc:7233.
+TEMPORAL_CHART="${SETUP}/temporal-chart"
+TEMPORAL_APP="openbank-temporal-dev"
+TEMPORAL_NS="temporal"
+
+_put_temporal() {
+    rm -rf "$1/charts/openbank-temporal"; mkdir -p "$1/charts" "$1/stages/dev/temporal"
+    cp -R "$TEMPORAL_CHART" "$1/charts/openbank-temporal"
+    cat > "$1/stages/dev/temporal/values.yaml" <<EOF
+# kubara-dev values for the demo Temporal (chart: charts/openbank-temporal).
+ui:
+  ingress:
+    host: temporal.${DEV_DNS}
+EOF
+}
+
+cmd_temporal() {
+    need FORGEJO_ADMIN_USER FORGEJO_ADMIN_PASSWORD; need_ca
+    helm lint "$TEMPORAL_CHART" --set ui.ingress.host=x >/dev/null || die "helm lint failed for ${TEMPORAL_CHART}"
+    log "Committing charts/openbank-temporal to ${GITOPS_REPO}"
+    gitops_edit "openbank-temporal: demo Temporal dev server" _put_temporal
+    log "Argo CD on ${HUB_CTX}: Application ${TEMPORAL_APP}"
+    kc "$HUB_CTX" -n argocd get appproject openbank >/dev/null 2>&1 \
+        || die "AppProject openbank missing; run: just openbank-argocd"
+    kc "$HUB_CTX" apply -f - >/dev/null <<EOF
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ${TEMPORAL_APP}
+  namespace: argocd
+spec:
+  project: openbank
+  source:
+    repoURL: $(gitops_url)
+    targetRevision: main
+    path: charts/openbank-temporal
+    helm:
+      releaseName: temporal
+      valueFiles:
+        - ../../stages/dev/temporal/values.yaml
+  destination:
+    name: ${ARGO_DEST_CLUSTER}
+    namespace: ${TEMPORAL_NS}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+EOF
+    kc "$HUB_CTX" -n argocd annotate application "$TEMPORAL_APP" argocd.argoproj.io/refresh=normal --overwrite >/dev/null
+    info "Application ${TEMPORAL_APP} -> ${ARGO_DEST_CLUSTER}/${TEMPORAL_NS}"
+    cmd_temporal_test
+}
+
+cmd_temporal_test() {
+    local i ns want missing=""
+    log "Testing Temporal (${TEMPORAL_APP}) on ${DEV_CTX}"
+    for i in $(seq 1 60); do
+        kc "$DEV_CTX" -n "$TEMPORAL_NS" rollout status deploy/temporal --timeout=5s >/dev/null 2>&1 && break
+        sleep 5
+    done
+    kc "$DEV_CTX" -n "$TEMPORAL_NS" rollout status deploy/temporal --timeout=5s >/dev/null 2>&1 \
+        || die "deployment temporal not ready; see: kubectl -n ${TEMPORAL_NS} logs deploy/temporal"
+    info "PASS deployment temporal ready"
+    ns="$(kc "$DEV_CTX" -n "$TEMPORAL_NS" exec deploy/temporal -- \
+        temporal operator namespace list --address localhost:7233 -o json 2>/dev/null \
+        | python3 -c 'import json,sys; print(" ".join(n["namespaceInfo"]["name"] for n in json.load(sys.stdin)))' || true)"
+    for want in $(kc "$DEV_CTX" -n "$TEMPORAL_NS" get deploy temporal -o jsonpath='{.spec.template.spec.containers[0].args}' \
+            | grep -oE 'namespace=[a-z-]+' | cut -d= -f2); do
+        case " $ns " in *" $want "*) ;; *) missing="${missing} ${want}" ;; esac
+    done
+    [ -z "$missing" ] || die "Temporal namespaces missing:${missing}"
+    info "PASS Temporal namespaces registered: ${ns}"
+    log "Temporal UI: http://temporal.${DEV_DNS}"
 }
 
 # ── argocd ───────────────────────────────────────────────────────────────────
@@ -604,6 +745,8 @@ cmd_svc_status() {
 
 case "${1:-}" in
     keycloak) cmd_keycloak ;;
+    temporal) cmd_temporal ;;
+    temporal-test) cmd_temporal_test ;;
     chart)    cmd_chart ;;
     build)    cmd_svc_build "${2:-}" ;;
     image)    cmd_svc_image "${2:-}" ;;

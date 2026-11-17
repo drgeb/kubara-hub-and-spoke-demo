@@ -24,6 +24,12 @@ database:
   name: ""
   # Secret with keys username/password, created by open-bank-oss.sh (never in git).
   existingSecret: ""
+  # Every service shares one postgres (kubara-dev: max_connections 300). Upstream
+  # pools (reactive max-size 20 + JDBC) exhausted the default 100 at 11 services,
+  # so cap them. JDBC serves Flyway (and a few JDBC beans) and idles to 0; at 2,
+  # ledger's start-up timed out acquiring one ("Sorry, acquisition timeout!").
+  reactiveMaxSize: 6
+  jdbcMaxSize: 5
 
 kafka:
   bootstrapServers: openbank-cluster-kafka-bootstrap.kafka.svc:9092
@@ -52,6 +58,13 @@ authzEnforce: false
 redis:
   enabled: false
   image: docker.io/library/redis:7.4-alpine
+
+# Temporal workflows. Upstream reads openbank.temporal.server-url (some modules
+# via TEMPORAL_SERVER_URL); enabled points both at the demo Temporal dev server
+# (z-demo-setup/open-bank-oss/temporal-chart). The namespace stays the module's own.
+temporal:
+  enabled: false
+  serverUrl: temporal.temporal.svc:7233
 
 # Extra Quarkus config written to an override.properties ConfigMap with a high
 # config_ordinal (upstream's msg-override pattern: dotted Kafka channel keys).

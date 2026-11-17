@@ -220,7 +220,11 @@ push_image() {
     chmod -R a+r "$ctx"
     # Upstream runtime recipe unchanged, plus one appended layer (same approach
     # as upstream's build-push-service.sh: copy their Dockerfile, append).
-    { cat "$dockerfile"; printf '\n# kubara: trust the mesh CA for OIDC\nCOPY kubara/ /app/config/\n'; } \
+    # OPENBANK_BUILD_SHA: the full source commit, for config that needs an
+    # immutable build id (transaction-service's Temporal worker versioning).
+    { cat "$dockerfile"
+      printf '\n# kubara: trust the mesh CA for OIDC\nCOPY kubara/ /app/config/\n'
+      printf 'ENV OPENBANK_BUILD_SHA=%s\n' "$(git -C "$OBO_SRC" rev-parse HEAD)"; } \
         > "${ctx}/Dockerfile"
 
     log "Building ${IMAGE_REPO}:${tag} (linux/${arch})"
@@ -436,6 +440,9 @@ spec:
     # OpenBank's Kafka, run by kubara's Strimzi operator (kafka namespace).
     - name: ${ARGO_DEST_CLUSTER}
       namespace: kafka
+    # Demo Temporal dev server (open-bank-oss-services.sh temporal).
+    - name: ${ARGO_DEST_CLUSTER}
+      namespace: temporal
   clusterResourceWhitelist:
     - group: ""
       kind: Namespace
@@ -537,7 +544,7 @@ EOF
 
 # ── kargo (platform-engineering) ─────────────────────────────────────────────
 # Services deployed by open-bank-oss-services.sh (each gets a Stage <svc>-dev).
-OPENBANK_SERVICES="${OPENBANK_SERVICES:-engagement incentive account party campaign billing}"
+OPENBANK_SERVICES="${OPENBANK_SERVICES:-engagement incentive account party campaign billing consent ledger balance sca referral transaction sepa-payment clearing settlement swift}"
 
 # Auto-promotion for the catalog's `dev` Stage and every service Stage. Shared
 # with open-bank-oss-services.sh so neither script switches the other's off.
