@@ -57,6 +57,8 @@ svc_def() {
     SVC_SECRET_KEYS=""          # env vars generated once into Secret <svc>-app
     SVC_M2M_CLIENT=""           # the module's named "m2m" OIDC client id, if any
     SVC_TLS_MOUNTS=""           # <name>:<mountPath> mTLS client keypairs loaded at startup
+    SVC_ENV=""                  # extra KEY=value env vars (no spaces in values)
+    SVC_AUTH_PATH=""            # path for the no-token 401 check (default SVC_TEST_PATH)
     case "$SVC" in
         engagement)
             SVC_MODULE=openbank-engagement-service; SVC_PORT=8153
@@ -76,6 +78,26 @@ svc_def() {
             SVC_MODULE=openbank-party-service; SVC_PORT=8111
             SVC_DB=openbank_parties; SVC_TEST_PATH=/api/v1/parties/approvals
             SVC_REDIS=true; SVC_M2M_CLIENT=openbank-party ;;
+        campaign)
+            # Temporal (openbank.temporal.enabled) and the ClickHouse analytics
+            # reads default off/lazy upstream, so neither is deployed here.
+            SVC_MODULE=openbank-campaign-service; SVC_PORT=8128
+            SVC_DB=openbank_campaigns; SVC_TEST_PATH=/api/v1/segments
+            # /segments is gated only by @Authorize (OPA, advisory here), so the
+            # 401 check uses a @RolesAllowed endpoint instead.
+            SVC_AUTH_PATH=/api/v1/campaigns/interactions/00000000-0000-0000-0000-000000000000
+            SVC_REDIS=true; SVC_M2M_CLIENT=openbank-campaign
+            # %prod's named TLS config "referral-service" reads ca.crt at startup.
+            SVC_TLS_MOUNTS="campaign-tls:/mnt/campaign-tls"
+            # No Temporal server: the worker registrar connects to it at startup.
+            SVC_ENV="CAMPAIGN_WORKER_ENABLED=false INCENTIVE_SERVICE_URL=http://incentive-service:8156" ;;
+        billing)
+            # OpenBao is only used when product-shadow verification.mode=openbao
+            # (default: disabled), so it is not deployed here.
+            SVC_MODULE=openbank-billing-service; SVC_PORT=8132
+            SVC_DB=openbank_billing; SVC_TEST_PATH=/api/v1/fees/approvals
+            SVC_REDIS=true; SVC_M2M_CLIENT=openbank-billing
+            SVC_ENV="ACCOUNT_SERVICE_URL=http://account-service:8100" ;;
         *) die "unknown service '${SVC}'; one of: ${OPENBANK_SERVICES}" ;;
     esac
     SVC_NAME="${SVC}-service"                    # k8s name + Harbor repo
@@ -355,6 +377,13 @@ EOF
             printf '  - {name: %s, mountPath: %s, secretName: %s-%s}\n' "${m%%:*}" "${m#*:}" "$SVC" "${m%%:*}" >> "${d}/values.yaml"
         done
     fi
+    if [ -n "$SVC_ENV" ]; then
+        local e
+        echo "extraEnv:" >> "${d}/values.yaml"
+        for e in $SVC_ENV; do
+            printf '  - {name: %s, value: "%s"}\n' "${e%%=*}" "${e#*=}" >> "${d}/values.yaml"
+        done
+    fi
     if [ ! -f "${d}/image.yaml" ]; then
         printf '# Owned by Kargo Stage %s (yaml-update image.tag on promotion).\nimage:\n  tag: %s\n' \
             "$SVC_STAGE" "$tag" > "${d}/image.yaml"
@@ -513,15 +542,16 @@ cmd_svc_test() {
     # 4. The service joined Kafka (consumer group named after it), if it consumes.
     groups="$(kc "$DEV_CTX" -n kafka exec openbank-cluster-dual-role-0 -- \
         /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --list 2>/dev/null \
-        | grep -i "$SVC" | tr '\n' ' ' || true)"
+        | grep "^openbank-${SVC}-service" | tr '\n' ' ' || true)"
     if [ -n "$groups" ]; then pass "Kafka consumer group(s): ${groups}"
-    else info "note: no Kafka consumer group matching '${SVC}' (producer-only, or groups not committed yet)"; fi
+    else info "note: no Kafka consumer group openbank-${SVC}-service* (producer-only, or groups not committed yet)"; fi
 
     # 5. OIDC end to end through the ingress: no token -> 401; a token from the
     #    openbank realm (service account with the ROLE_* realm roles) -> 2xx.
-    code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "http://${SVC_HOST}${SVC_TEST_PATH}" || true)"
-    if [ "$code" = 401 ]; then pass "GET ${SVC_TEST_PATH} without token -> 401"
-    else fail "GET http://${SVC_HOST}${SVC_TEST_PATH} without token -> ${code} (want 401)"; fi
+    local auth_path="${SVC_AUTH_PATH:-$SVC_TEST_PATH}"
+    code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "http://${SVC_HOST}${auth_path}" || true)"
+    if [ "$code" = 401 ]; then pass "GET ${auth_path} without token -> 401"
+    else fail "GET http://${SVC_HOST}${auth_path} without token -> ${code} (want 401)"; fi
     token="$(oidc_token || true)"
     if [ -z "$token" ]; then
         fail "no client-credentials token from realm ${OIDC_REALM}; run: just openbank-svc-keycloak"

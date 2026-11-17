@@ -74,7 +74,7 @@ openbank-deploy-dev: openbank-ca openbank-trust-nodes openbank-harbor openbank-b
 openbank-release: openbank-build openbank-image
     @echo "Pushed. Kargo's Warehouse polls every 2m, then dev is promoted: just openbank-status"
 
-# ── OpenBank domain services (engagement, incentive, account, party) ─────────
+# ── OpenBank domain services (engagement, incentive, account, party, campaign, billing)
 #
 # Same Harbor -> Kargo -> Argo CD flow as the catalog, one Warehouse + Stage
 # (<svc>-dev) and one Argo CD app (openbank-<svc>-dev) per service, all from one

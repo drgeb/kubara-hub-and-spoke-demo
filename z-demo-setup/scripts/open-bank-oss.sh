@@ -537,7 +537,7 @@ EOF
 
 # ── kargo (platform-engineering) ─────────────────────────────────────────────
 # Services deployed by open-bank-oss-services.sh (each gets a Stage <svc>-dev).
-OPENBANK_SERVICES="${OPENBANK_SERVICES:-engagement incentive account party}"
+OPENBANK_SERVICES="${OPENBANK_SERVICES:-engagement incentive account party campaign billing}"
 
 # Auto-promotion for the catalog's `dev` Stage and every service Stage. Shared
 # with open-bank-oss-services.sh so neither script switches the other's off.
