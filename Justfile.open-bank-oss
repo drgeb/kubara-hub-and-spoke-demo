@@ -114,6 +114,12 @@ openbank-temporal: (_openbank_svc "temporal")
 # Test the demo Temporal: pod ready, every OpenBank namespace registered
 openbank-temporal-test: (_openbank_svc "temporal-test")
 
+# Shared openbank-redis (one logical database per service) via gitops + Argo CD
+openbank-redis: (_openbank_svc "redis")
+
+# Test the shared Redis answers
+openbank-redis-test: (_openbank_svc "redis-test")
+
 # Gradle fast-jar of one service
 openbank-svc-build svc: (_openbank_svc "build" svc)
 
@@ -143,7 +149,7 @@ openbank-svc-release svc: (openbank-svc-build svc) (openbank-svc-image svc)
     @echo "Pushed. Warehouse {{ svc }}-service polls every 2m, then {{ svc }}-dev is promoted: just openbank-services-status"
 
 # Deploy every registered service, one after another
-openbank-services-deploy: openbank-svc-keycloak openbank-svc-chart openbank-temporal
+openbank-services-deploy: openbank-svc-keycloak openbank-svc-chart openbank-temporal openbank-redis
     #!/usr/bin/env bash
     set -euo pipefail
     for s in $(just openbank-svc-list); do just _openbank_svc deploy "$s"; done
@@ -159,3 +165,31 @@ openbank-services-test:
 
 # Kargo stages, Argo CD apps and pods for every service
 openbank-services-status: (_openbank_svc "status")
+
+# ── Open the OpenBank sites in the browser ───────────────────────────────────
+
+# Admin console (admin-ui, operator login): prints the demo-admin login and copies its password
+openbank-open-admin:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    url="https://admin-ui.{{ DEV_DNS_NAME }}"
+    pw="$(kubectl --kubeconfig "{{ justfile_directory() }}/{{ KUBARA_KUBECONFIG }}" --context "{{ DEV_CONTEXT }}" \
+        -n openbank get secret admin-ui-login -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || true)"
+    if [ -n "$pw" ]; then
+        printf '%s' "$pw" | pbcopy
+        echo "Login: demo-admin  (password copied to the clipboard)"
+    else
+        echo "No admin-ui-login secret yet; deploy first: just openbank-svc-deploy admin-ui"
+    fi
+    echo "Opening $url"
+    open "$url"
+
+# Public developer portal (no login): API docs for regular users / integrators
+openbank-open-portal:
+    @echo "Opening http://developer-portal.{{ DEV_DNS_NAME }}"
+    @open "http://developer-portal.{{ DEV_DNS_NAME }}"
+
+# Temporal UI (workflows of the OpenBank services)
+openbank-open-temporal:
+    @echo "Opening http://temporal.{{ DEV_DNS_NAME }}"
+    @open "http://temporal.{{ DEV_DNS_NAME }}"

@@ -12,3 +12,11 @@ containerdConfigPatches:
   - |-
     [plugins."io.containerd.grpc.v1.cri".registry]
       config_path = "/etc/containerd/certs.d"
+
+# kubara-dev runs the OpenBank demo (~60 services plus per-service Redis):
+# more than the kubelet default of 110 pods per node. Cilium hands each node a
+# /24 pod CIDR (~254 addresses), so 200 stays inside it.
+kubeadmConfigPatches:
+  - |
+    kind: KubeletConfiguration
+    maxPods: 200

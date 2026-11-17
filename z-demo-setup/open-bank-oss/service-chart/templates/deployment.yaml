@@ -96,7 +96,11 @@ spec:
               value: "true"
             {{- if .Values.redis.enabled }}
             - name: QUARKUS_REDIS_HOSTS
+              {{- if .Values.redis.host }}
+              value: "redis://{{ .Values.redis.host }}:6379/{{ .Values.redis.database }}"
+              {{- else }}
               value: "redis://{{ $name }}-redis:6379"
+              {{- end }}
             {{- end }}
             {{- if .Values.temporal.enabled }}
             - name: OPENBANK_TEMPORAL_ENABLED

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: openbank-redis
+description: One shared, ephemeral Redis for the OpenBank demo services (one logical database per service)
+type: application
+version: 0.1.0
+appVersion: "7.4"

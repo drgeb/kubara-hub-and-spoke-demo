@@ -9,6 +9,7 @@
 #                    on the mesh Keycloak; client secret -> Secret openbank/openbank-oidc
 #   chart            commit the generic chart to openbank-gitops charts/openbank-service
 #   temporal         demo Temporal dev server (charts/openbank-temporal) + its test
+#   redis            shared openbank-redis (one logical database per service) + its test
 #   build   <svc>    Gradle fast-jar of the service module
 #   image   <svc>    bake + push harbor/openbank/<svc>-service:kubara-<utc>-<sha>
 #   db      <svc>    role/database on kubara-dev postgres + Secret openbank/<svc>-database
@@ -40,7 +41,25 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/open-bank-oss.sh"
 
 SERVICE_CHART="${SETUP}/service-chart"
-WEB_CHART="${SETUP}/web-chart"        # SVC_KIND=web front-ends (admin-ui, developer-portal)
+WEB_CHART="${SETUP}/web-chart"
+REDIS_CHART="${SETUP}/redis-chart"
+# One shared Redis (openbank-redis) for every SVC_REDIS service, one logical
+# database each. APPEND-ONLY: a service's database number is its position here,
+# so never reorder or remove entries (64 databases available).
+SHARED_REDIS=openbank-redis
+REDIS_DB_ORDER="account party campaign billing consent ledger balance sca transaction sepa-payment
+    clearing swift sepa-instant vop standing-order card-issuance delegation customer-edge communication
+    notification aml sanctions fraud dispute psd2 tpp-registry domestic-payment fx lending"
+
+# Logical database number of <svc> in the shared Redis (dies if unregistered).
+redis_db_index() {
+    local i=0 s
+    for s in $REDIS_DB_ORDER; do
+        [ "$s" = "$1" ] && { echo "$i"; return 0; }
+        i=$((i + 1))
+    done
+    die "${1} uses Redis but is not in REDIS_DB_ORDER (append it)"
+}        # SVC_KIND=web front-ends (admin-ui, developer-portal)
 SERVICE_OVERLAY="${SETUP}/kubara-image/service-application.yaml"
 OIDC_SECRET="openbank-oidc"
 OIDC_REALM="openbank"
@@ -211,7 +230,7 @@ svc_def() {
             SVC_DB=openbank_pid; SVC_TEST_PATH=/api/v1/parties/cases ;;
         delegation)
             SVC_MODULE=openbank-delegation-service; SVC_PORT=8126; SVC_MGMT_PORT=8090
-            SVC_DB=openbank_delegations; SVC_TEST_PATH=/api/v1/delegations/approvals
+            SVC_DB=openbank_delegations; SVC_TEST_PATH=/api/v1/delegation-role-presets
             SVC_REDIS=true; SVC_M2M_CLIENT=openbank-delegation
             SVC_TLS_MOUNTS="party-tls:/mnt/party-tls" ;;
         customer-edge)
@@ -339,6 +358,9 @@ svc_def() {
         pension)
             SVC_MODULE=openbank-pension-service; SVC_PORT=8171; SVC_MGMT_PORT=8090
             SVC_DB=openbank_pension; SVC_TEST_PATH=/api/v2/pension/transfers
+            # Participant API: needs the caller's party header, so the operator
+            # token passes auth and gets 400 from the handler.
+            SVC_TOKEN_EXPECT=400
             SVC_TEMPORAL=true
             SVC_TLS_MOUNTS="account-tls:/mnt/account-tls catalog-tls:/mnt/catalog-tls domestic-payment-tls:/mnt/domestic-payment-tls fund-tls:/mnt/fund-tls party-tls:/mnt/party-tls sca-tls:/mnt/sca-tls sdd-tls:/mnt/sdd-tls standing-order-tls:/mnt/standing-order-tls"
             # Required (no default): the pension provider this deployment runs as;
@@ -361,6 +383,8 @@ svc_def() {
     esac
     SVC_NAME="${SVC}-service"                    # k8s name + Harbor repo
     SVC_CHART=openbank-service
+    SVC_REDIS_DB=0
+    if [ "$SVC_REDIS" = true ]; then SVC_REDIS_DB="$(redis_db_index "$SVC")" || exit 1; fi
     if [ "$SVC_KIND" = web ]; then SVC_NAME="$SVC"; SVC_CHART=openbank-web; fi
     SVC_IMAGE="${HARBOR}/${HARBOR_PROJECT}/${SVC_NAME}"
     SVC_DB_USER="$SVC_DB"
@@ -511,6 +535,7 @@ cmd_svc_image() {
     svc_def "$1"
     cmd_harbor
     if [ "$SVC_KIND" = web ]; then
+        [ "$SVC" != admin-ui ] || admin_ui_prebuild
         local ctx="${OBO_SRC}/${SVC_MODULE}"
         [ "$SVC_WEB_CTX" = module ] || ctx="$OBO_SRC"
         build_push_dockerfile "$SVC_MODULE" "$SVC_NAME" "$ctx" "$SVC_TAG_FILE"
@@ -584,6 +609,25 @@ SQL
 }
 
 # ── web front-ends ───────────────────────────────────────────────────────────
+# admin-ui's Dockerfile COPYs openbank-admin-ui/governance.json, which upstream
+# CI generates before the image build (gitignored). Generate it the same way,
+# in a throwaway node container (repo mounted read-only; no node_modules in
+# the checkout).
+admin_ui_prebuild() {
+    local ui="${OBO_SRC}/openbank-admin-ui" out zod
+    [ ! -s "${ui}/governance.json" ] || return 0
+    log "Generating openbank-admin-ui/governance.json (upstream CI prebuild)"
+    zod="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['packages']['node_modules/zod']['version'])" "${ui}/package-lock.json")"
+    out="$(mktemp -d "${STATE}/gov.XXXXXX")"; chmod 777 "$out"
+    docker run --rm -v "${OBO_SRC}:/repo:ro" -v "${out}:/out" node:26-alpine sh -c \
+        "mkdir -p /deps && cd /deps && npm install --silent --no-save --no-package-lock yaml zod@${zod} >/dev/null 2>&1 \
+         && ln -s /deps/node_modules /node_modules \
+         && node /repo/openbank-admin-ui/scripts/generate-governance.mjs --repo /repo --out /out/governance.json" \
+        || { rm -rf "$out"; die "governance.json generation failed"; }
+    cp "${out}/governance.json" "${ui}/governance.json"; rm -rf "$out"
+    info "generated ${ui}/governance.json"
+}
+
 kc_login() {
     need KEYCLOAK_ADMIN_USER KEYCLOAK_ADMIN_PASSWORD; need_ca
     KC_TOKEN="$(curl -fsS --cacert "$CA" "https://${KEYCLOAK}/realms/master/protocol/openid-connect/token" \
@@ -804,6 +848,8 @@ oidc:
   namedClients: [${named_clients}]
 redis:
   enabled: ${SVC_REDIS}
+  host: "$([ "$SVC_REDIS" = true ] && echo "$SHARED_REDIS")"
+  database: ${SVC_REDIS_DB}
 temporal:
   enabled: ${SVC_TEMPORAL}
 ingress:
@@ -919,6 +965,56 @@ cmd_temporal_test() {
     [ -z "$missing" ] || die "Temporal namespaces missing:${missing}"
     info "PASS Temporal namespaces registered: ${ns}"
     log "Temporal UI: http://temporal.${DEV_DNS}"
+}
+
+# ── shared redis ─────────────────────────────────────────────────────────────
+_put_redis() {
+    rm -rf "$1/charts/openbank-redis"; mkdir -p "$1/charts"
+    cp -R "$REDIS_CHART" "$1/charts/openbank-redis"
+}
+
+cmd_redis() {
+    need FORGEJO_ADMIN_USER FORGEJO_ADMIN_PASSWORD; need_ca
+    helm lint "$REDIS_CHART" >/dev/null || die "helm lint failed for ${REDIS_CHART}"
+    log "Committing charts/openbank-redis to ${GITOPS_REPO}"
+    gitops_edit "openbank-redis: shared demo Redis" _put_redis
+    log "Argo CD on ${HUB_CTX}: Application openbank-redis-dev"
+    kc "$HUB_CTX" apply -f - >/dev/null <<EOF
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: openbank-redis-dev
+  namespace: argocd
+spec:
+  project: openbank
+  source:
+    repoURL: $(gitops_url)
+    targetRevision: main
+    path: charts/openbank-redis
+    helm:
+      releaseName: openbank-redis
+  destination:
+    name: ${ARGO_DEST_CLUSTER}
+    namespace: ${NS}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+EOF
+    kc "$HUB_CTX" -n argocd annotate application openbank-redis-dev argocd.argoproj.io/refresh=normal --overwrite >/dev/null
+    cmd_redis_test
+}
+
+cmd_redis_test() {
+    local i
+    log "Testing ${SHARED_REDIS} on ${DEV_CTX}"
+    for i in $(seq 1 36); do
+        kc "$DEV_CTX" -n "$NS" rollout status "deploy/${SHARED_REDIS}" --timeout=5s >/dev/null 2>&1 && break
+        sleep 5
+    done
+    [ "$(kc "$DEV_CTX" -n "$NS" exec "deploy/${SHARED_REDIS}" -- redis-cli ping 2>/dev/null)" = PONG ] \
+        || die "${SHARED_REDIS} not answering; see: kubectl -n ${NS} logs deploy/${SHARED_REDIS}"
+    info "PASS ${SHARED_REDIS} answers PING ($(kc "$DEV_CTX" -n "$NS" exec "deploy/${SHARED_REDIS}" -- redis-cli config get databases | tail -1) databases)"
 }
 
 # ── argocd ───────────────────────────────────────────────────────────────────
@@ -1101,7 +1197,7 @@ cmd_svc_test() {
         code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
             -H "Authorization: Bearer ${token}" "http://${SVC_HOST}${SVC_TEST_PATH}" || true)"
         if [ -n "$SVC_TOKEN_EXPECT" ] && [ "$code" = "$SVC_TOKEN_EXPECT" ]; then
-            pass "GET ${SVC_TEST_PATH} with operator token -> ${code} (expected: role-gated API)"
+            pass "GET ${SVC_TEST_PATH} with operator token -> ${code} (expected for this API)"
         else
         case "$code" in
             2??) pass "GET ${SVC_TEST_PATH} with token -> ${code}" ;;
@@ -1153,6 +1249,8 @@ cmd_svc_status() {
 case "${1:-}" in
     keycloak) cmd_keycloak ;;
     temporal) cmd_temporal ;;
+    redis)    cmd_redis ;;
+    redis-test) cmd_redis_test ;;
     temporal-test) cmd_temporal_test ;;
     chart)    cmd_chart ;;
     build)    cmd_svc_build "${2:-}" ;;

@@ -56,9 +56,13 @@ oidc:
 # it, so authz is advisory (the AuthorizeInterceptor fails closed otherwise).
 authzEnforce: false
 
-# Optional per-service Redis (account and party need one for their approval store).
+# Redis for the approval / idempotency store (most money-path services need one).
+# host set = use that shared Redis (open-bank-oss: openbank-redis, one logical
+# database per service); host empty = deploy a private <name>-redis.
 redis:
   enabled: false
+  host: ""
+  database: 0
   image: docker.io/library/redis:7.4-alpine
 
 # Temporal workflows. Upstream reads openbank.temporal.server-url (some modules

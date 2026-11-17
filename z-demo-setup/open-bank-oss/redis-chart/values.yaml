@@ -1,0 +1,10 @@
+# One Redis for every OpenBank service that needs one (approval / idempotency
+# stores). Each service gets its own logical database (redis://openbank-redis:6379/<n>,
+# numbers assigned in open-bank-oss-services.sh), so keys never collide.
+# Upstream runs one Valkey per service; on a single-node kind spoke that was ~30
+# extra pods. Ephemeral: no persistence, no auth, reachable inside the namespace.
+image: docker.io/library/redis:7.4-alpine
+databases: 64
+resources:
+  requests: {cpu: 50m, memory: 64Mi}
+  limits: {memory: 512Mi}
