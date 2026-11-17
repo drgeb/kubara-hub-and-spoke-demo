@@ -139,7 +139,7 @@ svc_def() {
             SVC_DB=openbank_sepa_payments; SVC_TEST_PATH=/api/v1/sepa-payments/approvals
             SVC_REDIS=true; SVC_M2M_CLIENT=openbank-sepa-payment; SVC_TEMPORAL=true
             SVC_TLS_MOUNTS="aml-tls:/mnt/aml-tls document-tls:/mnt/document-tls"
-            SVC_ENV="ACCOUNT_SERVICE_URL=http://account-service:8100 TRANSACTION_SERVICE_URL=http://transaction-service:8102" ;;
+            SVC_ENV="ACCOUNT_SERVICE_URL=http://account-service:8100 TRANSACTION_SERVICE_URL=http://transaction-service:8102 AML_SERVICE_URL=http://aml-service:8117 SANCTIONS_SERVICE_URL=http://sanctions-service:8123 FRAUD_SERVICE_URL=http://fraud-service:8133 CLEARING_SIMULATOR_URL=http://clearing-simulator-service:8139" ;;
         clearing)
             SVC_MODULE=openbank-clearing-service; SVC_PORT=8124
             SVC_DB=openbank_clearing; SVC_TEST_PATH=/api/v1/clearing/approvals
@@ -156,7 +156,139 @@ svc_def() {
             SVC_DB=openbank_swift; SVC_TEST_PATH=/api/v1/swift/approvals
             SVC_REDIS=true; SVC_M2M_CLIENT=openbank-swift
             SVC_TLS_MOUNTS="aml-tls:/mnt/aml-tls"
-            SVC_ENV="TRANSACTION_SERVICE_URL=http://transaction-service:8102" ;;
+            SVC_ENV="TRANSACTION_SERVICE_URL=http://transaction-service:8102 AML_SERVICE_URL=http://aml-service:8117 SANCTIONS_SERVICE_URL=http://sanctions-service:8123 CLEARING_SIMULATOR_URL=http://clearing-simulator-service:8139" ;;
+        # ── no-extra-needs batch (surveyed from each module's application.yaml;
+        #    SVC_DB="" = no datasource, SVC_TEST_PATH="" = no plain GET to probe)
+        clearing-simulator)
+            SVC_MODULE=openbank-clearing-simulator; SVC_PORT=8139; SVC_MGMT_PORT=8087
+            SVC_DB=; SVC_TEST_PATH= ;;
+        sepa-instant)
+            SVC_MODULE=openbank-sepa-instant; SVC_PORT=8127
+            SVC_DB=openbank_sepa_instant; SVC_TEST_PATH=/api/v1/sepa-instant/approvals
+            SVC_REDIS=true; SVC_M2M_CLIENT=openbank-sepa-instant
+            SVC_TLS_MOUNTS="aml-tls:/mnt/aml-tls" ;;
+        sdd)
+            SVC_MODULE=openbank-sdd-service; SVC_PORT=8129; SVC_MGMT_PORT=8086
+            SVC_DB=openbank_sdd; SVC_TEST_PATH=/api/v1/sdd/mandates/recent
+            SVC_M2M_CLIENT=openbank-sdd
+            SVC_TLS_MOUNTS="account-tls:/mnt/account-tls aml-tls:/mnt/aml-tls sanctions-tls:/mnt/sanctions-tls" ;;
+        vop)
+            SVC_MODULE=openbank-vop-service; SVC_PORT=8149; SVC_MGMT_PORT=8086
+            SVC_DB=openbank_vop; SVC_TEST_PATH=
+            SVC_REDIS=true ;;
+        standing-order)
+            SVC_MODULE=openbank-standing-order-service; SVC_PORT=8121
+            SVC_DB=openbank_standing_orders; SVC_TEST_PATH=/api/v1/standing-orders
+            SVC_REDIS=true; SVC_M2M_CLIENT=openbank-standing-order ;;
+        ap2)
+            SVC_MODULE=openbank-ap2-service; SVC_PORT=8151
+            SVC_DB=; SVC_TEST_PATH= ;;
+        card-issuance)
+            SVC_MODULE=openbank-card-issuance-service; SVC_PORT=8118
+            SVC_DB=openbank_cards; SVC_TEST_PATH=/api/v1/cards
+            SVC_REDIS=true; SVC_M2M_CLIENT=openbank-card-issuance ;;
+        card-processing)
+            SVC_MODULE=openbank-card-processing-service; SVC_PORT=8157
+            SVC_DB=openbank_card_processing; SVC_TEST_PATH=/api/v1/card-authorizations/00000000-0000-0000-0000-000000000000 ;;
+        kyc)
+            SVC_MODULE=openbank-kyc-service; SVC_PORT=8114
+            SVC_DB=openbank_kyc; SVC_TEST_PATH= ;;
+        onboarding)
+            SVC_MODULE=openbank-onboarding-service; SVC_PORT=8130
+            SVC_DB=openbank_onboarding; SVC_TEST_PATH=/api/v1/onboarding/records ;;
+        pid)
+            SVC_MODULE=openbank-pid-service; SVC_PORT=8105
+            SVC_DB=openbank_pid; SVC_TEST_PATH=/api/v1/parties/cases ;;
+        delegation)
+            SVC_MODULE=openbank-delegation-service; SVC_PORT=8126; SVC_MGMT_PORT=8090
+            SVC_DB=openbank_delegations; SVC_TEST_PATH=/api/v1/delegations/approvals
+            SVC_REDIS=true; SVC_M2M_CLIENT=openbank-delegation
+            SVC_TLS_MOUNTS="party-tls:/mnt/party-tls" ;;
+        customer-edge)
+            SVC_MODULE=openbank-customer-edge; SVC_PORT=8128
+            SVC_DB=; SVC_TEST_PATH=/customer/v1/business/company
+            SVC_REDIS=true
+            SVC_TLS_MOUNTS="upstream-tls:/mnt/upstream-tls"
+            SVC_ENV="OPENBANK_UPSTREAM_TLS_CLIENT_CERTIFICATE_FILE=/mnt/upstream-tls/tls.crt OPENBANK_UPSTREAM_TLS_CLIENT_KEY_FILE=/mnt/upstream-tls/tls.key OPENBANK_UPSTREAM_TLS_TRUST_CERTIFICATE_FILE=/mnt/upstream-tls/ca.crt" ;;
+        context)
+            SVC_MODULE=openbank-context-service; SVC_PORT=8149
+            SVC_DB=openbank_context; SVC_TEST_PATH=/api/v1/context/assignment-proposals
+            SVC_TLS_MOUNTS="aml-tls:/mnt/aml-tls" ;;
+        communication)
+            SVC_MODULE=openbank-communication-service; SVC_PORT=8158; SVC_MGMT_PORT=8086
+            SVC_DB=openbank_communication; SVC_TEST_PATH=/api/v1/communications/approvals
+            SVC_REDIS=true ;;
+        notification)
+            SVC_MODULE=openbank-notification-service; SVC_PORT=8112
+            SVC_DB=openbank_notifications; SVC_TEST_PATH=/api/v1/notifications/approvals
+            SVC_REDIS=true
+            SVC_TLS_MOUNTS="party-tls:/mnt/party-tls" ;;
+        aml)
+            SVC_MODULE=openbank-aml-service; SVC_PORT=8117
+            SVC_DB=openbank_aml; SVC_TEST_PATH=/api/v1/aml/reports
+            SVC_REDIS=true
+            SVC_TLS_MOUNTS="party-tls:/mnt/party-tls" ;;
+        sanctions)
+            SVC_MODULE=openbank-sanctions-service; SVC_PORT=8123
+            SVC_DB=openbank_sanctions; SVC_TEST_PATH=/api/v1/sanctions/approvals
+            SVC_REDIS=true ;;
+        fraud)
+            SVC_MODULE=openbank-fraud-service; SVC_PORT=8133
+            SVC_DB=openbank_fraud; SVC_TEST_PATH=/api/v1/fraud/review-queue
+            SVC_REDIS=true ;;
+        risk-engine)
+            SVC_MODULE=openbank-risk-engine; SVC_PORT=8159
+            SVC_DB=openbank_risk; SVC_TEST_PATH=/api/v1/risk/snapshots
+            SVC_TLS_MOUNTS="ledger-tls:/mnt/ledger-tls" ;;
+        audit)
+            SVC_MODULE=openbank-audit-service; SVC_PORT=8113
+            SVC_DB=openbank_audit; SVC_TEST_PATH=/api/v1/audit/anchors ;;
+        dispute)
+            SVC_MODULE=openbank-dispute-service; SVC_PORT=8135
+            SVC_DB=openbank_dispute; SVC_TEST_PATH=/api/v1/disputes
+            SVC_REDIS=true ;;
+        anacredit)
+            SVC_MODULE=openbank-anacredit-service; SVC_PORT=8137
+            SVC_DB=openbank_anacredit; SVC_TEST_PATH=/api/v1/anacredit/exposures ;;
+        finrep)
+            SVC_MODULE=openbank-finrep-service; SVC_PORT=8140
+            SVC_DB=openbank_finrep; SVC_TEST_PATH=/api/v1/finrep/submissions
+            SVC_M2M_CLIENT=openbank-finrep
+            SVC_TLS_MOUNTS="internal-tls:/mnt/internal-tls" ;;
+        tax-reporting)
+            SVC_MODULE=openbank-tax-reporting-service; SVC_PORT=8152
+            SVC_DB=openbank_tax_reporting; SVC_TEST_PATH=/api/v1/tax/filings
+            SVC_TLS_MOUNTS="internal-tls:/mnt/internal-tls" ;;
+        psd2)
+            SVC_MODULE=openbank-psd2-service; SVC_PORT=8107
+            SVC_DB=openbank_psd2; SVC_TEST_PATH=
+            SVC_REDIS=true ;;
+        tpp-registry)
+            SVC_MODULE=openbank-tpp-registry-service; SVC_PORT=8108
+            SVC_DB=openbank_tpp_registry; SVC_TEST_PATH=/api/v1/tpp-registry
+            SVC_REDIS=true ;;
+        loyalty)
+            SVC_MODULE=openbank-loyalty-service; SVC_PORT=8157
+            SVC_DB=openbank_loyalty; SVC_TEST_PATH=/api/v1/loyalty/benefits ;;
+        wealth)
+            SVC_MODULE=openbank-wealth-service; SVC_PORT=8154; SVC_MGMT_PORT=8090
+            SVC_DB=openbank_wealth; SVC_TEST_PATH=/api/v1/holdings ;;
+        treasury)
+            SVC_MODULE=openbank-treasury-service; SVC_PORT=8160; SVC_MGMT_PORT=8090
+            SVC_DB=openbank_treasury; SVC_TEST_PATH=/api/v1/treasury/deals
+            SVC_M2M_CLIENT=openbank-treasury
+            SVC_TLS_MOUNTS="ledger-tls:/mnt/ledger-tls" ;;
+        pension-fund)
+            SVC_MODULE=openbank-pension-fund-service; SVC_PORT=8162; SVC_MGMT_PORT=8090
+            SVC_DB=openbank_pension_fund; SVC_TEST_PATH=/api/v2/strategies
+            SVC_TLS_MOUNTS="catalog-tls:/mnt/catalog-tls" ;;
+        mcp)
+            SVC_MODULE=openbank-mcp-service; SVC_PORT=8150
+            SVC_DB=openbank_mcp; SVC_TEST_PATH=/api/v1/mcp/sessions/00000000-0000-0000-0000-000000000000
+            SVC_M2M_CLIENT=openbank-mcp ;;
+        security-scanner)
+            SVC_MODULE=openbank-security-scanner; SVC_PORT=8120
+            SVC_DB=openbank_security; SVC_TEST_PATH=/api/v1/ict-incidents ;;
         *) die "unknown service '${SVC}'; one of: ${OPENBANK_SERVICES}" ;;
     esac
     SVC_NAME="${SVC}-service"                    # k8s name + Harbor repo
@@ -304,6 +436,10 @@ cmd_svc_image() {
 # ── db ───────────────────────────────────────────────────────────────────────
 cmd_svc_db() {
     svc_def "$1"
+    if [ -z "$SVC_DB" ]; then
+        info "${SVC} has no datasource; no database"
+        kc "$DEV_CTX" create namespace "$NS" --dry-run=client -o yaml | kc "$DEV_CTX" apply -f - >/dev/null
+    else
     need POSTGRES_PASSWORD
     local pw
     # Reuse the password already in the Secret so re-runs don't rotate it
@@ -336,6 +472,7 @@ SQL
         --from-literal=username="$SVC_DB_USER" --from-literal=password="$pw" \
         --dry-run=client -o yaml | kc "$DEV_CTX" apply -f - >/dev/null
     info "role + database ready; secret ${NS}/${SVC_DB_SECRET} applied"
+    fi
 
     [ -z "$SVC_TLS_MOUNTS" ] || svc_tls_secrets
 
@@ -414,8 +551,9 @@ appSecret: "${app_secret}"
 image:
   repository: ${SVC_IMAGE}
 database:
-  name: ${SVC_DB}
-  existingSecret: ${SVC_DB_SECRET}
+  enabled: $([ -n "$SVC_DB" ] && echo true || echo false)
+  name: "${SVC_DB}"
+  existingSecret: "$([ -z "$SVC_DB" ] || echo "$SVC_DB_SECRET")"
 oidc:
   keycloakUrl: https://${KEYCLOAK}
   realm: ${OIDC_REALM}
@@ -674,11 +812,13 @@ cmd_svc_test() {
     else fail "deployment ${SVC_NAME} has no ready pod; see: kubectl -n ${NS} logs deploy/${SVC_NAME}"; fi
 
     # 3. Flyway migrated the service database.
+    if [ -z "$SVC_DB" ]; then info "note: ${SVC} has no datasource (no Flyway check)"; else
     n="$(kc "$DEV_CTX" -n postgresql exec -i postgresql-0 -- env PGPASSWORD="${POSTGRES_PASSWORD:-}" \
         psql -h 127.0.0.1 -U postgres -d "$SVC_DB" -tAc \
         "SELECT count(*) FROM pg_tables WHERE tablename = 'flyway_schema_history'" 2>/dev/null | tr -d '[:space:]' || true)"
     if [ "${n:-0}" -ge 1 ]; then pass "Flyway history present in ${SVC_DB}"
     else fail "no flyway_schema_history in ${SVC_DB}"; fi
+    fi
 
     # 4. The service joined Kafka (consumer group named after it), if it consumes.
     groups="$(kc "$DEV_CTX" -n kafka exec openbank-cluster-dual-role-0 -- \
@@ -689,6 +829,11 @@ cmd_svc_test() {
 
     # 5. OIDC end to end through the ingress: no token -> 401; a token from the
     #    openbank realm (service account with the ROLE_* realm roles) -> 2xx.
+    if [ -z "$SVC_TEST_PATH" ]; then
+        info "note: no plain GET endpoint registered for ${SVC}; HTTP/OIDC checks skipped"
+        [ "$FAILED" = 0 ] || die "${SVC}: ${FAILED} check(s) failed"
+        log "${SVC}: all checks passed"; return 0
+    fi
     local auth_path="${SVC_AUTH_PATH:-$SVC_TEST_PATH}"
     code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "http://${SVC_HOST}${auth_path}" || true)"
     if [ "$code" = 401 ]; then pass "GET ${auth_path} without token -> 401"
@@ -701,6 +846,8 @@ cmd_svc_test() {
             -H "Authorization: Bearer ${token}" "http://${SVC_HOST}${SVC_TEST_PATH}" || true)"
         case "$code" in
             2??) pass "GET ${SVC_TEST_PATH} with token -> ${code}" ;;
+            # Paths with a placeholder id: the token was accepted, the handler ran.
+            404) pass "GET ${SVC_TEST_PATH} with token -> 404 (authorized; placeholder id)" ;;
             403) fail "GET ${SVC_TEST_PATH} with token -> 403 (token valid, role missing; re-run: just openbank-svc-keycloak)" ;;
             *)   fail "GET ${SVC_TEST_PATH} with token -> ${code}; see: kubectl -n ${NS} logs deploy/${SVC_NAME}" ;;
         esac

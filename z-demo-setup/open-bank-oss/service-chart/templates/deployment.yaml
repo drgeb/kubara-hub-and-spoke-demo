@@ -30,6 +30,11 @@ spec:
         - name: {{ $name }}
           image: "{{ required "image.repository is required" .Values.image.repository }}:{{ required "image.tag is required" .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.jvm.command }}
+          # Upstream's entrypoint with the demo's GC (see values.yaml jvm.command).
+          command:
+            {{- toYaml .Values.jvm.command | nindent 12 }}
+          {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.port }}
@@ -38,6 +43,7 @@ spec:
           env:
             - name: JAVA_TOOL_OPTIONS
               value: {{ .Values.javaOpts | quote }}
+            {{- if $db.enabled }}
             # Database: the shared kubara postgres, one database per service.
             - name: DB_USER
               valueFrom: {secretKeyRef: {name: {{ required "database.existingSecret is required" $db.existingSecret }}, key: username}}
@@ -62,6 +68,7 @@ spec:
               value: {{ $db.jdbcMaxSize | quote }}
             - name: QUARKUS_DATASOURCE_JDBC_MIN_SIZE
               value: "0"
+            {{- end }}
             # Kafka: kubara's openbank-cluster, plain internal listener.
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: {{ .Values.kafka.bootstrapServers | quote }}

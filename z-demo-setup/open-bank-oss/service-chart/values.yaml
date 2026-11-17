@@ -19,6 +19,8 @@ port: 8080
 managementPort: 8085
 
 database:
+  # false for services without a datasource (clearing-simulator, ap2, customer-edge).
+  enabled: true
   host: postgresql.postgresql.svc.cluster.local
   port: 5432
   name: ""
@@ -28,7 +30,7 @@ database:
   # pools (reactive max-size 20 + JDBC) exhausted the default 100 at 11 services,
   # so cap them. JDBC serves Flyway (and a few JDBC beans) and idles to 0; at 2,
   # ledger's start-up timed out acquiring one ("Sorry, acquisition timeout!").
-  reactiveMaxSize: 6
+  reactiveMaxSize: 4
   jdbcMaxSize: 5
 
 kafka:
@@ -87,13 +89,25 @@ ingress:
   className: cilium
   host: ""
 
-# Upstream images run ZGC, whose off-heap overhead is large: keep the heap well
-# under the limit (70% of 768Mi was OOM-killed at startup).
-javaOpts: "-XX:MaxRAMPercentage=40"
+# Upstream's image entrypoint hard-codes -XX:+UseZGC, whose off-heap overhead
+# (~680Mi working set per service here) does not fit ~50 services on a laptop
+# kind mesh. The demo runs the same jar with SerialGC instead; empty list =
+# keep the image entrypoint.
+jvm:
+  command:
+    - java
+    - -XX:+UseSerialGC
+    - -Djava.util.logging.manager=org.jboss.logmanager.LogManager
+    - -jar
+    - /app/quarkus-run.jar
+
+# Heap as a share of the container limit (ZGC needed 40% of 1Gi to avoid OOM;
+# SerialGC's overhead is far smaller).
+javaOpts: "-XX:MaxRAMPercentage=50 -XX:TieredStopAtLevel=1 -Xss512k"
 
 resources:
   requests:
-    cpu: 100m
-    memory: 512Mi
+    cpu: 50m
+    memory: 384Mi
   limits:
-    memory: 1Gi
+    memory: 768Mi
