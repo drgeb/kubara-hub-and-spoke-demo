@@ -515,6 +515,15 @@ install_cilium() {
         # kube-proxy-replacement enabled" and silently never programs Ingress
         # otherwise). Must match the catalog chart's cilium.values.yaml.
         --set "kubeProxyReplacement=true"
+        # With kube-proxy replacement the API ClusterIP is served only by
+        # Cilium's own service map, so Cilium must reach the apiserver
+        # directly: if that map ever loses the kubernetes backend, the agent
+        # cannot reach the API to restore it and every API client in the
+        # cluster fails with "no route to host". The node's Docker DNS name
+        # is in the apiserver cert SANs. Must match the per-cluster
+        # platform-configs/<cluster>/helm/cilium/values-custom.yaml.
+        --set "k8sServiceHost=${cluster_name}-control-plane"
+        --set "k8sServicePort=6443"
         --set "clustermesh.apiserver.replicas=1"
         # The chart default NodePort (32379) sits in the dynamic NodePort
         # band, so a random allocation (e.g. cilium-ingress) can take it first

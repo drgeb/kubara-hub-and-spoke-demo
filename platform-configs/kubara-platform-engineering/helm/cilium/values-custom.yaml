@@ -1,0 +1,12 @@
+# Give Cilium a direct API server endpoint (the kind node's Docker DNS name,
+# which is in the apiserver cert SANs) instead of the in-cluster ClusterIP.
+#
+# With kubeProxyReplacement the ClusterIP 10.x.0.1 is served only by Cilium's
+# own BPF service map. If that map loses the kubernetes backend (it did after
+# an apiserver outage), the agent and operator can no longer reach the API to
+# restore it: a self-sustaining deadlock where every pod that talks to the API
+# fails with "no route to host" (Kargo went down this way). Keep in sync with
+# install_cilium in z-demo-setup/scripts/build-mesh.sh.
+cilium:
+  k8sServiceHost: kubara-platform-engineering-control-plane
+  k8sServicePort: 6443
